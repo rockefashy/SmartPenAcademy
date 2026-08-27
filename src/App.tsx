@@ -16,6 +16,7 @@ import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { StudentDetailPage } from './pages/StudentDetailPage';
 import { ParentPortalPage } from './pages/ParentPortalPage';
 import { AIAgentChatWidget } from './components/AIAgentChatWidget';
+import { ChatMessage } from './components/SmartPenAIAgentCore';
 import { ShieldCheck, Lock, GraduationCap, ArrowRight, UserCheck, Sparkles, Loader2 } from 'lucide-react';
 
 function MainApp() {
@@ -38,6 +39,16 @@ function MainApp() {
   
   // Free Demo Class Booking Modal State
   const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(false);
+
+  // Shared Persistent Chat History across Home and Popup Assistant
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      id: 'welcome-init',
+      sender: 'bot',
+      text: `👋 Hello **Khwaish Sharma**! I am your SmartPen Assistant.\n\nYou can ask me:\n\n• *"I want to enroll / register my child"*\n• *"Book a free demo class"*\n• *"How to GPAY coaching fee to coach?"*\n• *"What is my attendance summary and fee status?"*`,
+      timestamp: '01:45 PM',
+    }
+  ]);
 
   // Sync route on hash change if user uses browser back/forward or deep link
   const handleNavigate = (view: string, extraId?: string, defaultSection: number = 1) => {
@@ -73,6 +84,8 @@ function MainApp() {
             onOpenLogin={openLoginModal}
             onOpenDemoBooking={() => setIsDemoModalOpen(true)}
             currentUser={user}
+            messages={chatMessages}
+            setMessages={setChatMessages}
           />
         );
 
@@ -355,10 +368,14 @@ function MainApp() {
         }}
       />
 
-      {/* Floating SmartPen AI Agent Chatbot */}
+      {/* Floating SmartPen AI Agent Chatbot (Hidden on Home/Landing where it is inline in Hero) */}
       <AIAgentChatWidget 
+        currentUser={user}
         onNavigate={handleNavigate} 
         onOpenDemoBooking={() => setIsDemoModalOpen(true)}
+        messages={chatMessages}
+        setMessages={setChatMessages}
+        hideFloatingTrigger={currentView === 'landing'}
       />
     </div>
   );

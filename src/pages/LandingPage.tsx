@@ -30,17 +30,29 @@ import { landingProperties } from '../properties/landing.properties';
 import { commonProperties } from '../properties/common.properties';
 import { SmartPenLogo } from '../components/SmartPenLogo';
 import { HeroAgentPanel } from '../components/HeroAgentPanel';
+import { ChatMessage } from '../components/SmartPenAIAgentCore';
 import { api } from '../services/api';
-import { Testimonial, User } from '../types';
+import { Testimonial, User, StudentProfile } from '../types';
 
 interface LandingPageProps {
-  onNavigate: (view: string, extraId?: string) => void;
+  onNavigate: (view: string, extraId?: string, defaultSection?: number) => void;
   onOpenLogin: () => void;
   onOpenDemoBooking?: () => void;
   currentUser?: User | null;
+  currentStudent?: StudentProfile | null;
+  messages: ChatMessage[];
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, onOpenLogin, onOpenDemoBooking, currentUser }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ 
+  onNavigate, 
+  onOpenLogin, 
+  onOpenDemoBooking, 
+  currentUser,
+  currentStudent,
+  messages,
+  setMessages 
+}) => {
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const [liveTestimonials, setLiveTestimonials] = useState<Testimonial[]>([]);
 
@@ -176,7 +188,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, onOpenLogi
             </div>
           </motion.div>
 
-          {/* Right Column: High-Tech Integrated Autonomous AI Agent Window */}
+          {/* Right Column: Integrated SmartPen AI Agent Window */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -186,6 +198,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate, onOpenLogi
             <HeroAgentPanel 
               onNavigate={onNavigate} 
               currentUser={currentUser}
+              currentStudent={currentStudent}
+              onOpenDemoBooking={onOpenDemoBooking}
+              messages={messages}
+              setMessages={setMessages}
             />
           </motion.div>
         </div>

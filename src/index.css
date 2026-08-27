@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Outfit', 'Quicksand', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-handwriting: 'Caveat', 'Kalam', cursive;
+  --font-display: 'Outfit', sans-serif;
+
+  --color-brand-blue: #0E3589;
+  --color-brand-sky: #0084F4;
+  --color-brand-orange: #F46E20;
+  --color-brand-yellow: #F59E0B;
+}
+
+@layer base {
+  body {
+    font-family: 'Outfit', 'Quicksand', sans-serif;
+  }
+}
+
+.font-handwriting {
+  font-family: 'Caveat', 'Kalam', cursive;
+}
+
+.font-kalam {
+  font-family: 'Kalam', cursive;
+}
+
+/* Vibrant backdrop patterns */
+.bg-vibrant-mesh {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(14, 53, 137, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(244, 110, 32, 0.09) 0px, transparent 50%),
+    radial-gradient(at 50% 50%, rgba(0, 132, 244, 0.05) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(245, 158, 11, 0.07) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(14, 53, 137, 0.08) 0px, transparent 50%);
+}
+
+.bg-dot-grid {
+  background-image: radial-gradient(rgba(14, 53, 137, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Custom styled dotted and lined handwriting paper background */
+.bg-notebook-lines {
+  background-image: linear-gradient(#e2e8f0 1px, transparent 1px);
+  background-size: 100% 28px;
+}
+
+.bg-four-line-grid {
+  background-image: 
+    linear-gradient(#fca5a5 1px, transparent 1px),
+    linear-gradient(#93c5fd 1px, transparent 1px),
+    linear-gradient(#93c5fd 1px, transparent 1px),
+    linear-gradient(#fca5a5 1px, transparent 1px);
+  background-size: 100% 32px;
+}
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 0.5cm;
+  }
+  
+  body {
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  nav, footer, .print-hidden, .no-print {
+    display: none !important;
+  }
+
+  .certificate-printable-container {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 auto !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    page-break-inside: avoid !important;
+  }
+}
+

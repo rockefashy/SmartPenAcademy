@@ -1,0 +1,36 @@
+<svg width="600" height="400" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#FCFBF7" />
+  <!-- Notebook lines -->
+  <line x1="40" y1="80" x2="560" y2="80" stroke="#fca5a5" stroke-width="1.5" />
+  <line x1="40" y1="120" x2="560" y2="120" stroke="#93c5fd" stroke-width="1" />
+  <line x1="40" y1="160" x2="560" y2="160" stroke="#93c5fd" stroke-width="1" />
+  <line x1="40" y1="200" x2="560" y2="200" stroke="#fca5a5" stroke-width="1.5" />
+  
+  <line x1="40" y1="260" x2="560" y2="260" stroke="#fca5a5" stroke-width="1.5" />
+  <line x1="40" y1="300" x2="560" y2="300" stroke="#93c5fd" stroke-width="1" />
+  <line x1="40" y1="340" x2="560" y2="340" stroke="#93c5fd" stroke-width="1" />
+  <line x1="40" y1="380" x2="560" y2="380" stroke="#fca5a5" stroke-width="1.5" />
+
+  <text x="50" y="40" font-family="sans-serif" font-size="14" font-weight="bold" fill="#ef4444">BASELINE SAMPLE: CLASS 1 (BEFORE)</text>
+  
+  <!-- Shaky, uneven handwriting sample -->
+  <g transform="translate(50, 155) rotate(-2)">
+    <text font-family="'Comic Sans MS', cursive, sans-serif" font-size="34" fill="#1e293b" letter-spacing="1">The qUick brown</text>
+  </g>
+  <g transform="translate(320, 165) rotate(4)">
+    <text font-family="'Comic Sans MS', cursive, sans-serif" font-size="38" fill="#1e293b" letter-spacing="0">fox JuMPed</text>
+  </g>
+  
+  <g transform="translate(50, 335) rotate(3)">
+    <text font-family="'Comic Sans MS', cursive, sans-serif" font-size="36" fill="#1e293b" letter-spacing="-1">ovEr the LAzy</text>
+  </g>
+  <g transform="translate(330, 345) rotate(-3)">
+    <text font-family="'Comic Sans MS', cursive, sans-serif" font-size="32" fill="#1e293b" letter-spacing="3">dOg .</text>
+  </g>
+  
+  <!-- Red annotations / coach marks -->
+  <circle cx="210" cy="140" r="18" fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="3,3" />
+  <text x="235" y="130" font-family="sans-serif" font-size="12" fill="#dc2626" font-weight="bold">Inconsistent sizing & slant</text>
+  <path d="M 50 162 Q 300 175 550 162" stroke="#dc2626" stroke-width="1.5" fill="none" stroke-dasharray="4,4" />
+  <text x="350" y="235" font-family="sans-serif" font-size="12" fill="#dc2626" font-weight="bold">Letters floating off baseline</text>
+</svg>

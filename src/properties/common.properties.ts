@@ -1,0 +1,81 @@
+export const commonProperties = {
+  academyName: "SmartPen Academy",
+  academyTagline: "Strong Handwriting. Strong Future.",
+  academySubTagline: "Transforming Handwriting into Academic Excellence • Ages 4 to 18",
+  founderName: "Mrs. Deepthy Rock",
+  founderTitle: "Master Handwriting Coach & Educationalist",
+  
+  nav: {
+    home: "Home",
+    about: "About Us",
+    syllabus: "Curriculum",
+    workshops: "Specialized Workshops",
+    benefits: "Benefits",
+    testimonials: "Parent Testimonials",
+    bookDemo: "Book for a Free Demo Class",
+    enroll: "Enroll Student",
+    adminDashboard: "Admin Portal",
+    parentPortal: "Student Portal",
+    login: "Sign In",
+    logout: "Sign Out",
+  },
+  
+  buttons: {
+    save: "Save",
+    edit: "Edit",
+    delete: "Delete",
+    cancel: "Cancel",
+    confirm: "Confirm",
+    back: "Back",
+    submit: "Submit Enrollment",
+    bookFreeDemo: "Book for a Free Demo Class",
+    emailReport: "Email to Parent",
+    emailCredentials: "Email Credentials",
+    generateReport: "Generate Progress Report",
+    captureCamera: "Capture Writing Photo",
+    uploadPhoto: "Upload Sample",
+    sendReminder: "Send GPay Fee Reminder",
+    viewDetails: "View Student Details",
+    loading: "Processing...",
+    close: "Close",
+    print: "Print / Save PDF",
+  },
+  
+  badges: {
+    active: "Active",
+    inactive: "Inactive",
+    paid: "Paid",
+    unpaid: "Pending / Unpaid",
+    present: "Present",
+    absent: "Absent",
+    ages: "Ages 4 - 18",
+    certified: "ISO Verified Pedagogy",
+    freeDemo: "Free Demo Class (4 - 7 PM)",
+  },
+
+  contact: {
+    phone: "8861751000",
+    phoneDisplay: "+91 8861751000",
+    whatsapp: "8861751000",
+    whatsappLink: "https://wa.me/918861751000",
+    email: "deepthysrock@gmail.com",
+    adminEmail: "deepthysrock@gmail.com",
+    location: "Ajmera Infinity, Electronic City Phase 1, Bangalore - 560100",
+    timings: "All days (4:00 PM - 7:00 PM)",
+  },
+  
+  folders: {
+    studentWorks: "/student_works/",
+    progressReports: "/progress_reports/",
+    appImages: "/app_images/",
+    testimonials: "/testimonials/",
+  },
+
+  notifications: {
+    saveSuccess: "Changes saved successfully!",
+    deleteSuccess: "Item deleted successfully.",
+    emailSent: "Email dispatched successfully!",
+    errorOccurred: "An unexpected error occurred. Please try again.",
+    passwordSent: "Your password has been sent to your registered email address.",
+  }
+};

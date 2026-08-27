@@ -14,11 +14,7 @@ import {
   BookOpen, 
   Phone, 
   ChevronLeft, 
-  ChevronRight,
-  ShieldCheck,
-  CheckCircle2,
-  Clock,
-  ArrowRight
+  ChevronRight
 } from 'lucide-react';
 import { User, StudentProfile } from '../types';
 import { AIChatSettingsModal } from './AIChatSettingsModal';
@@ -161,7 +157,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
         },
       ]);
       setIsTyping(false);
-    }, 400);
+    }, 350);
   };
 
   const quickActions = [
@@ -209,105 +205,109 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
     <div 
       className={`w-full bg-white flex flex-col overflow-hidden select-none ${
         isFloatingModal 
-          ? 'h-full' 
-          : 'rounded-3xl border-2 border-blue-200/80 shadow-2xl shadow-blue-900/10 min-h-[580px] max-h-[660px]'
+          ? 'h-full max-h-full' 
+          : 'rounded-3xl border-2 border-blue-200/80 shadow-2xl shadow-blue-900/10 h-[560px] max-h-[560px]'
       }`}
       id="smartpen-ai-agent-core"
     >
-      {/* 1. Header (Exact Match to User Blueprint) */}
-      <div className="bg-[#124EBF] text-white px-5 py-3.5 flex items-center justify-between shadow-md shrink-0">
-        <div className="flex items-center gap-3">
+      {/* 1. Header */}
+      <div className="bg-[#124EBF] text-white px-4 py-2.5 flex items-center justify-between shadow-md shrink-0">
+        <div className="flex items-center gap-2.5">
           {/* Rounded square container with Robot icon */}
-          <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-inner shrink-0">
-            <Bot className="w-5 h-5 text-white" />
+          <div className="w-8 h-8 rounded-xl bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-inner shrink-0">
+            <Bot className="w-4 h-4 text-white" />
           </div>
 
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-black text-[15px] tracking-tight text-white">SmartPen AI Agent</h3>
-              <span className="bg-[#F95F1E] text-white text-[11px] font-black px-2 py-0.5 rounded-full shadow-xs">
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-black text-sm tracking-tight text-white">SmartPen AI Agent</h3>
+              <span className="bg-[#F95F1E] text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-xs">
                 V2.5
               </span>
             </div>
-            <p className="text-xs text-blue-100 font-semibold flex items-center gap-1.5 mt-0.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+            <p className="text-[11px] text-blue-100 font-semibold flex items-center gap-1.5 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
               <span className="truncate">{displayName} ({roleLabel})</span>
             </p>
           </div>
         </div>
 
         {/* Top-Right Control Buttons */}
-        <div className="flex items-center gap-1 text-blue-100">
+        <div className="flex items-center gap-0.5 text-blue-100">
           <button
+            type="button"
             onClick={() => setIsSettingsOpen(true)}
-            className="p-2 hover:bg-white/10 hover:text-white rounded-xl transition-colors cursor-pointer"
+            className="p-1.5 hover:bg-white/10 hover:text-white rounded-lg transition-colors cursor-pointer"
             title="AI Settings & System Directives"
             id="btn-chat-settings"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-3.5 h-3.5" />
           </button>
           <button
+            type="button"
             onClick={handleResetChat}
-            className="p-2 hover:bg-white/10 hover:text-white rounded-xl transition-colors cursor-pointer"
+            className="p-1.5 hover:bg-white/10 hover:text-white rounded-lg transition-colors cursor-pointer"
             title="Restart Conversation"
             id="btn-chat-restart"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
           </button>
           {onToggleExpand && (
             <button
+              type="button"
               onClick={onToggleExpand}
-              className="p-2 hover:bg-white/10 hover:text-white rounded-xl transition-colors cursor-pointer hidden sm:block"
+              className="p-1.5 hover:bg-white/10 hover:text-white rounded-lg transition-colors cursor-pointer hidden sm:block"
               title={isExpanded ? "Collapse" : "Expand"}
               id="btn-chat-expand"
             >
-              {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              {isExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
           )}
           {isFloatingModal && onClose && (
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 hover:bg-white/10 hover:text-white rounded-xl transition-colors cursor-pointer ml-0.5"
+              className="p-1.5 hover:bg-white/10 hover:text-white rounded-lg transition-colors cursor-pointer ml-0.5"
               title="Close AI Assistant"
               id="btn-chat-close"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
       </div>
 
-      {/* 2. Messages Scroll Area */}
+      {/* 2. Messages Scroll Area with fixed height & internal scrolling */}
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-white scrollbar-thin scrollbar-thumb-slate-300"
+        className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/60 scrollbar-thin scrollbar-thumb-slate-300 min-h-0"
       >
         {messages.map((m) => (
           <div
             key={m.id}
-            className={`flex items-start gap-2.5 ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`flex items-start gap-1.5 ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             {/* Bot Avatar on Left */}
             {m.sender === 'bot' && (
-              <div className="w-8 h-8 rounded-xl bg-[#124EBF] flex items-center justify-center text-white shrink-0 shadow-sm mt-0.5">
-                <Bot className="w-4.5 h-4.5" />
+              <div className="w-6 h-6 rounded-lg bg-[#124EBF] flex items-center justify-center text-white shrink-0 shadow-2xs mt-0.5">
+                <Bot className="w-3.5 h-3.5" />
               </div>
             )}
 
-            {/* Message Speech Card */}
+            {/* Message Speech Card with compact width and padding */}
             <div
-              className={`max-w-[86%] sm:max-w-[84%] rounded-3xl px-5 py-4 text-xs sm:text-[13.5px] leading-relaxed relative ${
+              className={`text-xs leading-snug relative ${
                 m.sender === 'user'
-                  ? 'bg-gradient-to-r from-[#124EBF] to-[#0084F4] text-white rounded-tr-xs shadow-md'
-                  : 'bg-white text-slate-800 border border-slate-200/90 rounded-2xl rounded-tl-xs shadow-xs'
+                  ? 'w-fit max-w-[80%] bg-gradient-to-r from-[#124EBF] to-[#0084F4] text-white px-3 py-1.5 rounded-xl rounded-tr-xs shadow-xs'
+                  : 'w-fit max-w-[88%] bg-white text-slate-800 border border-slate-200/90 px-3 py-2 rounded-xl rounded-tl-xs shadow-2xs'
               }`}
             >
-              {/* Message Content with bold & bullet point formatting */}
-              <div className="prose-sm whitespace-pre-line">
+              {/* Message Content with tight vertical rhythm */}
+              <div className="prose-sm whitespace-pre-line text-xs">
                 {m.text.split('\n').map((line, lIdx) => {
                   if (line.startsWith('• ') || line.startsWith('* ')) {
                     return (
-                      <div key={lIdx} className="flex items-start gap-1.5 my-1">
+                      <div key={lIdx} className="flex items-start gap-1 my-0.5">
                         <span className={m.sender === 'user' ? 'text-amber-200 font-bold' : 'text-[#F95F1E] font-bold'}>•</span>
                         <span>
                           {line.replace(/^[•*]\s*/, '').split(/(\*\*.*?\*\*)/g).map((part, pIdx) => {
@@ -323,7 +323,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
 
                   const parts = line.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g);
                   return (
-                    <p key={lIdx} className={line ? 'my-1' : 'h-1.5'}>
+                    <p key={lIdx} className={line ? 'my-0.5' : 'h-1'}>
                       {parts.map((part, pIdx) => {
                         if (part.startsWith('**') && part.endsWith('**')) {
                           return <strong key={pIdx} className={m.sender === 'user' ? 'text-white font-black' : 'text-[#0E3589] font-bold'}>{part.slice(2, -2)}</strong>;
@@ -332,7 +332,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
                           return <span key={pIdx} className={m.sender === 'user' ? 'text-blue-100 italic' : 'text-slate-600 italic font-medium'}>{part.slice(1, -1)}</span>;
                         }
                         if (part.startsWith('`') && part.endsWith('`')) {
-                          return <code key={pIdx} className="px-1.5 py-0.5 bg-blue-50 text-[#0E3589] font-mono text-[11px] rounded border border-blue-200">{part.slice(1, -1)}</code>;
+                          return <code key={pIdx} className="px-1 py-0.2 bg-blue-50 text-[#0E3589] font-mono text-[10px] rounded border border-blue-200">{part.slice(1, -1)}</code>;
                         }
                         return part;
                       })}
@@ -343,7 +343,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
 
               {/* Action Buttons for Bot Responses */}
               {m.actionType && (
-                <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap gap-2">
+                <div className="mt-1.5 pt-1.5 border-t border-slate-100 flex flex-wrap gap-1.5">
                   {m.actionType === 'demo' && (
                     <button
                       type="button"
@@ -351,9 +351,9 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
                         if (onOpenDemoModal) onOpenDemoModal();
                         else if (onNavigate) onNavigate('landing');
                       }}
-                      className="px-3.5 py-2 bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#f07b27] text-white font-extrabold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer transform hover:-translate-y-0.5"
+                      className="px-2.5 py-1 bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#f07b27] text-white font-extrabold rounded-lg text-[11px] flex items-center gap-1 shadow-2xs transition-all cursor-pointer transform hover:-translate-y-0.5"
                     >
-                      <Sparkles className="w-3.5 h-3.5" />
+                      <Sparkles className="w-3 h-3" />
                       <span>Open Free Demo Slot →</span>
                     </button>
                   )}
@@ -362,9 +362,9 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
                     <button
                       type="button"
                       onClick={() => onNavigate && onNavigate('gpay')}
-                      className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer transform hover:-translate-y-0.5"
+                      className="px-2.5 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-lg text-[11px] flex items-center gap-1 shadow-2xs transition-all cursor-pointer transform hover:-translate-y-0.5"
                     >
-                      <CreditCard className="w-3.5 h-3.5" />
+                      <CreditCard className="w-3 h-3" />
                       <span>Pay ₹1,600 via GPAY →</span>
                     </button>
                   )}
@@ -373,9 +373,9 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
                     <button
                       type="button"
                       onClick={() => onNavigate && onNavigate('enroll')}
-                      className="px-3.5 py-2 bg-gradient-to-r from-[#0E3589] to-[#0084F4] hover:from-[#09225a] hover:to-[#0070d0] text-white font-extrabold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer transform hover:-translate-y-0.5"
+                      className="px-2.5 py-1 bg-gradient-to-r from-[#0E3589] to-[#0084F4] hover:from-[#09225a] hover:to-[#0070d0] text-white font-extrabold rounded-lg text-[11px] flex items-center gap-1 shadow-2xs transition-all cursor-pointer transform hover:-translate-y-0.5"
                     >
-                      <Users className="w-3.5 h-3.5" />
+                      <Users className="w-3 h-3" />
                       <span>Go to Enrollment Page →</span>
                     </button>
                   )}
@@ -388,9 +388,9 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
                         const el = document.getElementById('syllabus-section');
                         if (el) el.scrollIntoView({ behavior: 'smooth' });
                       }}
-                      className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-[11px] flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
                     >
-                      <BookOpen className="w-3.5 h-3.5" />
+                      <BookOpen className="w-3 h-3" />
                       <span>Explore 8-Class Syllabus →</span>
                     </button>
                   )}
@@ -399,18 +399,18 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
                     <button
                       type="button"
                       onClick={() => onNavigate && onNavigate('parentPortal')}
-                      className="px-3.5 py-2 bg-[#124EBF] hover:bg-[#0084F4] text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      className="px-2.5 py-1 bg-[#124EBF] hover:bg-[#0084F4] text-white font-bold rounded-lg text-[11px] flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
                     >
-                      <Calendar className="w-3.5 h-3.5" />
+                      <Calendar className="w-3 h-3" />
                       <span>Open Parent Portal →</span>
                     </button>
                   )}
                 </div>
               )}
 
-              {/* Timestamp at Bottom-Right */}
-              <div className={`text-[10px] mt-2 text-right font-medium ${
-                m.sender === 'user' ? 'text-blue-200' : 'text-slate-400'
+              {/* Timestamp Compact */}
+              <div className={`text-[9.5px] mt-0.5 text-right font-medium leading-none ${
+                m.sender === 'user' ? 'text-blue-100 opacity-90' : 'text-slate-400'
               }`}>
                 {m.timestamp}
               </div>
@@ -419,42 +419,44 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
         ))}
 
         {isTyping && (
-          <div className="flex items-start gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#124EBF] flex items-center justify-center text-white shrink-0 shadow-xs">
-              <Bot className="w-4.5 h-4.5" />
+          <div className="flex items-start gap-1.5">
+            <div className="w-6 h-6 rounded-lg bg-[#124EBF] flex items-center justify-center text-white shrink-0 shadow-2xs">
+              <Bot className="w-3.5 h-3.5" />
             </div>
-            <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-xs px-4 py-3 shadow-xs flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-blue-600 animate-bounce" />
-              <div className="w-2 h-2 rounded-full bg-blue-600 animate-bounce [animation-delay:0.2s]" />
-              <div className="w-2 h-2 rounded-full bg-blue-600 animate-bounce [animation-delay:0.4s]" />
-              <span className="text-xs text-slate-500 font-medium ml-1">SmartPen Assistant is typing...</span>
+            <div className="bg-white border border-slate-200 rounded-xl rounded-tl-xs px-2.5 py-1 shadow-2xs flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce" />
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce [animation-delay:0.2s]" />
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce [animation-delay:0.4s]" />
+              <span className="text-[10.5px] text-slate-500 font-medium ml-0.5">typing...</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* 3. QUICK ACTIONS Section (Matching Reference Image) */}
-      <div className="bg-white border-t border-slate-100 px-4 py-2.5 shrink-0">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-[#F95F1E] uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5 text-[#F95F1E]" />
+      {/* 3. QUICK ACTIONS Section */}
+      <div className="bg-white border-t border-slate-100 px-3 py-1.5 shrink-0">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1 text-[10px] font-extrabold text-[#F95F1E] uppercase tracking-wider">
+            <Sparkles className="w-3 h-3 text-[#F95F1E]" />
             <span>QUICK ACTIONS</span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <button
+              type="button"
               onClick={() => scrollQuickActions('left')}
-              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+              className="p-0.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors cursor-pointer"
               title="Scroll Left"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             </button>
             <button
+              type="button"
               onClick={() => scrollQuickActions('right')}
-              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+              className="p-0.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors cursor-pointer"
               title="Scroll Right"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -462,17 +464,18 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
         {/* Scrollable Quick Action Chips */}
         <div
           ref={quickActionsRef}
-          className="flex items-center gap-2.5 overflow-x-auto pb-1 no-scrollbar scroll-smooth"
+          className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar scroll-smooth"
         >
           {quickActions.map((qa, idx) => {
             const Icon = qa.icon;
             return (
               <button
                 key={idx}
+                type="button"
                 onClick={qa.action}
-                className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all shadow-2xs shrink-0 cursor-pointer ${qa.color}`}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all shadow-2xs shrink-0 cursor-pointer ${qa.color}`}
               >
-                <Icon className="w-4 h-4 shrink-0" />
+                <Icon className="w-3 h-3 shrink-0" />
                 <span className="whitespace-nowrap">{qa.label}</span>
               </button>
             );
@@ -486,15 +489,16 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
           e.preventDefault();
           handleSend();
         }}
-        className="p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0"
+        className="p-2.5 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0"
       >
         <div className="relative flex-1">
           <input
+            ref={inputRef}
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             placeholder="e.g. Enroll student, book demo, or GPAY to coach..."
-            className="w-full bg-white text-slate-800 placeholder-slate-400 text-xs sm:text-sm px-4 py-3 rounded-2xl border border-slate-300 focus:outline-none focus:border-[#124EBF] focus:ring-2 focus:ring-blue-100 transition-all shadow-2xs"
+            className="w-full bg-slate-50 focus:bg-white text-slate-800 placeholder-slate-400 text-xs px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:border-[#124EBF] focus:ring-1 focus:ring-blue-100 transition-all shadow-2xs"
             disabled={isTyping}
             id="input-smartpen-ai-message"
           />
@@ -503,11 +507,11 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
         <button
           type="submit"
           disabled={!inputMessage.trim() || isTyping}
-          className="w-11 h-11 bg-[#124EBF] hover:bg-[#0084F4] disabled:opacity-40 text-white rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-md shrink-0 transform active:scale-95"
+          className="w-9 h-9 bg-[#124EBF] hover:bg-[#0084F4] disabled:opacity-40 text-white rounded-xl flex items-center justify-center transition-all cursor-pointer shadow-md shrink-0 transform active:scale-95"
           id="btn-smartpen-ai-send"
           title="Send message"
         >
-          <Send className="w-4 h-4" />
+          <Send className="w-3.5 h-3.5" />
         </button>
       </form>
 

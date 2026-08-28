@@ -11,6 +11,7 @@ import {
   AdminAlert,
   Testimonial
 } from '../types';
+import { supabaseAuthService } from './supabaseAuthService';
 
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('smartpen_token');
@@ -24,8 +25,25 @@ const getAuthHeaders = (): HeadersInit => {
 };
 
 export const api = {
-  // Auth
+  // Auth (Supabase Auth first with server fallback)
   async login(credentials: { username: string; password: string; role?: string }): Promise<{ token: string; user: User }> {
+    // 1. Try Supabase Auth if enabled
+    if (supabaseAuthService.isEnabled()) {
+      try {
+        const result = await supabaseAuthService.signIn(credentials.username, credentials.password);
+        if (result) {
+          return result;
+        }
+      } catch (err: any) {
+        console.warn('[API Auth] Supabase auth attempt:', err.message);
+        // If it was an explicit invalid credential error from Supabase, propagate or fallback
+        if (err.message && (err.message.includes('Invalid login credentials') || err.message.includes('Email not confirmed'))) {
+          // Check backend fallback in case it's a mock/legacy user
+        }
+      }
+    }
+
+    // 2. Server JWT Auth Fallback
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -40,14 +58,30 @@ export const api = {
   },
 
   async logout(): Promise<{ success: boolean }> {
+    if (supabaseAuthService.isEnabled()) {
+      await supabaseAuthService.signOut().catch(() => {});
+    }
     const res = await fetch('/api/auth/logout', {
       method: 'POST',
       credentials: 'include'
-    });
-    return res.json();
+    }).catch(() => ({ ok: true }));
+    return { success: true };
   },
 
   async forgotPassword(identifier: string): Promise<{ success: boolean; message: string; email?: string }> {
+    if (supabaseAuthService.isEnabled() && identifier.includes('@')) {
+      try {
+        await supabaseAuthService.resetPassword(identifier.trim());
+        return {
+          success: true,
+          message: `Password reset link has been dispatched to ${identifier.trim()}`,
+          email: identifier.trim()
+        };
+      } catch (e: any) {
+        console.warn('[API Auth] Supabase password reset error:', e.message);
+      }
+    }
+
     const res = await fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabaseAuthService } from '../services/supabaseAuthService';
 
 interface AuthContextType {
   user: User | null;
@@ -24,12 +26,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
+    let authListener: { subscription: { unsubscribe: () => void } } | null = null;
+
     const validateStoredSession = async () => {
+      // 1. Check Supabase Auth Session First
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const supabaseUser = await supabaseAuthService.getCurrentUser();
+          const { data: { session } } = await supabase.auth.getSession();
+          if (supabaseUser && session) {
+            setUser(supabaseUser);
+            setToken(session.access_token);
+            setSessionExpired(false);
+            setIsLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.warn('[AUTH] Supabase session check:', e);
+        }
+
+        // Subscribe to auth state changes from Supabase
+        const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'SIGNED_IN' && session?.user) {
+            const current = await supabaseAuthService.getCurrentUser();
+            if (current) {
+              setUser(current);
+              setToken(session.access_token);
+              setSessionExpired(false);
+            }
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+            setToken(null);
+          }
+        });
+        authListener = data;
+      }
+
+      // 2. Check Local/Server Stored Session
       const savedToken = localStorage.getItem('smartpen_token');
       const savedUser = localStorage.getItem('smartpen_user');
 
       try {
-        // Verify session validity with backend (credentials: 'include' sends httpOnly cookie)
         const headers: HeadersInit = {};
         if (savedToken) {
           headers['Authorization'] = `Bearer ${savedToken}`;
@@ -67,6 +104,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     validateStoredSession();
+
+    return () => {
+      if (authListener?.subscription) {
+        authListener.subscription.unsubscribe();
+      }
+    };
   }, []);
 
   const login = (newToken: string, newUser: User) => {
@@ -80,10 +123,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      if (isSupabaseConfigured && supabase) {
+        await supabase.auth.signOut().catch(() => {});
+      }
       await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include'
-      });
+      }).catch(() => {});
     } catch (err) {
       console.error('Logout error:', err);
     }
@@ -129,3 +175,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

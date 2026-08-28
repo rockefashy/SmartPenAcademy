@@ -425,51 +425,63 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {(liveTestimonials.length > 0 ? liveTestimonials.slice(0, 6) : landingProperties.testimonialsSection.reviews).map((rev, idx) => (
-            <div
-              key={idx}
-              className="bg-white rounded-3xl p-6 border-2 border-slate-100 shadow-md hover:shadow-xl transition-all flex flex-col justify-between space-y-4"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex text-amber-400">
-                    {Array.from({ length: rev.rating || 5 }).map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-amber-400" />
-                    ))}
+        {liveTestimonials.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {liveTestimonials.slice(0, 6).map((rev, idx) => (
+              <div
+                key={idx}
+                className="bg-white rounded-3xl p-6 border-2 border-slate-100 shadow-md hover:shadow-xl transition-all flex flex-col justify-between space-y-4"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex text-amber-400">
+                      {Array.from({ length: rev.rating || 5 }).map((_, i) => (
+                        <Star key={i} className="w-4 h-4 fill-amber-400" />
+                      ))}
+                    </div>
+                    <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-full border border-emerald-200">
+                      {rev.beforeAfterTag || 'Featured'}
+                    </span>
                   </div>
-                  <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-full border border-emerald-200">
-                    {rev.beforeAfterTag || 'Featured'}
-                  </span>
+
+                  {rev.title && (
+                    <h4 className="font-extrabold text-xs text-slate-900 line-clamp-1">
+                      "{rev.title}"
+                    </h4>
+                  )}
+
+                  <p className="text-xs text-slate-700 leading-relaxed italic font-sans font-medium line-clamp-4">
+                    "{rev.review}"
+                  </p>
                 </div>
 
-                {rev.title && (
-                  <h4 className="font-extrabold text-xs text-slate-900 line-clamp-1">
-                    "{rev.title}"
-                  </h4>
-                )}
-
-                <p className="text-xs text-slate-700 leading-relaxed italic font-sans font-medium line-clamp-4">
-                  "{rev.review}"
-                </p>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#0E3589] text-white flex items-center justify-center font-black text-xs">
-                    {rev.studentName.charAt(0)}
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">{rev.studentName}</h4>
-                    <p className="text-[11px] text-slate-500 font-sans">
-                      {rev.grade || 'Student'} • {rev.parentName}
-                    </p>
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-[#0E3589] text-white flex items-center justify-center font-black text-xs">
+                      {rev.studentName.charAt(0)}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">{rev.studentName}</h4>
+                      <p className="text-[11px] text-slate-500 font-sans">
+                        {rev.grade || 'Student'} • {rev.parentName}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-slate-50 rounded-3xl p-8 border border-slate-200 text-center max-w-xl mx-auto space-y-3">
+            <Smile className="w-10 h-10 text-[#F46E20] mx-auto opacity-80" />
+            <h4 className="text-base font-extrabold text-slate-800">
+              Student Handwriting Transformation Stories
+            </h4>
+            <p className="text-xs text-slate-500 font-medium leading-relaxed">
+              Parent reviews and verified before-and-after handwriting transformations will be showcased here as enrolled parents submit reviews through the portal.
+            </p>
+          </div>
+        )}
 
         {/* Share testimony prompt for enrolled parents */}
         <div className="mt-8 text-center">

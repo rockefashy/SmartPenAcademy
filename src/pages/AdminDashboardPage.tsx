@@ -30,7 +30,8 @@ import {
   AlertCircle,
   ExternalLink,
   Plus,
-  GraduationCap
+  GraduationCap,
+  Check
 } from 'lucide-react';
 import { api } from '../services/api';
 import { StudentProfile, StudentStatus, DemoBooking, AdminAlert } from '../types';

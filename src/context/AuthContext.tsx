@@ -29,40 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let authListener: { subscription: { unsubscribe: () => void } } | null = null;
 
     const validateStoredSession = async () => {
-      // 1. Check Supabase Auth Session First
-      if (isSupabaseConfigured && supabase) {
-        try {
-          const supabaseUser = await supabaseAuthService.getCurrentUser();
-          const { data: { session } } = await supabase.auth.getSession();
-          if (supabaseUser && session) {
-            setUser(supabaseUser);
-            setToken(session.access_token);
-            setSessionExpired(false);
-            setIsLoading(false);
-            return;
-          }
-        } catch (e) {
-          console.warn('[AUTH] Supabase session check:', e);
-        }
-
-        // Subscribe to auth state changes from Supabase
-        const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-          if (event === 'SIGNED_IN' && session?.user) {
-            const current = await supabaseAuthService.getCurrentUser();
-            if (current) {
-              setUser(current);
-              setToken(session.access_token);
-              setSessionExpired(false);
-            }
-          } else if (event === 'SIGNED_OUT') {
-            setUser(null);
-            setToken(null);
-          }
-        });
-        authListener = data;
-      }
-
-      // 2. Check Local/Server Stored Session
+      // 1. Check Server Stored Session via httpOnly cookie first
       const savedToken = localStorage.getItem('smartpen_token');
       const savedUser = localStorage.getItem('smartpen_user');
 
@@ -82,25 +49,98 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(verifiedUser);
           if (savedToken) setToken(savedToken);
           setSessionExpired(false);
-        } else if (res.status === 401) {
-          const errData = await res.json().catch(() => ({}));
-          if (errData.isExpired || savedToken || savedUser) {
-            console.warn('[AUTH] Token/Session expired. Prompting re-auth.');
-            setSessionExpired(true);
-          }
-          localStorage.removeItem('smartpen_token');
-          localStorage.removeItem('smartpen_user');
-          setToken(null);
-          setUser(null);
+          setIsLoading(false);
+          return;
         }
       } catch (e) {
+        console.warn('[AUTH] Error checking /api/auth/me:', e);
+      }
+
+      // 2. Check Supabase Auth Session Fallback & Harmonize with Backend
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const supabaseUser = await supabaseAuthService.getCurrentUser();
+          const { data: { session } } = await supabase.auth.getSession();
+          if (supabaseUser && session && supabaseUser.email) {
+            // Exchange with backend to establish httpOnly cookie & custom backend JWT
+            const exchangeRes = await fetch('/api/auth/supabase-session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                supabaseToken: session.access_token,
+                email: supabaseUser.email,
+                fullName: supabaseUser.fullName,
+                role: supabaseUser.role,
+                studentId: supabaseUser.studentId,
+                id: supabaseUser.id,
+                username: supabaseUser.username
+              })
+            });
+
+            if (exchangeRes.ok) {
+              const sessionData = await exchangeRes.json();
+              setUser(sessionData.user);
+              setToken(sessionData.token);
+              localStorage.setItem('smartpen_token', sessionData.token);
+              localStorage.setItem('smartpen_user', JSON.stringify(sessionData.user));
+              setSessionExpired(false);
+              setIsLoading(false);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn('[AUTH] Supabase session check:', e);
+        }
+
+        // Subscribe to auth state changes from Supabase
+        const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'SIGNED_IN' && session?.user && session.user.email) {
+            const current = await supabaseAuthService.getCurrentUser();
+            if (current) {
+              try {
+                const exchangeRes = await fetch('/api/auth/supabase-session', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    supabaseToken: session.access_token,
+                    email: current.email,
+                    fullName: current.fullName,
+                    role: current.role,
+                    studentId: current.studentId,
+                    id: current.id,
+                    username: current.username
+                  })
+                });
+                if (exchangeRes.ok) {
+                  const sessionData = await exchangeRes.json();
+                  setUser(sessionData.user);
+                  setToken(sessionData.token);
+                  localStorage.setItem('smartpen_token', sessionData.token);
+                  localStorage.setItem('smartpen_user', JSON.stringify(sessionData.user));
+                  setSessionExpired(false);
+                }
+              } catch (err) {
+                console.warn('[AUTH] Supabase session sync error:', err);
+              }
+            }
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+            setToken(null);
+          }
+        });
+        authListener = data;
+      }
+
+      // If no valid session found, clear stale credentials
+      if (savedToken || savedUser) {
         localStorage.removeItem('smartpen_token');
         localStorage.removeItem('smartpen_user');
-        setToken(null);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
       }
+      setToken(null);
+      setUser(null);
+      setIsLoading(false);
     };
 
     validateStoredSession();

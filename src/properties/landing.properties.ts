@@ -237,35 +237,7 @@ export const landingProperties = {
     tag: "PARENT VOICES",
     title: "Real Transformations, Real Smiles",
     subtitle: "Read what parents and students have to say after experiencing the SmartPen method.",
-    reviews: [
-      {
-        studentName: "Khwaish S.",
-        grade: "Grade 5, St. Joseph's",
-        parentName: "Mrs. Sunita S.",
-        rating: 5,
-        review: "Khwaish's handwriting improved miraculously in just 10 classes! Earlier, teachers struggled to read her exam answers. Now her notebook is showcased as an example in class.",
-        beforeAfterTag: "From 2 Stars to 5 Stars",
-        image: "/testimonials/sample_1.jpg"
-      },
-      {
-        studentName: "Aarav M.",
-        grade: "Grade 8, DPS",
-        parentName: "Dr. Rajesh M.",
-        rating: 5,
-        review: "Aarav used to suffer terrible wrist pain during unit tests and couldn't finish papers. Mrs. Deepthy Rock's grip correction and speed techniques solved everything!",
-        beforeAfterTag: "Speed increased by 14 WPM",
-        image: "/testimonials/sample_2.jpg"
-      },
-      {
-        studentName: "Ananya R.",
-        grade: "Grade 3, Cambridge Intl",
-        parentName: "Pooja R.",
-        rating: 5,
-        review: "The progress tracker report with before/after photos gave us complete visibility into Ananya's daily growth. She now writes cursive with so much pride.",
-        beforeAfterTag: "Flawless Cursive Flow",
-        image: "/testimonials/sample_3.jpg"
-      }
-    ]
+    reviews: []
   },
 
   footer: {

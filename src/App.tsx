@@ -45,7 +45,7 @@ function MainApp() {
     {
       id: 'welcome-init',
       sender: 'bot',
-      text: `👋 Hello **Khwaish Sharma**! I am your SmartPen Assistant.\n\nYou can ask me:\n\n• *"I want to enroll / register my child"*\n• *"Book a free demo class"*\n• *"How to GPAY coaching fee to coach?"*\n• *"What is my attendance summary and fee status?"*`,
+      text: `👋 Hello & welcome to SmartPen Academy! I am your SmartPen Assistant.\n\nYou can ask me:\n\n• *"I want to enroll / register my child"*\n• *"Book a free demo class"*\n• *"How to GPAY coaching fee to coach?"*\n• *"What courses and batch timings are available?"*`,
       timestamp: '01:45 PM',
     }
   ]);

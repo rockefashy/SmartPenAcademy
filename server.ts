@@ -220,6 +220,44 @@ app.post('/api/auth/login', (req, res) => {
   return res.json({ token, user: payload });
 });
 
+// Exchange/Harmonize Supabase Auth Session with Backend Custom JWT & httpOnly Cookie
+app.post('/api/auth/supabase-session', (req, res) => {
+  const { email, fullName, role, studentId, id, username } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required for session synchronization.' });
+  }
+
+  const user = db.upsertUserFromSupabase({
+    email,
+    fullName,
+    role,
+    studentId,
+    id,
+    username
+  });
+
+  const payload = {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    studentId: user.studentId,
+    fullName: user.fullName,
+    email: user.email
+  };
+
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+
+  // Set secure, httpOnly, SameSite=strict cookie
+  res.cookie('smartpen_token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  });
+
+  return res.json({ token, user: payload });
+});
+
 app.post('/api/auth/logout', (req, res) => {
   res.clearCookie('smartpen_token', {
     httpOnly: true,
@@ -318,6 +356,12 @@ app.put('/api/students/:id', authenticateJwt, requireAdmin, (req, res) => {
   const updated = db.updateStudent(req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: 'Student not found' });
   return res.json(updated);
+});
+
+app.delete('/api/students/:id', authenticateJwt, requireAdmin, (req, res) => {
+  const deleted = db.deleteStudent(req.params.id);
+  if (!deleted) return res.status(404).json({ error: 'Student not found' });
+  return res.json({ success: true, message: 'Student profile deleted successfully' });
 });
 
 // 3. Attendance API (Protected by JWT)

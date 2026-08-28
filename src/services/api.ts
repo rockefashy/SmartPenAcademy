@@ -25,25 +25,40 @@ const getAuthHeaders = (): HeadersInit => {
 };
 
 export const api = {
-  // Auth (Supabase Auth first with server fallback)
+  // Auth (Supabase Auth first with server fallback & httpOnly cookie synchronization)
   async login(credentials: { username: string; password: string; role?: string }): Promise<{ token: string; user: User }> {
     // 1. Try Supabase Auth if enabled
     if (supabaseAuthService.isEnabled()) {
       try {
-        const result = await supabaseAuthService.signIn(credentials.username, credentials.password);
-        if (result) {
-          return result;
+        const supabaseRes = await supabaseAuthService.signIn(credentials.username, credentials.password);
+        if (supabaseRes && supabaseRes.user && supabaseRes.user.email) {
+          // Harmonize with Backend: Issue backend JWT and set httpOnly cookie
+          const exchangeRes = await fetch('/api/auth/supabase-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              supabaseToken: supabaseRes.token,
+              email: supabaseRes.user.email,
+              fullName: supabaseRes.user.fullName,
+              role: credentials.role || supabaseRes.user.role,
+              studentId: supabaseRes.user.studentId,
+              id: supabaseRes.user.id,
+              username: supabaseRes.user.username
+            })
+          });
+
+          if (exchangeRes.ok) {
+            const sessionData = await exchangeRes.json();
+            return sessionData;
+          }
         }
       } catch (err: any) {
         console.warn('[API Auth] Supabase auth attempt:', err.message);
-        // If it was an explicit invalid credential error from Supabase, propagate or fallback
-        if (err.message && (err.message.includes('Invalid login credentials') || err.message.includes('Email not confirmed'))) {
-          // Check backend fallback in case it's a mock/legacy user
-        }
       }
     }
 
-    // 2. Server JWT Auth Fallback
+    // 2. Server JWT Auth (Bcrypt + httpOnly cookie)
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -133,6 +148,18 @@ export const api = {
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.error || 'Failed to update student profile');
+    }
+    return res.json();
+  },
+
+  async deleteStudent(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`/api/students/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to delete student profile');
     }
     return res.json();
   },

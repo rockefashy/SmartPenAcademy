@@ -9,7 +9,7 @@ import { db } from './server/db.ts';
 import { handleAIAgentChat } from './server/aiAgent.ts';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'smartpen_academy_jwt_secret_key_2026';
 
 app.use(express.json({ limit: '50mb' }));

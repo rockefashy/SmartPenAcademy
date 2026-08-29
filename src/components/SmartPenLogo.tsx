@@ -23,7 +23,7 @@ export const SmartPenLogo: React.FC<LogoProps> = ({
   return (
     <div className={`inline-flex items-center select-none ${className}`}>
       <img
-        src="/app_images/logowithtag.svg"
+        src="/app_images/finallogo.png"
         alt="SmartPen Academy - Neat Writing. Sharp Minds!"
         className={`${heightClasses} w-auto object-contain max-w-none drop-shadow-2xs`}
         referrerPolicy="no-referrer"

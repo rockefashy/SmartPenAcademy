@@ -191,13 +191,18 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
 
   const handleDeleteRecord = async (dateStr: string) => {
     if (!isAdmin) return;
+    const targetRecord = localAttendance.find(a => a.date === dateStr);
     setIsMutating(true);
 
     const updatedList = localAttendance.filter(a => a.date !== dateStr);
     setLocalAttendance(updatedList);
 
     try {
-      await api.deleteAttendance(student.id, dateStr);
+      if (targetRecord?.id) {
+        await api.deleteAttendance(targetRecord.id);
+      } else {
+        await api.deleteAttendance(student.id, dateStr);
+      }
       showFeedback(`Attendance record cleared for ${dateStr}`);
       if (onAttendanceChange) {
         onAttendanceChange(updatedList);
@@ -340,7 +345,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
           </h2>
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <p className="text-xs text-slate-500 font-medium">
-              Classes attended by {student.fullName} are highlighted in green.
+              Classes attended by {student.displayName} are highlighted in green.
             </p>
             {/* Student's Enrolled Batch Schedule Indicator */}
             <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0E3589] bg-blue-50/80 px-2.5 py-0.5 rounded-lg border border-blue-200">

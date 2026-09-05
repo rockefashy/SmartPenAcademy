@@ -5,11 +5,23 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import cookieParser from 'cookie-parser';
 import { createServer as createViteServer } from 'vite';
-import { db } from './server/db.ts';
+import { db } from './server/supabaseDb.ts';
 import { handleAIAgentChat } from './server/aiAgent.ts';
+import {
+  sendEmail,
+  sendEnrollmentEmails,
+  sendForgotPasswordEmail,
+  sendPasswordResetLinkEmail,
+  sendPasswordChangedEmail,
+  sendDemoBookingAlert,
+  sendFeeReminderEmail,
+  getSenderEmail,
+  getAdminNotificationEmail,
+  getResendClient
+} from './server/email.ts';
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'smartpen_academy_jwt_secret_key_2026';
 
 app.use(express.json({ limit: '50mb' }));
@@ -120,10 +132,13 @@ interface AuthRequest extends Request {
   user?: {
     id: string;
     username: string;
-    role: 'admin' | 'student';
+    role: 'admin' | 'coach' | 'student';
     studentId?: string;
-    fullName: string;
+    coachId?: string;
+    displayName: string;
     email: string;
+    phoneNumber?: string;
+    designation?: string;
   };
 }
 
@@ -170,41 +185,233 @@ const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction): void
   next();
 };
 
-// ================= API ROUTES =================
+const requireCoachOrAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'coach')) {
+    res.status(403).json({ error: 'Access forbidden. Coach or Administrator privileges required.' });
+    return;
+  }
+  next();
+};
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Helper for checking access to a given student
+const canAccessStudent = async (user: AuthRequest['user'], studentId: string): Promise<boolean> => {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  if (user.role === 'coach') {
+    const student = await db.getStudentById(studentId);
+    if (!student || !student.coachId) return false;
+    const coachKeys = new Set([user.id, user.coachId].filter(Boolean));
+    return coachKeys.has(student.coachId);
+  }
+  if (user.role === 'student') {
+    if (user.studentId === studentId || user.id === studentId) return true;
+    const currentStoredUser = await db.findUserById(user.id);
+    if (currentStoredUser) {
+      const siblings = await db.getSiblingStudentsForUser(currentStoredUser);
+      return siblings.some(s => s.id === studentId || (s.userId && s.userId === user.id));
+    }
+    return false;
+  }
+  return false;
+};
+
+// ================= API ROUTES & AUDIT LOGGING =================
+
+// Real-time Business Scenario & Tool Audit Logger
+export async function recordAudit(params: {
+  actorId?: string;
+  actorUsername?: string;
+  actorRole?: string;
+  actorStudentId?: string;
+  action: string;
+  summary: string;
+  arguments?: Record<string, any>;
+  result?: Record<string, any> | null;
+  status?: 'success' | 'failed';
+  executionMode?: 'remote_gemini' | 'local_agent' | 'direct_api';
+}) {
+  // Sanitize sensitive fields from arguments to protect user credentials
+  const sanitizedArgs: Record<string, any> = {};
+  if (params.arguments && typeof params.arguments === 'object') {
+    for (const [key, value] of Object.entries(params.arguments)) {
+      if (key.toLowerCase().includes('password')) {
+        sanitizedArgs[key] = '[REDACTED]';
+      } else if (typeof value === 'string' && value.startsWith('data:image/')) {
+        sanitizedArgs[key] = value.substring(0, 40) + '...[BASE64_IMAGE_DATA]';
+      } else {
+        sanitizedArgs[key] = value;
+      }
+    }
+  }
+
+  // Determine actor: if logged in user is available use id, otherwise 'anonymous'
+  const actorId = (params.actorId && params.actorId !== 'system') ? params.actorId : 'anonymous';
+
+  return await db.recordToolAuditLog({
+    userId: actorId,
+    actorId: actorId,
+    toolName: params.action,
+    summary: params.summary,
+    actionSummary: params.summary,
+    arguments: sanitizedArgs,
+    result: params.result || {},
+    status: params.status || 'success',
+    success: params.status !== 'failed',
+    executionMode: params.executionMode || 'direct_api'
+  });
+}
+
+// ================= OBSERVABILITY & HEALTH CHECK PROBES =================
+// 1. Liveness Probe (GET /api/health)
+app.get('/api/health', (req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memoryUsage: {
+      rssMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      heapUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024)
+    }
+  });
 });
 
-// 1. Auth API
-app.post('/api/auth/login', (req, res) => {
-  const { username, password, role } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username/Email and password are required.' });
+// 2. Readiness Probe (GET /api/ready)
+app.get('/api/ready', async (req: Request, res: Response) => {
+  try {
+    const startTime = Date.now();
+    const adminUser = await db.getAdminUser();
+    const latencyMs = Date.now() - startTime;
+    
+    res.status(200).json({
+      status: 'ready',
+      checks: {
+        database: { status: 'connected', latencyMs }
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    res.status(503).json({
+      status: 'unready',
+      error: 'Database connectivity check failed',
+      message: err.message,
+      timestamp: new Date().toISOString()
+    });
   }
+});
 
-  const user = db.findUserByEmailOrUsername(username);
-  if (!user) {
-    return res.status(401).json({ error: 'Invalid username or password.' });
+// Email Service Status & Health Check
+app.get('/api/email/status', async (req, res) => {
+  const hasApiKey = Boolean(process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.trim().length > 0);
+  const sender = await getSenderEmail();
+  const adminEmail = await getAdminNotificationEmail();
+  const adminUser = await db.getAdminUser();
+  res.json({
+    status: 'ok',
+    resendConfigured: hasApiKey,
+    apiKeyMasked: hasApiKey ? `${process.env.RESEND_API_KEY!.substring(0, 5)}...` : null,
+    fromSender: sender,
+    adminNotificationEmail: adminEmail || null,
+    adminUser: adminUser ? { id: adminUser.id, email: adminUser.email, displayName: adminUser.displayName, role: adminUser.role } : null
+  });
+});
+
+// Send Test Email (Diagnostic Endpoint)
+app.post('/api/email/test', async (req, res) => {
+  try {
+    const { to, type = 'enrollment', studentName = 'Aarav Sharma', parentName = 'Priya Sharma' } = req.body;
+    const adminEmail = await getAdminNotificationEmail();
+    const recipient = to || adminEmail;
+
+    if (!recipient) {
+      return res.status(400).json({ error: 'No recipient email specified and no admin user found in database.' });
+    }
+
+    if (type === 'enrollment') {
+      const results = await sendEnrollmentEmails({
+        displayName: studentName,
+        parentName,
+        age: 8,
+        gender: 'Male',
+        dominantHand: 'Right',
+        gradeClass: 'Grade 3',
+        schoolName: 'National Public School',
+        email: recipient,
+        password: 'TempPassword123!',
+        preferredDays: 'Mon, Wed, Fri',
+        preferredSlot: '4:00 PM - 5:00 PM',
+        scriptsRequired: ['English Print', 'English Cursive'],
+        academicModules: ['Foundations', 'Speed & Pressure Control'],
+        diagnosticObservations: ['Irregular letter sizing', 'Tight pencil grip']
+      });
+
+      return res.json({
+        success: true,
+        message: `Enrollment test email dispatch triggered for recipient ${recipient}`,
+        results
+      });
+    }
+
+    const currentSender = await getSenderEmail();
+    const testResult = await sendEmail({
+      to: recipient,
+      subject: `🧪 Test Email from SmartPen Academy [${new Date().toLocaleTimeString()}]`,
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #0E3589; border-radius: 12px; max-width: 500px; margin: 0 auto;">
+          <h2 style="color: #0E3589; margin-top: 0;">SmartPen Academy Email Test</h2>
+          <p>This is a test email sent from SmartPen Academy to verify the Resend integration.</p>
+          <p><strong>Configured Sender:</strong> ${currentSender}</p>
+          <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+        </div>
+      `
+    });
+
+    return res.json({
+      success: testResult.success,
+      details: testResult
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to send test email' });
   }
+});
 
-  if (role && user.role !== role) {
-    return res.status(401).json({ error: `Account exists, but is not registered as ${role}.` });
-  }
+// Helper to issue login cookie & response
+const issueUserSession = async (user: any, res: Response, targetStudentId?: string) => {
+  let siblingStudents: any = undefined;
+  let activeStudentId = targetStudentId || user.studentId;
+  let activeDisplayName = user.displayName;
 
-  const passwordMatch = bcrypt.compareSync(password, user.passwordHash) || user.rawPassword === password;
-  if (!passwordMatch) {
-    return res.status(401).json({ error: 'Invalid username or password.' });
+  if (user.role === 'student') {
+    const rawSiblings = await db.getSiblingStudentsForUser(user);
+    siblingStudents = rawSiblings.map(s => ({
+      id: s.id,
+      displayName: s.displayName || `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Student',
+      age: s.age,
+      gradeClass: s.gradeClass,
+      schoolName: s.schoolName
+    }));
+
+    if (activeStudentId) {
+      const activeSibling = rawSiblings.find(s => s.id === activeStudentId);
+      if (activeSibling) {
+        activeDisplayName = activeSibling.displayName || `${activeSibling.firstName || ''} ${activeSibling.lastName || ''}`.trim() || activeDisplayName;
+      }
+    } else if (rawSiblings.length === 1) {
+      activeStudentId = rawSiblings[0].id;
+      activeDisplayName = rawSiblings[0].displayName || `${rawSiblings[0].firstName || ''} ${rawSiblings[0].lastName || ''}`.trim() || activeDisplayName;
+    }
   }
 
   const payload = {
     id: user.id,
     username: user.username,
     role: user.role,
-    studentId: user.studentId,
-    fullName: user.fullName,
-    email: user.email
+    studentId: activeStudentId,
+    coachId: user.coachId || user.coach_id,
+    displayName: activeDisplayName,
+    email: user.email,
+    phoneNumber: user.phoneNumber,
+    designation: user.designation,
+    siblingStudents
   };
 
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
@@ -218,44 +425,704 @@ app.post('/api/auth/login', (req, res) => {
   });
 
   return res.json({ token, user: payload });
+};
+
+// 1. Auth API - Unified Login with Multi-Account / Sibling / Role Disambiguation
+app.post('/api/auth/login', async (req, res) => {
+  const { email, username, phoneNumber, identifier, password, role } = req.body;
+  const loginIdentifier = identifier || email || username || phoneNumber;
+  try {
+    if (!loginIdentifier || !password) {
+      recordAudit({
+        actorId: 'anonymous',
+        action: 'auth_login_failed',
+        summary: 'Login attempt rejected: Missing identifier or password',
+        arguments: { identifier: loginIdentifier },
+        status: 'failed'
+      });
+      return res.status(400).json({ error: 'Identifier (Email, Username, or Phone) and password are required.' });
+    }
+
+    // Look up candidate users matching email, username, or phone
+    const candidateUsers = await db.findUsersByIdentifier(loginIdentifier);
+    if (!candidateUsers || candidateUsers.length === 0) {
+      recordAudit({
+        actorId: 'anonymous',
+        action: 'auth_login_failed',
+        summary: `Login failed: No account found for identifier ${loginIdentifier}`,
+        arguments: { identifier: loginIdentifier },
+        status: 'failed'
+      });
+      return res.status(401).json({ error: 'Invalid login credentials. No account found.' });
+    }
+
+    // Filter candidates where password matches
+    const validPasswordUsers = candidateUsers.filter(u => {
+      return Boolean(u.passwordHash && bcrypt.compareSync(password, u.passwordHash));
+    });
+
+    if (validPasswordUsers.length === 0) {
+      recordAudit({
+        actorId: candidateUsers[0]?.id || 'anonymous',
+        actorUsername: candidateUsers[0]?.username,
+        actorRole: candidateUsers[0]?.role,
+        action: 'auth_login_failed',
+        summary: `Login failed: Invalid password supplied for ${loginIdentifier}`,
+        arguments: { identifier: loginIdentifier },
+        status: 'failed'
+      });
+      return res.status(401).json({ error: 'Invalid password. Please verify your password.' });
+    }
+
+    // If a specific role was requested and matches exactly one user
+    if (role) {
+      const roleMatched = validPasswordUsers.filter(u => u.role === role);
+      if (roleMatched.length === 1) {
+        const loggedUser = roleMatched[0];
+        recordAudit({
+          actorId: loggedUser.id,
+          actorUsername: loggedUser.username,
+          actorRole: loggedUser.role,
+          actorStudentId: loggedUser.studentId,
+          action: 'auth_login',
+          summary: `User ${loggedUser.displayName} (${loggedUser.username || loggedUser.email}) logged in successfully as ${loggedUser.role}`,
+          arguments: { identifier: loginIdentifier, role: loggedUser.role },
+          result: { userId: loggedUser.id, role: loggedUser.role, displayName: loggedUser.displayName },
+          status: 'success'
+        });
+        return await issueUserSession(loggedUser, res);
+      }
+    }
+
+    // Sibling resolution for student/family accounts (Identity-First 1:N schema)
+    const studentAccounts = validPasswordUsers.filter(u => u.role === 'student');
+    if (studentAccounts.length > 0) {
+      const primaryUser = (role === 'student' ? studentAccounts[0] : null) || studentAccounts[0];
+      const siblings = await db.getSiblingStudentsForUser(primaryUser);
+
+      // If user specifically provided or matched a direct student ID (e.g. loginIdentifier was std-...)
+      if (primaryUser.studentId && siblings.some(s => s.id === primaryUser.studentId)) {
+        const activeSibling = siblings.find(s => s.id === primaryUser.studentId)!;
+        primaryUser.displayName = activeSibling.displayName || `${activeSibling.firstName || ''} ${activeSibling.lastName || ''}`.trim() || primaryUser.displayName;
+
+        recordAudit({
+          actorId: primaryUser.id,
+          actorUsername: primaryUser.username,
+          actorRole: 'student',
+          actorStudentId: primaryUser.studentId,
+          action: 'auth_login',
+          summary: `Student ${primaryUser.displayName} logged in directly via Student ID ${primaryUser.studentId}`,
+          arguments: { identifier: loginIdentifier, studentId: primaryUser.studentId },
+          result: { userId: primaryUser.id, studentId: primaryUser.studentId },
+          status: 'success'
+        });
+        return await issueUserSession(primaryUser, res, primaryUser.studentId);
+      }
+
+      // If multiple siblings are linked to this family account and no specific student ID was targeted:
+      if (siblings.length > 1) {
+        const selectionToken = jwt.sign(
+          { type: 'STUDENT_SELECTION', userId: primaryUser.id, candidateUserIds: [primaryUser.id] },
+          JWT_SECRET,
+          { expiresIn: '5m' }
+        );
+        const studentDetails = siblings.map(s => ({
+          id: s.id,
+          studentId: s.id,
+          displayName: s.displayName || `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Student',
+          age: s.age,
+          gradeClass: s.gradeClass,
+          schoolName: s.schoolName
+        }));
+
+        recordAudit({
+          actorId: primaryUser.id,
+          actorUsername: primaryUser.username,
+          actorRole: 'student',
+          action: 'auth_login_sibling_prompt',
+          summary: `Sibling account family detected for ${loginIdentifier}. Prompting selection from ${siblings.length} student profiles.`,
+          arguments: { identifier: loginIdentifier, studentCount: siblings.length },
+          status: 'success'
+        });
+
+        return res.json({
+          requiresStudentSelection: true,
+          selectionToken,
+          availableStudents: studentDetails,
+          message: 'Multiple student profiles registered under this family account. Please select which student to access:'
+        });
+      }
+
+      // Exactly 1 student profile found for this user account
+      if (siblings.length === 1) {
+        primaryUser.studentId = siblings[0].id;
+        primaryUser.displayName = siblings[0].displayName || `${siblings[0].firstName || ''} ${siblings[0].lastName || ''}`.trim() || primaryUser.displayName;
+      }
+
+      recordAudit({
+        actorId: primaryUser.id,
+        actorUsername: primaryUser.username,
+        actorRole: primaryUser.role,
+        actorStudentId: primaryUser.studentId,
+        action: 'auth_login',
+        summary: `User ${primaryUser.displayName} (${primaryUser.username || primaryUser.email}) logged in successfully as student`,
+        arguments: { identifier: loginIdentifier, role: primaryUser.role },
+        result: { userId: primaryUser.id, role: primaryUser.role, displayName: primaryUser.displayName },
+        status: 'success'
+      });
+      return await issueUserSession(primaryUser, res, primaryUser.studentId);
+    }
+
+    // Default: Exactly 1 valid matching account
+    const matchedUser = validPasswordUsers[0];
+    recordAudit({
+      actorId: matchedUser.id,
+      actorUsername: matchedUser.username,
+      actorRole: matchedUser.role,
+      actorStudentId: matchedUser.studentId,
+      action: 'auth_login',
+      summary: `User ${matchedUser.displayName} (${matchedUser.username || matchedUser.email}) logged in successfully as ${matchedUser.role}`,
+      arguments: { identifier: loginIdentifier, role: matchedUser.role },
+      result: { userId: matchedUser.id, role: matchedUser.role, displayName: matchedUser.displayName },
+      status: 'success'
+    });
+    return await issueUserSession(matchedUser, res);
+  } catch (err: any) {
+    console.error('Login error:', err);
+    recordAudit({
+      actorId: 'system',
+      action: 'auth_login_error',
+      summary: `Exception occurred during login flow for identifier ${loginIdentifier}: ${err.message}`,
+      arguments: { identifier: loginIdentifier },
+      result: { error: err.message },
+      status: 'failed'
+    });
+    return res.status(500).json({ error: err.message || 'An error occurred during sign in.' });
+  }
+});
+
+// Role selection resolution endpoint
+app.post('/api/auth/select-role', async (req, res) => {
+  const { selectionToken, selectedRole } = req.body;
+  if (!selectionToken || !selectedRole) {
+    return res.status(400).json({ error: 'selectionToken and selectedRole are required.' });
+  }
+
+  try {
+    const decoded = jwt.verify(selectionToken, JWT_SECRET) as any;
+    if (decoded.type !== 'ROLE_SELECTION' || !Array.isArray(decoded.candidateUserIds)) {
+      return res.status(400).json({ error: 'Invalid or expired selection token.' });
+    }
+
+    const candidateUsers = (await Promise.all(decoded.candidateUserIds.map((id: string) => db.findUserById(id)))).filter(Boolean);
+    const chosenUser = candidateUsers.find((u: any) => u.role === selectedRole);
+
+    if (!chosenUser) {
+      return res.status(400).json({ error: `Selected role ${selectedRole} is not associated with this account.` });
+    }
+
+    recordAudit({
+      actorId: chosenUser.id,
+      actorUsername: chosenUser.username,
+      actorRole: chosenUser.role,
+      action: 'auth_select_role',
+      summary: `User ${chosenUser.displayName} completed dual-role selection and entered workspace as ${selectedRole}`,
+      arguments: { selectedRole },
+      result: { userId: chosenUser.id, role: chosenUser.role }
+    });
+
+    return await issueUserSession(chosenUser, res);
+  } catch (err: any) {
+    return res.status(401).json({ error: 'Selection session expired. Please sign in again.' });
+  }
+});
+
+// Student profile selection resolution endpoint
+app.post('/api/auth/select-student', async (req, res) => {
+  const { selectionToken, selectedUserId, studentId, selectedStudentId } = req.body;
+  const targetStudentId = studentId || selectedStudentId || selectedUserId;
+  if (!selectionToken || !targetStudentId) {
+    return res.status(400).json({ error: 'selectionToken and target student identifier are required.' });
+  }
+
+  try {
+    const decoded = jwt.verify(selectionToken, JWT_SECRET) as any;
+    if (decoded.type !== 'STUDENT_SELECTION') {
+      return res.status(400).json({ error: 'Invalid or expired selection token.' });
+    }
+
+    const userId = decoded.userId || (Array.isArray(decoded.candidateUserIds) ? decoded.candidateUserIds[0] : null);
+    if (!userId) {
+      return res.status(400).json({ error: 'Invalid selection session.' });
+    }
+
+    const parentUser = await db.findUserById(userId);
+    if (!parentUser) {
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    const siblings = await db.getSiblingStudentsForUser(parentUser);
+    const chosenStudent = siblings.find(s => s.id === targetStudentId || s.userId === targetStudentId);
+
+    if (!chosenStudent) {
+      return res.status(403).json({ error: 'Selected student profile is not authorized for this account.' });
+    }
+
+    const activeDisplayName = chosenStudent.displayName || `${chosenStudent.firstName || ''} ${chosenStudent.lastName || ''}`.trim() || parentUser.displayName;
+
+    recordAudit({
+      actorId: parentUser.id,
+      actorUsername: parentUser.username,
+      actorRole: 'student',
+      actorStudentId: chosenStudent.id,
+      action: 'auth_select_student',
+      summary: `Parent selected student profile: ${activeDisplayName} (ID: ${chosenStudent.id})`,
+      arguments: { selectedStudentId: chosenStudent.id },
+      result: { studentId: chosenStudent.id }
+    });
+
+    return await issueUserSession(parentUser, res, chosenStudent.id);
+  } catch (err: any) {
+    return res.status(401).json({ error: 'Selection session expired. Please sign in again.' });
+  }
+});
+
+// Switch active student profile in current session (for siblings)
+app.post('/api/auth/switch-student', authenticateJwt, async (req: AuthRequest, res) => {
+  if (!req.user || req.user.role !== 'student') {
+    return res.status(403).json({ error: 'Student profile switching is only applicable for student sessions.' });
+  }
+
+  const { studentId } = req.body;
+  if (!studentId) {
+    return res.status(400).json({ error: 'Target studentId is required.' });
+  }
+
+  const currentStoredUser = await db.findUserById(req.user.id);
+  if (!currentStoredUser) {
+    return res.status(404).json({ error: 'Current user session record not found.' });
+  }
+
+  const siblings = await db.getSiblingStudentsForUser(currentStoredUser);
+  const targetSibling = siblings.find(s => s.id === studentId);
+  if (!targetSibling) {
+    return res.status(403).json({ error: 'Selected student profile is not linked to your family account.' });
+  }
+
+  const targetDisplayName = targetSibling.displayName || `${targetSibling.firstName || ''} ${targetSibling.lastName || ''}`.trim() || currentStoredUser.displayName;
+
+  recordAudit({
+    actorId: req.user.id,
+    actorUsername: req.user.username,
+    actorRole: 'student',
+    actorStudentId: targetSibling.id,
+    action: 'auth_switch_student',
+    summary: `Switched active student profile to sibling ${targetDisplayName} (Student ID: ${targetSibling.id})`,
+    arguments: { fromStudentId: req.user.studentId, toStudentId: targetSibling.id },
+    result: { newStudentId: targetSibling.id }
+  });
+
+  return await issueUserSession(currentStoredUser, res, targetSibling.id);
+});
+
+// Request Password Reset Link (via Email with 1-hour secure token)
+app.post('/api/auth/request-reset-link', async (req, res) => {
+  const { identifier } = req.body;
+  try {
+    if (!identifier) {
+      return res.status(400).json({ error: 'Registered email or username is required.' });
+    }
+
+    const users = await db.findUsersByIdentifier(identifier);
+    if (!users || users.length === 0) {
+      recordAudit({
+        actorId: 'anonymous',
+        action: 'auth_request_reset_link_failed',
+        summary: `Password reset request failed: No account associated with ${identifier}`,
+        arguments: { identifier },
+        status: 'failed'
+      });
+      return res.status(404).json({ error: 'No account registered with this email or username.' });
+    }
+
+    const user = users[0];
+    if (user.role === 'admin') {
+      recordAudit({
+        actorId: user.id,
+        actorUsername: user.username,
+        actorRole: user.role,
+        action: 'auth_request_reset_link_blocked',
+        summary: `Blocked password reset via email for admin account ${user.username}`,
+        arguments: { identifier },
+        status: 'failed'
+      });
+      return res.status(403).json({ error: 'Admin account password cannot be reset via email. Password changes happen only via direct backend access.' });
+    }
+
+    if (!user.email) {
+      return res.status(400).json({ error: 'No email address registered on this account.' });
+    }
+
+    const resetData = await db.createPasswordResetToken(user.email);
+    if (!resetData || 'error' in resetData) {
+      return res.status(400).json({ error: (resetData && 'error' in resetData) ? resetData.error : 'Failed to generate reset link.' });
+    }
+
+    // Compose reset URL
+    const origin = req.headers.origin || 'http://localhost:3000';
+    const resetLink = `${origin}?resetToken=${resetData.token}#reset-password`;
+
+    const emailResult = await sendPasswordResetLinkEmail(user.email, {
+      displayName: user.displayName,
+      resetLink
+    });
+
+    console.log(`[PASSWORD RESET] Link generated for ${user.email}: ${resetLink}`);
+    recordAudit({
+      actorId: user.id,
+      actorUsername: user.username,
+      actorRole: user.role,
+      actorStudentId: user.studentId,
+      action: 'auth_request_reset_link',
+      summary: `Dispatched 1-hour secure password reset link to registered email: ${user.email}`,
+      arguments: { identifier, email: user.email },
+      result: { email: user.email, deliveryStatus: emailResult.success ? 'sent' : 'simulated' }
+    });
+
+    return res.json({
+      success: true,
+      message: `Password reset link dispatched to ${user.email}. Link valid for 60 minutes.`,
+      email: user.email,
+      deliveryStatus: emailResult.success ? 'sent' : 'simulated'
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Error processing reset link request.' });
+  }
+});
+
+// Reset Password using Token
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Reset token and new password are required.' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+    }
+
+    const result = await db.resetPasswordWithToken(token, newPassword);
+    if (!result.success) {
+      recordAudit({
+        actorId: 'system',
+        action: 'auth_reset_password_failed',
+        summary: `Password reset token verification failed: ${result.error}`,
+        status: 'failed'
+      });
+      return res.status(400).json({ error: result.error || 'Failed to reset password. The link may have expired.' });
+    }
+
+    recordAudit({
+      actorId: 'system',
+      action: 'auth_reset_password',
+      summary: 'Password successfully updated via secure reset token',
+      arguments: {},
+      result: { success: true }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Password successfully reset! You can now log in with your new password.'
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Error resetting password.' });
+  }
+});
+
+// Coaches API
+// Deliberately Public Coaches Endpoint (Unauthenticated)
+app.get('/api/coaches/public', async (_req, res) => {
+  try {
+    const publicCoaches = await db.getPublicCoaches();
+    return res.json(publicCoaches);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch public coaches.' });
+  }
+});
+
+// Authenticated Coaches Directory:
+// - Administrators receive full coach operational profiles.
+// - Non-admin application roles (e.g. students) strictly receive explicitly selected public fields.
+app.get('/api/coaches', authenticateJwt, async (req: AuthRequest, res) => {
+  try {
+    const coaches = await db.getAllCoaches();
+
+    if (req.user?.role === 'admin') {
+      return res.json(coaches);
+    }
+
+    // Sanitize output for non-admin roles: strip private phone, address, notes, emergency contacts
+    const sanitizedCoaches = coaches
+      .filter(c => c.status === 'Active')
+      .map(c => ({
+        id: c.id,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        displayName: c.displayName,
+        designation: c.designation,
+        specializations: c.specializations,
+        educationalQualification: c.educationalQualification,
+        status: c.status
+      }));
+
+    return res.json(sanitizedCoaches);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch coaches.' });
+  }
+});
+
+app.post('/api/coaches', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  const { 
+    firstName, 
+    lastName, 
+    displayName,
+    email, 
+    phoneNumber, 
+    address, 
+    dateOfJoining, 
+    status, 
+    dateOfLeaving, 
+    educationalQualification, 
+    designation, 
+    specializations, 
+    emergencyContactName, 
+    emergencyContactPhone, 
+    notes, 
+    password 
+  } = req.body;
+
+  const derivedDisplayName = (displayName || `${firstName || ''} ${lastName || ''}`).trim();
+  if (!derivedDisplayName) {
+    return res.status(400).json({ error: 'Coach display name (or first & last name) is required.' });
+  }
+  if (!email || !email.trim()) {
+    return res.status(400).json({ error: 'Coach email address is required.' });
+  }
+  if (!phoneNumber || !phoneNumber.trim()) {
+    return res.status(400).json({ error: 'Coach phone number is required.' });
+  }
+  if (!password || password.trim().length < 8) {
+    return res.status(400).json({ error: 'Coach initial password is required (minimum 8 characters).' });
+  }
+  if (dateOfJoining && dateOfLeaving && new Date(dateOfLeaving) < new Date(dateOfJoining)) {
+    return res.status(400).json({ error: 'Date of leaving cannot be earlier than date of joining.' });
+  }
+
+  try {
+    const coach = await db.createCoach({
+      firstName: firstName?.trim(),
+      lastName: lastName?.trim(),
+      displayName: derivedDisplayName,
+      email: email.toLowerCase().trim(),
+      phoneNumber: phoneNumber.trim(),
+      address: address?.trim(),
+      dateOfJoining: dateOfJoining || new Date().toISOString().split('T')[0],
+      status: status || 'Active',
+      dateOfLeaving: dateOfLeaving || undefined,
+      educationalQualification: educationalQualification?.trim(),
+      designation: designation?.trim() || 'Associate Tutor',
+      specializations: Array.isArray(specializations) ? specializations : undefined,
+      emergencyContactName: emergencyContactName?.trim(),
+      emergencyContactPhone: emergencyContactPhone?.trim(),
+      notes: notes?.trim(),
+      password: password.trim()
+    });
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'coach_create',
+      summary: `Administrator ${req.user?.displayName || req.user?.username} onboarded new Coach: ${coach.displayName} (${coach.email})`,
+      arguments: { displayName: coach.displayName, email: coach.email, phoneNumber: coach.phoneNumber, designation: coach.designation },
+      result: { coachId: coach.id, email: coach.email }
+    });
+
+    return res.status(201).json(coach);
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message || 'Failed to create coach.' });
+  }
+});
+
+app.put('/api/coaches/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const coachId = req.params.id;
+    const { dateOfJoining, dateOfLeaving } = req.body;
+    if (dateOfJoining && dateOfLeaving && new Date(dateOfLeaving) < new Date(dateOfJoining)) {
+      return res.status(400).json({ error: 'Date of leaving cannot be earlier than date of joining.' });
+    }
+    const updatedCoach = await db.updateCoach(coachId, req.body);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'coach_update',
+      summary: `Administrator ${req.user?.displayName || req.user?.username} updated Coach profile: ${updatedCoach.displayName} (${coachId})`,
+      arguments: { coachId, updates: req.body },
+      result: { coachId, displayName: updatedCoach.displayName }
+    });
+
+    return res.json(updatedCoach);
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message || 'Failed to update coach.' });
+  }
+});
+
+app.delete('/api/coaches/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const coachId = req.params.id;
+    await db.deleteCoach(coachId);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'coach_delete',
+      summary: `Administrator ${req.user?.displayName || req.user?.username} deleted Coach: ${coachId}`,
+      arguments: { coachId },
+      result: { success: true }
+    });
+
+    return res.json({ success: true, message: 'Coach removed successfully.' });
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message || 'Failed to delete coach.' });
+  }
+});
+
+// Assign Coach to Student (Admin-only)
+app.patch('/api/students/:id/assign-coach', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { coachId } = req.body;
+    const updatedStudent = await db.assignCoachToStudent(req.params.id, coachId || null);
+    if (!updatedStudent) {
+      return res.status(404).json({ error: 'Student not found.' });
+    }
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'student_assign_coach',
+      summary: `Assigned coach ${coachId || 'None'} to student ${updatedStudent.displayName} (${req.params.id})`,
+      arguments: { studentId: req.params.id, coachId },
+      result: { studentId: req.params.id, coachId }
+    });
+
+    return res.json(updatedStudent);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to assign coach.' });
+  }
+});
+
+app.post('/api/auth/change-password', async (req, res) => {
+  try {
+    const { email, currentPassword, newPassword } = req.body;
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: 'Email and new password are required.' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'New password must be at least 8 characters long.' });
+    }
+
+    const result = await db.changeUserPassword(email, currentPassword, newPassword);
+    if (!result.success) {
+      recordAudit({
+        actorId: 'system',
+        action: 'auth_change_password_failed',
+        summary: `Password change failed for ${email}: ${result.error}`,
+        arguments: { email },
+        status: 'failed'
+      });
+      return res.status(400).json({ error: result.error || 'Failed to update password.' });
+    }
+
+    const user = await db.findUserByEmailOrUsername(email);
+    sendPasswordChangedEmail(email, { displayName: user?.displayName }).catch(err => {
+      console.warn('[Resend Background Notice] Password changed email dispatch:', err.message || err);
+    });
+
+    console.log(`[PASSWORD CHANGED] Password successfully updated for account: ${email}`);
+    recordAudit({
+      actorId: user?.id || 'system',
+      actorUsername: user?.username || email,
+      actorRole: user?.role || 'student',
+      action: 'auth_change_password',
+      summary: `Password updated successfully for account ${email}`,
+      arguments: { email },
+      result: { success: true }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Password updated successfully! You can now log in with your new password.'
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to change password.' });
+  }
 });
 
 // Exchange/Harmonize Supabase Auth Session with Backend Custom JWT & httpOnly Cookie
-app.post('/api/auth/supabase-session', (req, res) => {
-  const { email, fullName, role, studentId, id, username } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: 'Email is required for session synchronization.' });
+app.post('/api/auth/supabase-session', async (req, res) => {
+  try {
+    const { email, displayName, fullName, role, studentId, id, username } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required for session synchronization.' });
+    }
+
+    const user = await db.upsertUserFromSupabase({
+      email,
+      displayName: displayName || fullName,
+      role,
+      studentId,
+      id,
+      username
+    });
+
+    const payload = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      studentId: user.studentId,
+      displayName: user.displayName,
+      email: user.email
+    };
+
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+
+    // Set secure, httpOnly, SameSite=strict cookie
+    res.cookie('smartpen_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    recordAudit({
+      actorId: user.id,
+      actorUsername: user.username,
+      actorRole: user.role,
+      actorStudentId: user.studentId,
+      action: 'auth_supabase_sync_session',
+      summary: `Harmonized Supabase OAuth / Auth session for ${user.displayName} (${user.email})`,
+      arguments: { email: user.email, role: user.role },
+      result: { userId: user.id, role: user.role }
+    });
+
+    return res.json({ token, user: payload });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to synchronize Supabase session.' });
   }
-
-  const user = db.upsertUserFromSupabase({
-    email,
-    fullName,
-    role,
-    studentId,
-    id,
-    username
-  });
-
-  const payload = {
-    id: user.id,
-    username: user.username,
-    role: user.role,
-    studentId: user.studentId,
-    fullName: user.fullName,
-    email: user.email
-  };
-
-  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
-
-  // Set secure, httpOnly, SameSite=strict cookie
-  res.cookie('smartpen_token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-  });
-
-  return res.json({ token, user: payload });
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -264,489 +1131,1299 @@ app.post('/api/auth/logout', (req, res) => {
     sameSite: 'strict',
     secure: process.env.NODE_ENV === 'production'
   });
+
+  recordAudit({
+    actorId: 'system',
+    action: 'auth_logout',
+    summary: 'User session logged out and authentication cookie cleared',
+    arguments: {}
+  });
+
   return res.json({ success: true, message: 'Logged out successfully' });
 });
 
-app.post('/api/auth/forgot-password', (req, res) => {
-  const { identifier } = req.body;
-  if (!identifier) {
-    return res.status(400).json({ error: 'Please provide username or registered email.' });
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { identifier } = req.body;
+    if (!identifier) {
+      return res.status(400).json({ error: 'Please provide username or registered email.' });
+    }
+
+    const user = await db.findUserByEmailOrUsername(identifier);
+    if (!user) {
+      recordAudit({
+        actorId: 'anonymous',
+        action: 'auth_forgot_password_failed',
+        summary: `Password retrieval lookup failed: No account for ${identifier}`,
+        arguments: { identifier },
+        status: 'failed'
+      });
+      return res.status(404).json({ error: 'No account found with this username or email.' });
+    }
+
+    if (user.role === 'admin') {
+      return res.status(403).json({ error: 'Admin account password cannot be reset via email. Password changes happen only via direct backend access.' });
+    }
+
+    // Real-time Resend Email Dispatch
+    const emailResult = await sendForgotPasswordEmail(user.email, user);
+
+    console.log(`[EMAIL DISPATCH] Sent password retrieval notification to ${user.email} for username: ${user.username}. (Resend status: ${emailResult.success ? 'Delivered' : 'Failed: ' + emailResult.error})`);
+
+    recordAudit({
+      actorId: user.id,
+      actorUsername: user.username,
+      actorRole: user.role,
+      action: 'auth_forgot_password',
+      summary: `Dispatched password retrieval notification to registered email: ${user.email}`,
+      arguments: { identifier, email: user.email },
+      result: { email: user.email, deliveryStatus: emailResult.success ? 'sent' : 'simulated' }
+    });
+
+    return res.json({
+      success: true,
+      message: `Password has been sent to registered email: ${user.email}`,
+      email: user.email,
+      deliveryStatus: emailResult.success ? 'sent' : 'simulated'
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Error processing forgot password request.' });
   }
-
-  const user = db.findUserByEmailOrUsername(identifier);
-  if (!user) {
-    return res.status(404).json({ error: 'No account found with this username or email.' });
-  }
-
-  // Simulated Email Dispatch with raw password retrieval
-  console.log(`[EMAIL DISPATCH] Sent password to ${user.email} for username: ${user.username}. Password: ${user.rawPassword || 'password123'}`);
-
-  return res.json({
-    success: true,
-    message: `Password has been sent to registered email: ${user.email}`,
-    email: user.email
-  });
 });
 
-app.get('/api/auth/me', authenticateJwt, (req: AuthRequest, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
-  const user = db.findUserByUsername(req.user.username);
-  if (!user) return res.status(404).json({ error: 'User not found' });
+app.get('/api/auth/me', authenticateJwt, async (req: AuthRequest, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+    const user = (await db.findUserByUsername(req.user.username)) || (await db.findUserById(req.user.id));
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-  return res.json({
-    id: user.id,
-    username: user.username,
-    role: user.role,
-    studentId: user.studentId,
-    fullName: user.fullName,
-    email: user.email
-  });
+    let siblingStudents: any = undefined;
+    let activeStudentId = req.user.studentId || user.studentId;
+    let displayName = user.displayName;
+
+    if (user.role === 'student') {
+      const rawSiblings = await db.getSiblingStudentsForUser(user);
+      siblingStudents = rawSiblings.map(s => ({
+        id: s.id,
+        displayName: s.displayName || `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Student',
+        age: s.age,
+        gradeClass: s.gradeClass,
+        schoolName: s.schoolName
+      }));
+
+      if (activeStudentId) {
+        const activeSibling = rawSiblings.find(s => s.id === activeStudentId);
+        if (activeSibling) {
+          displayName = activeSibling.displayName || `${activeSibling.firstName || ''} ${activeSibling.lastName || ''}`.trim() || displayName;
+        }
+      } else if (rawSiblings.length === 1) {
+        activeStudentId = rawSiblings[0].id;
+        displayName = rawSiblings[0].displayName || `${rawSiblings[0].firstName || ''} ${rawSiblings[0].lastName || ''}`.trim() || displayName;
+      }
+    }
+
+    return res.json({
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      studentId: activeStudentId,
+      displayName,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      designation: user.designation,
+      siblingStudents
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch current user session.' });
+  }
+});
+
+// Self-Update User Profile (Strict Column-Level / Application-Level Whitelist)
+// Ordinary users can only update permitted personal fields. Privilege escalation is strictly forbidden.
+// Note: Coaches cannot edit their own details. Only Admin can do that.
+app.patch('/api/auth/me', authenticateJwt, async (req: AuthRequest, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+
+    // Explicit check: Coaches cannot edit their own details. Only Admin can do that.
+    if (req.user.role === 'coach') {
+      return res.status(403).json({
+        error: 'Access denied: Coaches cannot edit their own details. Only an Administrator can update coach details.'
+      });
+    }
+
+    // Explicit rejection of sensitive or privilege-bearing fields
+    const restrictedFields = [
+      'role',
+      'id',
+      'email',
+      'is_active',
+      'isActive',
+      'token_version',
+      'tokenVersion',
+      'student_id',
+      'studentId',
+      'coach_id',
+      'coachId',
+      'password_hash',
+      'passwordHash',
+      'reset_password_token',
+      'reset_password_expiry'
+    ];
+
+    for (const field of restrictedFields) {
+      if (req.body[field] !== undefined) {
+        return res.status(400).json({
+          error: `Modification of restricted identity field '${field}' is strictly prohibited.`
+        });
+      }
+    }
+
+    const { displayName, fullName, phoneNumber, avatarUrl } = req.body;
+    const result = await db.updateUserSelfProfile(req.user.id, {
+      displayName: displayName || fullName,
+      phoneNumber,
+      avatarUrl
+    });
+
+    if (!result.success || !result.user) {
+      return res.status(400).json({ error: result.error || 'Failed to update profile.' });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Profile updated successfully.',
+      user: {
+        id: result.user.id,
+        displayName: result.user.displayName,
+        email: result.user.email,
+        phoneNumber: result.user.phoneNumber,
+        role: result.user.role,
+        avatarUrl: result.user.avatarUrl
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to update profile.' });
+  }
 });
 
 // 2. Students API (Protected by JWT)
-app.get('/api/students', authenticateJwt, requireAdmin, (req, res) => {
-  const students = db.getAllStudents();
-  return res.json(students);
+app.get('/api/students', authenticateJwt, async (req: AuthRequest, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+
+    if (req.user.role === 'admin') {
+      const students = await db.getAllStudents();
+      return res.json(students);
+    } else if (req.user.role === 'coach') {
+      const coachKey = req.user.coachId || req.user.id;
+      const coachAlt = req.user.coachId ? req.user.id : undefined;
+      const students = await db.getStudentsByCoachId(coachKey, coachAlt);
+      return res.json(students);
+    } else if (req.user.role === 'student' && req.user.studentId) {
+      const student = await db.getStudentById(req.user.studentId);
+      return res.json(student ? [student] : []);
+    }
+
+    return res.status(403).json({ error: 'Unauthorized access to student directory.' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch students.' });
+  }
 });
 
-app.get('/api/students/:id', authenticateJwt, (req, res) => {
-  const student = db.getStudentById(req.params.id);
-  if (!student) return res.status(404).json({ error: 'Student not found' });
-  return res.json(student);
+app.get('/api/students/:id', authenticateJwt, async (req: AuthRequest, res) => {
+  try {
+    if (!await canAccessStudent(req.user, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied. You do not have permission to view this student profile.' });
+    }
+
+    const student = await db.getStudentById(req.params.id);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    return res.json(student);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch student details.' });
+  }
 });
 
-app.post('/api/students/enroll', (req, res) => {
+app.post('/api/students/enroll', async (req, res) => {
   const data = req.body;
-  if (!data.fullName || !data.parentName || !data.email) {
-    return res.status(400).json({ error: 'Required student profile fields missing.' });
+  const firstName = data.firstName?.trim() || '';
+  const lastName = data.lastName?.trim() || '';
+  const displayName = data.displayName?.trim() || data.fullName?.trim() || `${firstName} ${lastName}`.trim();
+
+  if (!displayName && !firstName) {
+    return res.status(400).json({ error: 'Student display name is required.' });
+  }
+  if (!data.parentName || !data.parentName.trim()) {
+    return res.status(400).json({ error: 'Parent/Guardian name is required.' });
+  }
+  if (!data.email || !data.email.trim()) {
+    return res.status(400).json({ error: 'Parent contact email is required.' });
+  }
+  const age = Number(data.age);
+  if (!age || isNaN(age) || age < 4 || age > 18) {
+    return res.status(400).json({ error: 'Student age must be a valid number between 4 and 18.' });
+  }
+  const phoneNumber = (data.whatsappMobile || data.phoneNumber || data.phone || '').trim();
+  if (!phoneNumber || phoneNumber.replace(/\D/g, '').length < 10) {
+    return res.status(400).json({ error: 'A valid 10-digit WhatsApp/Mobile number is required.' });
+  }
+  if (!data.password || data.password.trim().length < 8) {
+    return res.status(400).json({ error: 'Account password is required and must be at least 8 characters long.' });
   }
 
-  const newId = `std-${Date.now()}`;
-  const username = data.username || `std_${data.fullName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-  const password = data.password || 'password123';
+  try {
+    // Enforce Duplicate Entry Check:
+    // If first name + last name + phone number OR first name + last name + emailid already exists in users table, throw error
+    const isDuplicate = await db.checkStudentDuplicate({
+      firstName,
+      lastName,
+      displayName,
+      phoneNumber,
+      email: data.email,
+      age
+    });
+    if (isDuplicate) {
+      recordAudit({
+        actorId: 'anonymous',
+        action: 'student_enroll_duplicate_blocked',
+        summary: `Enrollment blocked: Student ${displayName} is already enrolled.`,
+        arguments: { displayName, firstName, lastName, phoneNumber, email: data.email, age },
+        status: 'failed'
+      });
+      return res.status(409).json({ 
+        error: 'Student is already enrolled.' 
+      });
+    }
 
-  const newStudent = {
-    ...data,
-    id: newId,
-    username,
-    password,
-    status: data.status || 'Active',
-    enrollmentDate: data.enrollmentDate || new Date().toISOString().split('T')[0],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
+    const newId = `std-${Date.now()}`;
+    const username = data.username || data.email.toLowerCase().trim();
+    const password = data.password.trim();
 
-  const created = db.createStudent(newStudent);
-
-  // Simulated Email Dispatch to Parent and Admin
-  console.log(`[EMAIL DISPATCH] Student Registration Notification sent to Parent (${data.email}) and Admin (rockefashy@gmail.com).`);
-  console.log(`Credentials -> Username: ${username}, Password: ${password}`);
-
-  return res.status(201).json({
-    student: created,
-    credentials: {
+    const newStudent = {
+      ...data,
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      displayName,
+      modeOfLearning: data.modeOfLearning || 'In-person',
+      parentName: data.parentName.trim(),
+      email: data.email.toLowerCase().trim(),
+      id: newId,
       username,
       password,
-      parentEmail: data.email
+      age,
+      whatsappMobile: phoneNumber,
+      status: data.status || 'Active',
+      enrollmentDate: data.enrollmentDate || new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const created = await db.createStudent(newStudent);
+
+    // Enforce synchronous audit log recording: if audit logging fails, request fails
+    await recordAudit({
+      actorId: 'anonymous',
+      action: 'student_enroll',
+      summary: `Enrolled new student: ${newStudent.displayName} (Age: ${age}, Grade: ${newStudent.gradeClass || 'N/A'}, Parent: ${newStudent.parentName}, Phone: ${phoneNumber})`,
+      arguments: {
+        studentId: created.id,
+        displayName: newStudent.displayName,
+        age,
+        gradeClass: newStudent.gradeClass,
+        parentName: newStudent.parentName,
+        email: newStudent.email,
+        whatsappMobile: phoneNumber
+      },
+      result: { studentId: created.id, username }
+    });
+
+    // Real-time Resend Email Dispatch to Parent and Admin
+    sendEnrollmentEmails(newStudent).catch(err => {
+      console.warn('[Resend Background Notice] Student registration notification dispatch:', err.message || err);
+    });
+
+    console.log(`[EMAIL DISPATCH] Student Registration Notification queued for Parent (${data.email}) and Admin.`);
+
+    return res.status(201).json({
+      student: created,
+      credentials: {
+        username,
+        parentEmail: data.email
+      }
+    });
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message || 'Enrollment failed.' });
+  }
+});
+
+app.put('/api/students/:id', authenticateJwt, async (req: AuthRequest, res) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+    // Authorization check: Admin OR Assigned Coach
+    if (req.user.role !== 'admin' && req.user.role !== 'coach') {
+      return res.status(403).json({ error: 'Access forbidden. Only administrators and assigned coaches can update student details.' });
     }
-  });
+
+    if (req.user.role === 'coach') {
+      const hasAccess = await canAccessStudent(req.user, req.params.id);
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'Access denied: Coaches can only edit details of students assigned to them.' });
+      }
+
+      // Coaches manage student learning and contact details, but cannot reassign coaches
+      delete req.body.coachId;
+      delete req.body.coachName;
+    }
+
+    const updated = await db.updateStudent(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Student not found' });
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      actorStudentId: req.params.id,
+      action: 'student_update',
+      summary: `${req.user?.role === 'coach' ? 'Coach' : 'Administrator'} ${req.user?.displayName || req.user?.username} updated profile for student ${updated.displayName} (${req.params.id})`,
+      arguments: { studentId: req.params.id, updates: req.body },
+      result: { studentId: req.params.id, displayName: updated.displayName }
+    });
+
+    return res.json(updated);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to update student.' });
+  }
 });
 
-app.put('/api/students/:id', authenticateJwt, requireAdmin, (req, res) => {
-  const updated = db.updateStudent(req.params.id, req.body);
-  if (!updated) return res.status(404).json({ error: 'Student not found' });
-  return res.json(updated);
-});
+app.delete('/api/students/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const student = await db.getStudentById(req.params.id);
+    const deleted = await db.deleteStudent(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Student not found' });
 
-app.delete('/api/students/:id', authenticateJwt, requireAdmin, (req, res) => {
-  const deleted = db.deleteStudent(req.params.id);
-  if (!deleted) return res.status(404).json({ error: 'Student not found' });
-  return res.json({ success: true, message: 'Student profile deleted successfully' });
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      actorStudentId: req.params.id,
+      action: 'student_delete',
+      summary: `Administrator ${req.user?.displayName || req.user?.username} deleted student profile: ${student?.displayName || req.params.id}`,
+      arguments: { studentId: req.params.id, studentName: student?.displayName },
+      result: { success: true }
+    });
+
+    return res.json({ success: true, message: 'Student profile deleted successfully' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to delete student.' });
+  }
 });
 
 // 3. Attendance API (Protected by JWT)
-app.get('/api/attendance/month/:yearMonth', authenticateJwt, requireAdmin, (req, res) => {
-  const records = db.getAttendanceByMonth(req.params.yearMonth);
-  return res.json(records);
-});
-
-app.get('/api/attendance/student/:id', authenticateJwt, (req: AuthRequest, res) => {
-  // Ownership scoping check
-  if (req.user?.role === 'student' && req.user.studentId !== req.params.id) {
-    return res.status(403).json({ error: 'Access denied. You can only view your own attendance records.' });
+app.get('/api/attendance/month/:yearMonth', authenticateJwt, requireCoachOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    let records = await db.getAttendanceByMonth(req.params.yearMonth);
+    if (req.user?.role === 'coach') {
+      const coachStudents = await db.getStudentsByCoachId(req.user.id);
+      const coachStudentIds = new Set(coachStudents.map(s => s.id));
+      records = records.filter(r => coachStudentIds.has(r.studentId));
+    }
+    return res.json(records);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch attendance.' });
   }
-  const records = db.getAttendanceByStudent(req.params.id);
-  return res.json(records);
 });
 
-app.post('/api/attendance/batch', authenticateJwt, requireAdmin, attendanceRateLimiter, (req, res) => {
-  const { records } = req.body;
-  if (!Array.isArray(records)) {
-    return res.status(400).json({ error: 'Records must be an array' });
+app.get('/api/attendance/student/:id', authenticateJwt, async (req: AuthRequest, res) => {
+  try {
+    // Ownership & coach scoping check
+    if (!await canAccessStudent(req.user, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied. You can only view attendance for authorized students.' });
+    }
+    const records = await db.getAttendanceByStudent(req.params.id);
+    return res.json(records);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch attendance for student.' });
   }
-  db.saveAttendanceBatch(records);
-  return res.json({ success: true, count: records.length });
 });
 
-app.delete('/api/attendance/:studentId/:date', authenticateJwt, requireAdmin, (req, res) => {
-  const { studentId, date } = req.params;
-  db.deleteAttendance(studentId, date);
-  return res.json({ success: true });
+app.post('/api/attendance/batch', authenticateJwt, requireCoachOrAdmin, attendanceRateLimiter, async (req: AuthRequest, res) => {
+  try {
+    const { records } = req.body;
+    if (!Array.isArray(records)) {
+      return res.status(400).json({ error: 'Records must be an array' });
+    }
+
+    // If coach, verify that coach only marks attendance for assigned students
+    if (req.user?.role === 'coach') {
+      const coachStudents = await db.getStudentsByCoachId(req.user.id);
+      const coachStudentIds = new Set(coachStudents.map(s => s.id));
+      const unauthorized = records.filter(r => !coachStudentIds.has(r.studentId));
+      if (unauthorized.length > 0) {
+        return res.status(403).json({ error: 'Coaches can only update attendance for their assigned students.' });
+      }
+    }
+
+    await db.saveAttendanceBatch(records);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'attendance_batch_save',
+      summary: `${req.user?.displayName || req.user?.username} (${req.user?.role}) saved/updated ${records.length} attendance records`,
+      arguments: { recordCount: records.length, sampleRecord: records[0] },
+      result: { count: records.length, success: true }
+    });
+
+    return res.json({ success: true, count: records.length });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to save attendance.' });
+  }
+});
+
+app.delete('/api/attendance/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    await db.deleteAttendance(id);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'attendance_delete',
+      summary: `Administrator deleted attendance record #${id}`,
+      arguments: { attendanceId: id },
+      result: { success: true }
+    });
+
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to delete attendance record.' });
+  }
+});
+
+app.delete('/api/attendance/:studentId/:date', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { studentId, date } = req.params;
+    const { serverSupabase } = await import('./server/supabase.ts');
+    if (serverSupabase) {
+      const { data: matchedRows } = await serverSupabase
+        .from('attendance')
+        .select('id')
+        .eq('student_id', studentId)
+        .eq('date', date);
+
+      if (matchedRows && matchedRows.length > 0) {
+        for (const row of matchedRows) {
+          await db.deleteAttendance(row.id);
+        }
+      }
+    }
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      actorStudentId: studentId,
+      action: 'attendance_delete',
+      summary: `Administrator deleted attendance record for student ${studentId} on date ${date}`,
+      arguments: { studentId, date },
+      result: { success: true }
+    });
+
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to delete attendance record.' });
+  }
 });
 
 // 4. Fees API (Protected by JWT)
-app.get('/api/fees/month/:yearMonth', authenticateJwt, requireAdmin, (req, res) => {
-  const records = db.getFeesByMonth(req.params.yearMonth);
-  return res.json(records);
-});
-
-app.get('/api/fees/student/:id', authenticateJwt, (req: AuthRequest, res) => {
-  // Ownership scoping check
-  if (req.user?.role === 'student' && req.user.studentId !== req.params.id) {
-    return res.status(403).json({ error: 'Access denied. You can only view your own fee receipts.' });
+app.get('/api/fees/month/:yearMonth', authenticateJwt, requireAdmin, async (req, res) => {
+  try {
+    const records = await db.getFeesByMonth(req.params.yearMonth);
+    return res.json(records);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch fees.' });
   }
-  const records = db.getFeesByStudent(req.params.id);
-  return res.json(records);
 });
 
-app.post('/api/fees', authenticateJwt, requireAdmin, paymentRateLimiter, (req, res) => {
-  const fee = req.body;
-  if (!fee.studentId) {
-    return res.status(400).json({ error: 'studentId is required' });
+app.get('/api/fees/student/:id', authenticateJwt, async (req: AuthRequest, res) => {
+  try {
+    // Ownership scoping check (Admin or the student themselves)
+    if (req.user?.role === 'student' && req.user.studentId !== req.params.id) {
+      return res.status(403).json({ error: 'Access denied. You can only view your own fee receipts.' });
+    }
+    if (req.user?.role === 'coach') {
+      return res.status(403).json({ error: 'Access denied. Financial fee records are restricted to administrators.' });
+    }
+    const records = await db.getFeesByStudent(req.params.id);
+    return res.json(records);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch student fees.' });
   }
-  const saved = db.saveFeeRecord(fee);
-  return res.json(saved);
 });
 
-app.put('/api/fees/:id', authenticateJwt, requireAdmin, (req, res) => {
-  const updated = db.updateFeeRecord(req.params.id, req.body);
-  if (!updated) return res.status(404).json({ error: 'Fee record not found' });
-  return res.json(updated);
+app.post('/api/fees', authenticateJwt, requireAdmin, paymentRateLimiter, async (req: AuthRequest, res) => {
+  try {
+    const fee = req.body;
+    if (!fee.studentId) {
+      return res.status(400).json({ error: 'studentId is required' });
+    }
+    const saved = await db.saveFeeRecord(fee);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      actorStudentId: fee.studentId,
+      action: 'fee_record_create',
+      summary: `Administrator recorded fee of ₹${fee.amount || 0} (${fee.status || 'Pending'}) for student ID: ${fee.studentId} - Ref: ${fee.receiptNumber || 'N/A'}`,
+      arguments: { studentId: fee.studentId, amount: fee.amount, status: fee.status, receiptNumber: fee.receiptNumber, milestone: fee.milestone },
+      result: { feeId: saved.id, amount: saved.amount, status: saved.status }
+    });
+
+    return res.json(saved);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to record fee.' });
+  }
 });
 
-app.patch('/api/fees/:id', authenticateJwt, requireAdmin, (req, res) => {
-  const updated = db.updateFeeRecord(req.params.id, req.body);
-  if (!updated) return res.status(404).json({ error: 'Fee record not found' });
-  return res.json(updated);
+app.put('/api/fees/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const updated = await db.updateFeeRecord(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Fee record not found' });
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      actorStudentId: updated.studentId,
+      action: 'fee_record_update',
+      summary: `Administrator updated fee record #${req.params.id} (Status: ${updated.status}, Amount: ₹${updated.amount})`,
+      arguments: { feeId: req.params.id, updates: req.body },
+      result: { feeId: updated.id, status: updated.status, amount: updated.amount }
+    });
+
+    return res.json(updated);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to update fee record.' });
+  }
 });
 
-app.delete('/api/fees/:id', authenticateJwt, requireAdmin, (req, res) => {
-  const success = db.deleteFeeRecord(req.params.id);
-  if (!success) return res.status(404).json({ error: 'Fee record not found' });
-  return res.json({ success: true, message: 'Fee record deleted successfully' });
+app.patch('/api/fees/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const updated = await db.updateFeeRecord(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Fee record not found' });
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      actorStudentId: updated.studentId,
+      action: 'fee_record_update',
+      summary: `Administrator modified fee record #${req.params.id} (Status: ${updated.status}, Amount: ₹${updated.amount})`,
+      arguments: { feeId: req.params.id, updates: req.body },
+      result: { feeId: updated.id, status: updated.status, amount: updated.amount }
+    });
+
+    return res.json(updated);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to update fee record.' });
+  }
+});
+
+app.delete('/api/fees/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const success = await db.deleteFeeRecord(req.params.id);
+    if (!success) return res.status(404).json({ error: 'Fee record not found' });
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'fee_record_delete',
+      summary: `Administrator deleted fee ledger record #${req.params.id}`,
+      arguments: { feeId: req.params.id },
+      result: { success: true }
+    });
+
+    return res.json({ success: true, message: 'Fee record deleted successfully' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to delete fee record.' });
+  }
 });
 
 // 5. Progress Trackers API (Protected by JWT)
-app.get('/api/progress-trackers/student/:id', authenticateJwt, (req, res) => {
-  const trackers = db.getProgressTrackersByStudent(req.params.id);
-  return res.json(trackers);
-});
-
-app.post('/api/progress-trackers', authenticateJwt, requireAdmin, (req, res) => {
-  const tracker = req.body;
-  if (!tracker.studentId || !tracker.evaluationDate) {
-    return res.status(400).json({ error: 'studentId and evaluationDate required' });
+app.get('/api/progress-trackers/student/:id', authenticateJwt, async (req: AuthRequest, res) => {
+  try {
+    if (!await canAccessStudent(req.user, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+    const trackers = await db.getProgressTrackersByStudent(req.params.id);
+    return res.json(trackers);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch progress trackers.' });
   }
-  const saved = db.saveProgressTracker(tracker);
-  return res.json(saved);
 });
 
-app.delete('/api/progress-trackers/:id', authenticateJwt, requireAdmin, (req, res) => {
-  db.deleteProgressTracker(req.params.id);
-  return res.json({ success: true });
+app.post('/api/progress-trackers', authenticateJwt, requireCoachOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    const tracker = req.body;
+    if (!tracker.studentId || !tracker.evaluationDate) {
+      return res.status(400).json({ error: 'studentId and evaluationDate required' });
+    }
+    if (!await canAccessStudent(req.user, tracker.studentId)) {
+      return res.status(403).json({ error: 'Access denied: You can only record progress evaluations for your assigned students.' });
+    }
+    const saved = await db.saveProgressTracker(tracker);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      actorStudentId: tracker.studentId,
+      action: 'progress_tracker_save',
+      summary: `${req.user?.displayName || req.user?.username} recorded progress metric evaluation for student ${tracker.studentId} (${tracker.evaluationDate})`,
+      arguments: { studentId: tracker.studentId, evaluationDate: tracker.evaluationDate, overallScore: tracker.overallScore },
+      result: { trackerId: saved.id, studentId: tracker.studentId }
+    });
+
+    return res.json(saved);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to save progress tracker.' });
+  }
+});
+
+app.delete('/api/progress-trackers/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    await db.deleteProgressTracker(req.params.id);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'progress_tracker_delete',
+      summary: `Administrator removed progress evaluation tracker record #${req.params.id}`,
+      arguments: { trackerId: req.params.id },
+      result: { success: true }
+    });
+
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to delete progress tracker.' });
+  }
 });
 
 // 6. Student Works & Camera Uploads API (Protected by JWT)
-app.get('/api/student-works/student/:id', authenticateJwt, (req, res) => {
-  const works = db.getStudentWorks(req.params.id);
-  return res.json(works);
-});
-
-app.post('/api/student-works/upload', authenticateJwt, (req, res) => {
-  const { studentId, imageData, captureDate, comments, category } = req.body;
-  if (!studentId || !imageData) {
-    return res.status(400).json({ error: 'studentId and imageData required' });
-  }
-
-  let finalImagePath = imageData;
-
-  // If imageData is a base64 string, write to /public/student_works/
-  if (imageData.startsWith('data:image/')) {
-    try {
-      const match = imageData.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
-      if (match) {
-        const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-        const base64Data = match[2];
-        const fileName = `work_${studentId}_${Date.now()}.${ext}`;
-        const filePath = path.join(studentWorksDir, fileName);
-        fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
-        finalImagePath = `/student_works/${fileName}`;
-      }
-    } catch (e) {
-      console.error('Error saving image to disk, falling back to base64:', e);
+app.get('/api/student-works/student/:id', authenticateJwt, async (req: AuthRequest, res) => {
+  try {
+    if (!await canAccessStudent(req.user, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied.' });
     }
+    const works = await db.getStudentWorks(req.params.id);
+    return res.json(works);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch student works.' });
   }
-
-  const saved = db.saveStudentWork({
-    studentId,
-    imageData: finalImagePath,
-    captureDate: captureDate || new Date().toISOString().split('T')[0],
-    comments: comments || '',
-    category: category || 'Practice Sheet'
-  });
-
-  return res.json(saved);
 });
 
-app.delete('/api/student-works/:id', authenticateJwt, (req, res) => {
-  db.deleteStudentWork(req.params.id);
-  return res.json({ success: true });
+app.post('/api/student-works/upload', authenticateJwt, async (req: AuthRequest, res) => {
+  try {
+    const { studentId, imageData, captureDate, comments, category } = req.body;
+    if (!studentId || !imageData) {
+      return res.status(400).json({ error: 'studentId and imageData required' });
+    }
+    if (!await canAccessStudent(req.user, studentId)) {
+      return res.status(403).json({ error: 'Access denied to upload work for this student.' });
+    }
+
+    let finalImagePath = imageData;
+
+    // If imageData is a base64 string, write to /public/student_works/
+    if (imageData.startsWith('data:image/')) {
+      try {
+        const match = imageData.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
+        if (match) {
+          const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+          const base64Data = match[2];
+          const fileName = `work_${studentId}_${Date.now()}.${ext}`;
+          const filePath = path.join(studentWorksDir, fileName);
+          fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+          finalImagePath = `/student_works/${fileName}`;
+        }
+      } catch (e) {
+        console.error('Error saving image to disk, falling back to base64:', e);
+      }
+    }
+
+    const saved = await db.saveStudentWork({
+      studentId,
+      imageData: finalImagePath,
+      captureDate: captureDate || new Date().toISOString().split('T')[0],
+      comments: comments || '',
+      category: category || 'Practice Sheet'
+    });
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      actorStudentId: studentId,
+      action: 'student_work_upload',
+      summary: `${req.user?.displayName || req.user?.username} uploaded handwriting sample (${category || 'Practice Sheet'}) for student ${studentId}`,
+      arguments: { studentId, category: category || 'Practice Sheet', captureDate: captureDate || 'today', comments },
+      result: { workId: saved.id, imagePath: finalImagePath }
+    });
+
+    return res.json(saved);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to upload student work.' });
+  }
+});
+
+app.delete('/api/student-works/:id', authenticateJwt, async (req: AuthRequest, res) => {
+  try {
+    const work = await db.findStudentWorkById(req.params.id);
+    if (!work) return res.status(404).json({ error: 'Student work not found' });
+    if (!await canAccessStudent(req.user, work.studentId)) {
+      return res.status(403).json({ error: 'Access denied: You do not have permission to delete this work sample.' });
+    }
+    await db.deleteStudentWork(req.params.id);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      actorStudentId: work.studentId,
+      action: 'student_work_delete',
+      summary: `Removed handwriting sample #${req.params.id} for student ${work.studentId}`,
+      arguments: { workId: req.params.id, studentId: work.studentId },
+      result: { success: true }
+    });
+
+    return res.json({ success: true, message: 'Student work deleted successfully.' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to delete student work.' });
+  }
 });
 
 // 7. Progress Reports API (Protected by JWT)
-app.get('/api/reports/student/:id', authenticateJwt, (req, res) => {
-  const reports = db.getProgressReports(req.params.id);
-  return res.json(reports);
+app.get('/api/reports/student/:id', authenticateJwt, async (req: AuthRequest, res) => {
+  try {
+    if (!await canAccessStudent(req.user, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+    const reports = await db.getProgressReports(req.params.id);
+    return res.json(reports);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch progress reports.' });
+  }
 });
 
-app.post('/api/reports/generate', authenticateJwt, requireAdmin, (req, res) => {
-  const report = req.body;
-  if (!report.studentId || !report.reportDate) {
-    return res.status(400).json({ error: 'studentId and reportDate required' });
-  }
+app.post('/api/reports/generate', authenticateJwt, requireCoachOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    const report = req.body;
+    if (!report.studentId || !report.reportDate) {
+      return res.status(400).json({ error: 'studentId and reportDate required' });
+    }
+    if (!await canAccessStudent(req.user, report.studentId)) {
+      return res.status(403).json({ error: 'Access denied: You can only generate progress reports for your assigned students.' });
+    }
 
-  const saved = db.saveProgressReport({
-    ...report,
-    savedToFolder: '/progress_reports/'
+    const saved = await db.saveProgressReport({
+      ...report,
+      savedToFolder: '/progress_reports/'
+    });
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      actorStudentId: report.studentId,
+      action: 'progress_report_generate',
+      summary: `${req.user?.displayName || req.user?.username} generated Progress Milestone Report for student ${report.studentId}`,
+      arguments: { studentId: report.studentId, reportDate: report.reportDate, remarks: report.remarks },
+      result: { reportId: saved.id, studentId: report.studentId }
+    });
+
+    return res.json(saved);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to generate progress report.' });
+  }
+});
+
+app.delete('/api/reports/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    await db.deleteProgressReport(req.params.id);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'progress_report_delete',
+      summary: `Administrator removed progress report #${req.params.id}`,
+      arguments: { reportId: req.params.id },
+      result: { success: true }
+    });
+
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to delete progress report.' });
+  }
+});
+
+app.post('/api/reports/:id/email', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  const { studentEmail, parentEmail } = req.body;
+  const adminEmail = await db.getAdminEmail();
+  const recipientTarget = parentEmail || studentEmail || 'student/parent';
+  console.log(`[EMAIL DISPATCH] Progress Report ${req.params.id} dispatched to Parent (${recipientTarget}) and Admin (${adminEmail || 'admin'})`);
+
+  recordAudit({
+    actorId: req.user?.id,
+    actorUsername: req.user?.username,
+    actorRole: req.user?.role,
+    action: 'progress_report_email',
+    summary: `Emailed Progress Report #${req.params.id} to parent (${recipientTarget})`,
+    arguments: { reportId: req.params.id, parentEmail, studentEmail },
+    result: { success: true }
   });
 
-  return res.json(saved);
-});
-
-app.delete('/api/reports/:id', authenticateJwt, requireAdmin, (req, res) => {
-  db.deleteProgressReport(req.params.id);
-  return res.json({ success: true });
-});
-
-app.post('/api/reports/:id/email', authenticateJwt, requireAdmin, (req, res) => {
-  const { studentEmail, parentEmail } = req.body;
-  console.log(`[EMAIL DISPATCH] Progress Report ${req.params.id} dispatched to Parent (${parentEmail || 'parent'}) and Admin (rockefashy@gmail.com)`);
   return res.json({
     success: true,
-    message: `Progress Report successfully emailed to ${parentEmail || 'parent'} and Admin!`
+    message: `Progress Report successfully emailed to ${recipientTarget} and Admin!`
   });
 });
 
 // 8. Reminders API (Fee reminder with WhatsApp & GPay link - Protected by JWT)
-app.post('/api/reminders/whatsapp', authenticateJwt, requireAdmin, (req, res) => {
-  const { studentId, parentPhone, parentName, studentName, amount, milestone, receiptNumber } = req.body;
-  if (!studentId || !amount) {
-    return res.status(400).json({ error: 'studentId and amount are required' });
+app.post('/api/reminders/whatsapp', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { studentId, parentPhone, parentName, studentName, amount, milestone, receiptNumber } = req.body;
+    if (!studentId || !amount) {
+      return res.status(400).json({ error: 'studentId and amount are required' });
+    }
+
+    const cleanPhone = (parentPhone || '').replace(/[^\d+]/g, '');
+    const periodText = milestone || 'Current Period';
+    const receiptText = receiptNumber ? ` (Ref: ${receiptNumber})` : '';
+
+    const messageText = `Dear ${parentName || 'Parent'}, greetings from SmartPen Academy! ✍️\n\nThis is a fee payment request for ${studentName}'s handwriting program for ${periodText}${receiptText}.\n\n• Amount: ₹${amount}\n• Mode: In-Person Reception Settlement (Cash / UPI / Card)\n• UPI ID: smartpen.academy@okaxis\n\nKindly complete the settlement at the academy reception or via UPI. Thank you for your continued partnership in ${studentName}'s handwriting mastery!\n\nWarm regards,\nMrs. Deepthy Rock\nSmartPen Academy`;
+
+    const encodedMessage = encodeURIComponent(messageText);
+    const whatsappUrl = cleanPhone 
+      ? `https://wa.me/${cleanPhone.replace('+', '')}?text=${encodedMessage}`
+      : `https://wa.me/?text=${encodedMessage}`;
+
+    const reminder = await db.saveFeeReminder({
+      studentId,
+      parentEmail: cleanPhone || 'whatsapp',
+      parentName: parentName || 'Parent',
+      studentName: studentName || 'Student',
+      amount: Number(amount),
+      month: periodText,
+      gpayLink: `upi://pay?pa=smartpen.academy@okaxis&pn=SmartPen%20Academy&am=${amount}&cu=INR`,
+      status: 'Sent'
+    });
+
+    console.log(`[WHATSAPP REMINDER] Prepared WhatsApp reminder for ${parentName} (${cleanPhone}), Student: ${studentName}, Amount: ₹${amount}, Milestone: ${periodText}`);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      actorStudentId: studentId,
+      action: 'reminder_whatsapp_create',
+      summary: `Prepared WhatsApp fee settlement reminder of ₹${amount} for student ${studentName} (Parent: ${parentName})`,
+      arguments: { studentId, parentPhone: cleanPhone, amount, milestone: periodText },
+      result: { reminderId: reminder.id, status: 'Sent' }
+    });
+
+    return res.json({
+      success: true,
+      reminder,
+      messageText,
+      whatsappUrl,
+      message: `WhatsApp reminder prepared and logged for ${parentName || studentName}!`
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to create WhatsApp reminder.' });
   }
-
-  const cleanPhone = (parentPhone || '').replace(/[^\d+]/g, '');
-  const periodText = milestone || 'Current Period';
-  const receiptText = receiptNumber ? ` (Ref: ${receiptNumber})` : '';
-
-  const messageText = `Dear ${parentName || 'Parent'}, greetings from SmartPen Academy! ✍️\n\nThis is a fee payment request for ${studentName}'s handwriting program for ${periodText}${receiptText}.\n\n• Amount: ₹${amount}\n• Mode: In-Person Reception Settlement (Cash / UPI / Card)\n• UPI ID: smartpen.academy@okaxis\n\nKindly complete the settlement at the academy reception or via UPI. Thank you for your continued partnership in ${studentName}'s handwriting mastery!\n\nWarm regards,\nMrs. Deepthy Rock\nSmartPen Academy`;
-
-  const encodedMessage = encodeURIComponent(messageText);
-  const whatsappUrl = cleanPhone 
-    ? `https://wa.me/${cleanPhone.replace('+', '')}?text=${encodedMessage}`
-    : `https://wa.me/?text=${encodedMessage}`;
-
-  const reminder = db.saveFeeReminder({
-    studentId,
-    parentEmail: cleanPhone || 'whatsapp',
-    parentName: parentName || 'Parent',
-    studentName: studentName || 'Student',
-    amount: Number(amount),
-    month: periodText,
-    gpayLink: `upi://pay?pa=smartpen.academy@okaxis&pn=SmartPen%20Academy&am=${amount}&cu=INR`,
-    status: 'Sent'
-  });
-
-  console.log(`[WHATSAPP REMINDER] Prepared WhatsApp reminder for ${parentName} (${cleanPhone}), Student: ${studentName}, Amount: ₹${amount}, Milestone: ${periodText}`);
-
-  return res.json({
-    success: true,
-    reminder,
-    messageText,
-    whatsappUrl,
-    message: `WhatsApp reminder prepared and logged for ${parentName || studentName}!`
-  });
 });
 
-app.post('/api/reminders/send', authenticateJwt, requireAdmin, (req, res) => {
-  const { studentId, parentEmail, parentName, studentName, amount, month, gpayLink } = req.body;
-  if (!studentId || !amount) {
-    return res.status(400).json({ error: 'studentId and amount required' });
+app.post('/api/reminders/send', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { studentId, parentEmail, parentName, studentName, amount, month, gpayLink } = req.body;
+    if (!studentId || !amount) {
+      return res.status(400).json({ error: 'studentId and amount required' });
+    }
+
+    // Resolve target email from student / users table if parentEmail was not explicitly provided
+    let targetEmail = parentEmail;
+    if (!targetEmail) {
+      const student = await db.getStudentById(studentId);
+      if (student?.email) {
+        targetEmail = student.email;
+      }
+    }
+
+    const reminder = await db.saveFeeReminder({
+      studentId,
+      parentEmail: targetEmail || '',
+      parentName: parentName || 'Parent',
+      studentName: studentName || 'Student',
+      amount: Number(amount),
+      month: month || new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+      gpayLink: gpayLink || `upi://pay?pa=smartpen.academy@okaxis&pn=SmartPen%20Academy&am=${amount}&cu=INR`,
+      status: 'Sent'
+    });
+
+    if (targetEmail) {
+      sendFeeReminderEmail({
+        toEmail: targetEmail,
+        parentName: parentName || 'Parent',
+        studentName: studentName || 'Student',
+        amount: Number(amount),
+        month: month || new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+        gpayLink: reminder.gpayLink
+      }).catch(err => {
+        console.warn('[Resend Background Notice] Fee reminder dispatch:', err.message || err);
+      });
+    }
+
+    console.log(`[EMAIL DISPATCH] Fee Reminder Sent to ${targetEmail || 'student record'} for student ${studentName}, Amount ₹${amount}`);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      actorStudentId: studentId,
+      action: 'reminder_email_send',
+      summary: `Dispatched payment reminder of ₹${amount} via email to ${targetEmail || 'student'} for student ${studentName}`,
+      arguments: { studentId, parentEmail: targetEmail, amount, month },
+      result: { reminderId: reminder.id }
+    });
+
+    return res.json({
+      success: true,
+      reminder,
+      message: `Payment reminder with payment details dispatched to ${targetEmail || 'student'}!`
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to dispatch reminder.' });
   }
-
-  const reminder = db.saveFeeReminder({
-    studentId,
-    parentEmail: parentEmail || 'parent@gmail.com',
-    parentName: parentName || 'Parent',
-    studentName: studentName || 'Student',
-    amount: Number(amount),
-    month: month || new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
-    gpayLink: gpayLink || `upi://pay?pa=smartpen.academy@okaxis&pn=SmartPen%20Academy&am=${amount}&cu=INR`,
-    status: 'Sent'
-  });
-
-  console.log(`[EMAIL DISPATCH] Fee Reminder Sent to ${parentEmail} for student ${studentName}, Amount ₹${amount} with GPay link: ${reminder.gpayLink}`);
-
-  return res.json({
-    success: true,
-    reminder,
-    message: `Payment reminder with Google Pay link dispatched to ${parentEmail}!`
-  });
 });
 
 // 9. Free Demo Class Bookings API (Admin Protected for viewing & updating)
-app.get('/api/demo-bookings', authenticateJwt, requireAdmin, (req, res) => {
-  const bookings = db.getDemoBookings();
-  return res.json(bookings);
-});
-
-app.post('/api/demo-bookings', demoBookingRateLimiter, (req, res) => {
-  const { studentName, age, contactNumber, preferredSlot, notes } = req.body;
-  if (!studentName || !age || !contactNumber) {
-    return res.status(400).json({ error: 'studentName, age, and contactNumber are required' });
+app.get('/api/demo-bookings', authenticateJwt, requireAdmin, async (req, res) => {
+  try {
+    const bookings = await db.getDemoBookings();
+    return res.json(bookings);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch demo bookings.' });
   }
-
-  const result = db.createDemoBooking({
-    studentName,
-    age,
-    contactNumber,
-    preferredSlot: preferredSlot || 'All days (4 - 7 PM)',
-    notes
-  });
-
-  console.log(`[DEMO BOOKING] New Free Demo Class Booking: ${studentName} (${age}), Contact: ${contactNumber}, Slot: ${preferredSlot}`);
-  console.log(`[ALERT DISPATCH] Created alert id: ${result.alert.id}`);
-
-  return res.status(201).json(result.booking);
 });
 
-app.patch('/api/demo-bookings/:id', authenticateJwt, requireAdmin, (req, res) => {
-  const updated = db.updateDemoBooking(req.params.id, req.body);
-  if (!updated) return res.status(404).json({ error: 'Booking not found' });
-  return res.json(updated);
+app.post('/api/demo-bookings', demoBookingRateLimiter, async (req, res) => {
+  try {
+    const { studentName, parentName, age, contactNumber, preferredDate, preferredTimeSlot, modeOfLearning, notes } = req.body;
+    if (!studentName || !age || !contactNumber || !preferredDate || !preferredTimeSlot) {
+      return res.status(400).json({ error: 'studentName, age, contactNumber, preferredDate, and preferredTimeSlot are required' });
+    }
+
+    const result = await db.createDemoBooking({
+      studentName,
+      parentName,
+      age,
+      contactNumber,
+      preferredDate,
+      preferredTimeSlot,
+      modeOfLearning: modeOfLearning || 'In-person',
+      notes
+    });
+
+    // Real-time Resend Alert to Admin
+    sendDemoBookingAlert({
+      studentName,
+      parentName: result.booking.parentName,
+      age,
+      contactNumber,
+      preferredDate: result.booking.preferredDate,
+      preferredTimeSlot: result.booking.preferredTimeSlot,
+      notes
+    }).catch(err => {
+      console.warn('[Resend Background Notice] Demo booking alert dispatch:', err.message || err);
+    });
+
+    console.log(`[DEMO BOOKING] New Free Demo Class Booking: ${studentName} (Parent: ${result.booking.parentName}, Age: ${age}, Mode: ${result.booking.modeOfLearning}), Contact: ${contactNumber}, Date: ${result.booking.preferredDate}, Time: ${result.booking.preferredTimeSlot}`);
+    console.log(`[ALERT DISPATCH] Created alert id: ${result.alert.id}`);
+
+    recordAudit({
+      actorId: 'anonymous_visitor',
+      action: 'demo_booking_create',
+      summary: `New Free Demo Class booked for student ${studentName} (Age: ${age}, Contact: ${contactNumber}, Mode: ${result.booking.modeOfLearning}, Date: ${result.booking.preferredDate}, Time: ${result.booking.preferredTimeSlot})`,
+      arguments: { studentName, parentName, age, contactNumber, preferredDate, preferredTimeSlot, modeOfLearning: result.booking.modeOfLearning },
+      result: { bookingId: result.booking.id, alertId: result.alert.id }
+    });
+
+    return res.status(201).json(result.booking);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to submit demo booking.' });
+  }
 });
 
-app.delete('/api/demo-bookings/:id', authenticateJwt, requireAdmin, (req, res) => {
-  db.deleteDemoBooking(req.params.id);
-  return res.json({ success: true });
+app.patch('/api/demo-bookings/:id', authenticateJwt, requireCoachOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    const updated = await db.updateDemoBooking(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Booking not found' });
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'demo_booking_update',
+      summary: `Staff updated status for demo booking #${req.params.id} (${updated.studentName})`,
+      arguments: { bookingId: req.params.id, updates: req.body },
+      result: { bookingId: req.params.id, status: updated.status }
+    });
+
+    return res.json(updated);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to update demo booking.' });
+  }
+});
+
+app.delete('/api/demo-bookings/:id', authenticateJwt, requireCoachOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    await db.deleteDemoBooking(req.params.id);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'demo_booking_delete',
+      summary: `Staff deleted demo booking record #${req.params.id}`,
+      arguments: { bookingId: req.params.id },
+      result: { success: true }
+    });
+
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to delete demo booking.' });
+  }
 });
 
 // Tool Audit Logs API (Admin Only)
-app.get('/api/ai/audit-logs', authenticateJwt, requireAdmin, (req, res) => {
-  const limit = req.query.limit ? Number(req.query.limit) : 50;
-  const logs = db.getToolAuditLogs(limit);
-  return res.json(logs);
+app.get('/api/ai/audit-logs', authenticateJwt, requireAdmin, async (req, res) => {
+  try {
+    const limit = req.query.limit ? Number(req.query.limit) : 50;
+    const logs = await db.getToolAuditLogs(limit);
+    return res.json(logs);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch audit logs.' });
+  }
 });
 
 // 10. Admin Alerts Module API (Protected by JWT)
-app.get('/api/alerts', authenticateJwt, requireAdmin, (req, res) => {
-  const alerts = db.getAlerts();
-  return res.json(alerts);
+app.get('/api/alerts', authenticateJwt, requireAdmin, async (req, res) => {
+  try {
+    const alerts = await db.getAlerts();
+    return res.json(alerts);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch alerts.' });
+  }
 });
 
-app.patch('/api/alerts/:id/read', authenticateJwt, requireAdmin, (req, res) => {
-  const alert = db.markAlertAsRead(req.params.id);
-  if (!alert) return res.status(404).json({ error: 'Alert not found' });
-  return res.json(alert);
+app.patch('/api/alerts/:id/read', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const alert = await db.markAlertAsRead(req.params.id);
+    if (!alert) return res.status(404).json({ error: 'Alert not found' });
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'alert_mark_read',
+      summary: `Administrator marked alert #${req.params.id} as read`,
+      arguments: { alertId: req.params.id }
+    });
+
+    return res.json(alert);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to mark alert as read.' });
+  }
 });
 
-app.post('/api/alerts/mark-all-read', authenticateJwt, requireAdmin, (req, res) => {
-  db.markAllAlertsAsRead();
-  return res.json({ success: true });
+app.post('/api/alerts/mark-all-read', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    await db.markAllAlertsAsRead();
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'alert_mark_all_read',
+      summary: 'Administrator cleared/marked all pending alerts as read',
+      arguments: {}
+    });
+
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to mark all alerts as read.' });
+  }
 });
 
-app.delete('/api/alerts/:id', authenticateJwt, requireAdmin, (req, res) => {
-  db.deleteAlert(req.params.id);
-  return res.json({ success: true });
+app.delete('/api/alerts/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    await db.deleteAlert(req.params.id);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'alert_delete',
+      summary: `Administrator dismissed/deleted alert #${req.params.id}`,
+      arguments: { alertId: req.params.id }
+    });
+
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to delete alert.' });
+  }
 });
 
 // 11. Testimonials / Parent Voices API
-app.get('/api/testimonials', (req, res) => {
-  const { studentId, status } = req.query;
-  const testimonials = db.getTestimonials(studentId as string, status as string);
-  return res.json(testimonials);
-});
-
-app.get('/api/testimonials/student/:id', (req, res) => {
-  const testimonials = db.getTestimonials(req.params.id);
-  return res.json(testimonials);
-});
-
-app.post('/api/testimonials', (req, res) => {
-  const { 
-    studentId, 
-    studentName, 
-    parentName, 
-    grade, 
-    schoolName, 
-    relationship, 
-    rating, 
-    title, 
-    review, 
-    beforeAfterTag, 
-    image, 
-    mediaConsent 
-  } = req.body;
-
-  if (!studentId || !studentName || !review || !rating) {
-    return res.status(400).json({ error: 'studentId, studentName, review, and rating are required.' });
+app.get('/api/testimonials', async (req, res) => {
+  try {
+    const { studentId, status } = req.query;
+    const testimonials = await db.getTestimonials(studentId as string, status as string);
+    return res.json(testimonials);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch testimonials.' });
   }
+});
 
-  let finalImagePath = image;
-  if (image && image.startsWith('data:image/')) {
-    try {
-      const match = image.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
-      if (match) {
-        const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-        const base64Data = match[2];
-        const fileName = `testimony_${studentId}_${Date.now()}.${ext}`;
-        const filePath = path.join(testimonialsDir, fileName);
-        fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
-        finalImagePath = `/testimonials/${fileName}`;
-      }
-    } catch (e) {
-      console.error('Error saving testimony photo to disk:', e);
+app.get('/api/testimonials/student/:id', async (req, res) => {
+  try {
+    const testimonials = await db.getTestimonials(req.params.id);
+    return res.json(testimonials);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to fetch testimonials for student.' });
+  }
+});
+
+app.post('/api/testimonials', async (req, res) => {
+  try {
+    const { 
+      studentId, 
+      studentName, 
+      parentName, 
+      grade, 
+      schoolName, 
+      relationship, 
+      rating, 
+      title, 
+      review, 
+      beforeAfterTag, 
+      image, 
+      mediaConsent 
+    } = req.body;
+
+    if (!studentId || !studentName || !review || !rating) {
+      return res.status(400).json({ error: 'studentId, studentName, review, and rating are required.' });
     }
+
+    let finalImagePath = image;
+    if (image && image.startsWith('data:image/')) {
+      try {
+        const match = image.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
+        if (match) {
+          const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+          const base64Data = match[2];
+          const fileName = `testimony_${studentId}_${Date.now()}.${ext}`;
+          const filePath = path.join(testimonialsDir, fileName);
+          fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+          finalImagePath = `/testimonials/${fileName}`;
+        }
+      } catch (e) {
+        console.error('Error saving testimony photo to disk:', e);
+      }
+    }
+
+    const saved = await db.saveTestimonial({
+      studentId,
+      studentName,
+      parentName: parentName || 'Parent',
+      grade: grade || '',
+      schoolName: schoolName || '',
+      relationship: relationship || 'Parent',
+      rating: Number(rating) || 5,
+      title: title || '',
+      review,
+      beforeAfterTag: beforeAfterTag || '5 Star Transformation',
+      image: finalImagePath,
+      mediaConsent: mediaConsent !== false,
+      status: 'Featured' // automatically featured so parents see it immediately
+    });
+
+    console.log(`[TESTIMONIAL] New Testimony received from ${parentName} for student ${studentName}`);
+
+    recordAudit({
+      actorId: studentId,
+      actorUsername: parentName || 'Parent',
+      actorRole: 'student',
+      actorStudentId: studentId,
+      action: 'testimonial_create',
+      summary: `New parent review submitted by ${parentName || 'Parent'} for student ${studentName} (Rating: ${rating}★)`,
+      arguments: { studentId, studentName, parentName, rating, title },
+      result: { testimonialId: saved.id, rating: saved.rating }
+    });
+
+    return res.status(201).json(saved);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to save testimonial.' });
   }
-
-  const saved = db.saveTestimonial({
-    studentId,
-    studentName,
-    parentName: parentName || 'Parent',
-    grade: grade || '',
-    schoolName: schoolName || '',
-    relationship: relationship || 'Parent',
-    rating: Number(rating) || 5,
-    title: title || '',
-    review,
-    beforeAfterTag: beforeAfterTag || '5 Star Transformation',
-    image: finalImagePath,
-    mediaConsent: mediaConsent !== false,
-    status: 'Featured' // automatically featured so parents see it immediately
-  });
-
-  console.log(`[TESTIMONIAL] New Testimony received from ${parentName} for student ${studentName}`);
-  return res.status(201).json(saved);
 });
 
-app.patch('/api/testimonials/:id', authenticateJwt, requireAdmin, (req, res) => {
-  const updated = db.updateTestimonial(req.params.id, req.body);
-  if (!updated) return res.status(404).json({ error: 'Testimonial not found' });
-  return res.json(updated);
+app.patch('/api/testimonials/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const updated = await db.updateTestimonial(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Testimonial not found' });
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'testimonial_update',
+      summary: `Administrator updated testimonial #${req.params.id} (Status: ${updated.status})`,
+      arguments: { testimonialId: req.params.id, updates: req.body },
+      result: { testimonialId: req.params.id, status: updated.status }
+    });
+
+    return res.json(updated);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to update testimonial.' });
+  }
 });
 
-app.delete('/api/testimonials/:id', authenticateJwt, requireAdmin, (req, res) => {
-  db.deleteTestimonial(req.params.id);
-  return res.json({ success: true });
+app.delete('/api/testimonials/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    await db.deleteTestimonial(req.params.id);
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'testimonial_delete',
+      summary: `Administrator deleted testimonial #${req.params.id}`,
+      arguments: { testimonialId: req.params.id },
+      result: { success: true }
+    });
+
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to delete testimonial.' });
+  }
 });
 
 // 12. AI Agent Chatbot & Function Calling API
@@ -821,11 +2498,38 @@ app.post('/api/ai/test-config', async (req: Request, res: Response) => {
   });
 });
 
-// ================= VITE INTEGRATION =================
+// ================= GLOBAL ERROR HANDLING MIDDLEWARE =================
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  const statusCode = err.statusCode || 500;
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // Structured sanitized server log (Mask passwords/tokens if any in log)
+  console.error(JSON.stringify({
+    level: 'error',
+    message: err.message || 'Internal Server Error',
+    path: req.path,
+    method: req.method,
+    statusCode,
+    userId: (req as any).user?.id || 'anonymous',
+    timestamp: new Date().toISOString()
+  }));
+
+  // Sanitized client response
+  res.status(statusCode).json({
+    error: statusCode === 500 && isProduction ? 'An unexpected server error occurred.' : (err.message || 'Server error'),
+    statusCode
+  });
+});
+
+// ================= VITE INTEGRATION & SERVER LIFECYCLE =================
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
+    const isHmrDisabled = process.env.DISABLE_HMR === 'true';
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: isHmrDisabled ? false : true,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -837,9 +2541,30 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`SmartPen Academy server running on http://localhost:${PORT}`);
   });
+
+  // Graceful shutdown handling for Cloud Run & Container Lifecycle
+  const handleShutdown = (signal: string) => {
+    console.log(`Received ${signal}. Draining connections and shutting down gracefully...`);
+    server.close(() => {
+      console.log('HTTP server closed successfully.');
+      process.exit(0);
+    });
+
+    // Force exit after 10 seconds if connections fail to close
+    setTimeout(() => {
+      console.error('Forced shutdown due to timeout on active connections.');
+      process.exit(1);
+    }, 10000);
+  };
+
+  process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+  process.on('SIGINT', () => handleShutdown('SIGINT'));
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});

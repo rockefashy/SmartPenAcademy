@@ -137,8 +137,10 @@ interface DemoBookingModalProps {
 
 export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [studentName, setStudentName] = useState('');
+  const [parentName, setParentName] = useState('');
   const [age, setAge] = useState('');
   const [contactNumber, setContactNumber] = useState('');
+  const [modeOfLearning, setModeOfLearning] = useState<'In-person' | 'Online'>('In-person');
   
   // Date default: current date + 1
   const [demoDate, setDemoDate] = useState<string>(getTomorrowDateString());
@@ -158,6 +160,10 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
     e.preventDefault();
     if (!studentName.trim()) {
       setErrorMessage('Please enter student name');
+      return;
+    }
+    if (!parentName.trim()) {
+      setErrorMessage('Please enter parent / guardian name');
       return;
     }
     if (!age.trim()) {
@@ -186,8 +192,6 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
     }
 
     const finalFormattedTime = timeValidation.formattedTime || demoTime;
-    const finalFormattedDate = formatReadableDate(demoDate);
-    const preferredSlot = `${demoDate} at ${finalFormattedTime}`;
 
     setIsSubmitting(true);
     setErrorMessage(null);
@@ -195,9 +199,12 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
     try {
       const response = await api.createDemoBooking({
         studentName: studentName.trim(),
+        parentName: parentName.trim(),
         age: age.trim(),
         contactNumber: contactNumber.trim(),
-        preferredSlot,
+        preferredDate: demoDate,
+        preferredTimeSlot: finalFormattedTime,
+        modeOfLearning,
         notes: notes.trim(),
       });
 
@@ -220,8 +227,10 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
 
   const handleResetAndClose = () => {
     setStudentName('');
+    setParentName('');
     setAge('');
     setContactNumber('');
+    setModeOfLearning('In-person');
     setDemoDate(getTomorrowDateString());
     setDemoTime('04:00 PM');
     setDateError(null);
@@ -233,7 +242,7 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
   };
 
   const waMessage = encodeURIComponent(
-    `Hello Mrs. Deepthy Rock! I have submitted a Free Demo Class request at SmartPen Academy for ${studentName || 'my child'} (Age/Grade: ${age || 'N/A'}, Date: ${formatReadableDate(demoDate)}, Time: ${demoTime}). Contact: ${contactNumber}`
+    `Hello Mrs. Deepthy Rock! I have submitted a Free Demo Class request at SmartPen Academy for ${studentName || 'my child'} (Parent: ${parentName || 'N/A'}, Age/Grade: ${age || 'N/A'}, Mode: ${modeOfLearning}, Date: ${formatReadableDate(demoDate)}, Time: ${demoTime}). Contact: ${contactNumber}`
   );
 
   return (
@@ -297,12 +306,20 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
                   <span className="font-bold text-slate-800">{studentName}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-200/80 pb-1.5">
+                  <span className="text-slate-500 font-medium">Parent / Guardian:</span>
+                  <span className="font-bold text-slate-800">{parentName}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-200/80 pb-1.5">
                   <span className="text-slate-500 font-medium">Age / Grade:</span>
                   <span className="font-bold text-slate-800">{age}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-200/80 pb-1.5">
                   <span className="text-slate-500 font-medium">Contact Number:</span>
                   <span className="font-bold text-slate-800">{contactNumber}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-200/80 pb-1.5">
+                  <span className="text-slate-500 font-medium">Mode of Learning:</span>
+                  <span className="font-bold text-[#0E3589]">{modeOfLearning === 'Online' ? '💻 Online Live Class' : '🏫 In-person Classroom'}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-200/80 pb-1.5">
                   <span className="text-slate-500 font-medium">Scheduled Date:</span>
@@ -342,21 +359,40 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
                 </div>
               )}
 
-              {/* Student Name */}
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  {landingProperties.demoModal.studentNameLabel} <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    required
-                    value={studentName}
-                    onChange={(e) => setStudentName(e.target.value)}
-                    placeholder={landingProperties.demoModal.studentNamePlaceholder}
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
-                  />
+              {/* Student Name & Parent Name in 2 Cols */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    {landingProperties.demoModal.studentNameLabel} <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={studentName}
+                      onChange={(e) => setStudentName(e.target.value)}
+                      placeholder={landingProperties.demoModal.studentNamePlaceholder}
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    {landingProperties.demoModal.parentNameLabel} <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={parentName}
+                      onChange={(e) => setParentName(e.target.value)}
+                      placeholder={landingProperties.demoModal.parentNamePlaceholder}
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -391,6 +427,39 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
                       className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Mode of Learning */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  Mode of Learning <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModeOfLearning('In-person')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center justify-center gap-1.5 ${
+                      modeOfLearning === 'In-person'
+                        ? 'bg-[#0E3589] text-white border-[#0E3589] shadow-xs'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                    id="btn-demo-mode-in-person"
+                  >
+                    <span>🏫 In-person</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModeOfLearning('Online')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center justify-center gap-1.5 ${
+                      modeOfLearning === 'Online'
+                        ? 'bg-[#0E3589] text-white border-[#0E3589] shadow-xs'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                    id="btn-demo-mode-online"
+                  >
+                    <span>💻 Online</span>
+                  </button>
                 </div>
               </div>
 
@@ -511,7 +580,7 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
                 />
               </div>
 
-              {/* Academy & Coach Direct Details Banner */}
+              {/* Academy Direct Details Banner */}
               <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-2xl space-y-1.5 text-[11px] text-slate-600">
                 <div className="flex items-center justify-between font-bold text-[#0E3589]">
                   <span>Academy Direct Details:</span>
@@ -519,15 +588,15 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
                 </div>
                 <div className="flex items-center gap-2">
                   <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>Phone/WhatsApp: <strong>8861751000</strong></span>
+                  <span>Phone/WhatsApp: <strong>{commonProperties.contact.phoneDisplay}</strong></span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Mail className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                  <span>Email: <strong>deepthysrock@gmail.com</strong></span>
+                  <span>Email: <strong>{commonProperties.contact.email}</strong></span>
                 </div>
                 <div className="flex items-start gap-2">
                   <MapPin className="w-3.5 h-3.5 text-orange-600 shrink-0 mt-0.5" />
-                  <span>Ajmera Infinity, Electronic City Phase 1, Bangalore - 560100</span>
+                  <span>{commonProperties.contact.location}</span>
                 </div>
               </div>
 

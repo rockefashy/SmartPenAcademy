@@ -75,7 +75,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
     }
   };
 
-  const displayName = currentStudent?.name || (currentUser as any)?.fullName || currentUser?.name || 'Khwaish Sharma';
+  const displayName = currentStudent?.name || currentUser?.displayName || currentUser?.name || 'Khwaish Sharma';
 
   const handleResetChat = () => {
     setMessages([
@@ -227,7 +227,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
             </div>
             <p className="text-[11px] text-blue-100 font-semibold flex items-center gap-1.5 mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-              <span className="truncate">{displayName} ({roleLabel})</span>
+              <span className="truncate">SmartPen Academy</span>
             </p>
           </div>
         </div>

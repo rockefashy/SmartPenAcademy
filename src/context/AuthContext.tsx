@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { supabaseAuthService } from '../services/supabaseAuthService';
+import { api } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -11,6 +12,7 @@ interface AuthContextType {
   sessionExpired: boolean;
   login: (token: string, user: User) => void;
   logout: () => Promise<void>;
+  switchStudent: (studentId: string) => Promise<void>;
   isLoginModalOpen: boolean;
   openLoginModal: () => void;
   closeLoginModal: () => void;
@@ -70,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               body: JSON.stringify({
                 supabaseToken: session.access_token,
                 email: supabaseUser.email,
-                fullName: supabaseUser.fullName,
+                displayName: supabaseUser.displayName,
                 role: supabaseUser.role,
                 studentId: supabaseUser.studentId,
                 id: supabaseUser.id,
@@ -106,7 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   body: JSON.stringify({
                     supabaseToken: session.access_token,
                     email: current.email,
-                    fullName: current.fullName,
+                    displayName: current.displayName,
                     role: current.role,
                     studentId: current.studentId,
                     id: current.id,
@@ -180,6 +182,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('smartpen_user');
   };
 
+  const switchStudent = async (studentId: string) => {
+    try {
+      const response = await api.switchStudent(studentId);
+      if (response.token && response.user) {
+        setToken(response.token);
+        setUser(response.user);
+        setSessionExpired(false);
+        localStorage.setItem('smartpen_token', response.token);
+        localStorage.setItem('smartpen_user', JSON.stringify(response.user));
+      }
+    } catch (err) {
+      console.error('Failed to switch student profile:', err);
+      throw err;
+    }
+  };
+
   const openLoginModal = () => {
     setIsLoginModalOpen(true);
   };
@@ -198,6 +216,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionExpired,
         login,
         logout,
+        switchStudent,
         isLoginModalOpen,
         openLoginModal,
         closeLoginModal,

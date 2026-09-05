@@ -153,21 +153,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-3.5 pt-2">
               <button
-                onClick={() => onNavigate('enroll')}
+                onClick={handleDemoClick}
                 className="px-6 sm:px-8 py-3.5 bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#f07b27] text-white font-extrabold text-sm sm:text-base rounded-2xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/35 transition-all transform hover:-translate-y-0.5 flex items-center gap-2.5 cursor-pointer"
-                id="btn-hero-enroll"
+                id="btn-hero-demo-booking"
               >
-                <span>{landingProperties.hero.ctaPrimary}</span>
+                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                <span>{landingProperties.hero.ctaSecondary}</span>
                 <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
               <button
-                onClick={handleDemoClick}
+                onClick={() => onNavigate('syllabus')}
                 className="px-5 sm:px-6 py-3.5 bg-white hover:bg-slate-50 text-[#0E3589] font-bold text-sm sm:text-base rounded-2xl border-2 border-[#0E3589]/30 hover:border-[#0E3589] transition-all shadow-sm flex items-center gap-2 cursor-pointer"
-                id="btn-hero-demo-booking"
+                id="btn-hero-explore-curriculum"
               >
-                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-[#0E3589]" />
-                <span>{landingProperties.hero.ctaSecondary}</span>
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-[#0E3589]" />
+                <span>Explore Curriculum</span>
               </button>
             </div>
 
@@ -350,10 +351,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
 
                 <button
-                  onClick={() => onNavigate('enroll')}
+                  onClick={handleDemoClick}
                   className="w-full py-2.5 bg-white text-[#0E3589] hover:bg-blue-50 font-bold text-xs rounded-xl shadow transition-colors flex items-center justify-center gap-2 cursor-pointer mt-2"
                 >
-                  <span>{ws.enrollActionText}</span>
+                  <span>Inquire via Demo / Assessment</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -513,14 +514,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             >
               <Clock className="w-5 h-5" />
               <span>Book for a Free Demo Class</span>
-            </button>
-            <button
-              onClick={() => onNavigate('enroll')}
-              className="px-6 py-4 bg-white text-[#F46E20] hover:bg-orange-50 font-bold text-base rounded-2xl shadow-lg transition-all cursor-pointer flex items-center gap-2"
-              id="btn-cta-enroll-footer"
-            >
-              <span>Enroll Student Online</span>
-              <ArrowRight className="w-5 h-5" />
             </button>
             <button
               onClick={() => onOpenLogin()}

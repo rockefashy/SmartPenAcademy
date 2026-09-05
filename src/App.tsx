@@ -36,6 +36,8 @@ function MainApp() {
   const [currentView, setCurrentView] = useState<string>('landing');
   const [selectedStudentId, setSelectedStudentId] = useState<string | undefined>(undefined);
   const [studentDetailSection, setStudentDetailSection] = useState<number>(1);
+  const [adminInitialTab, setAdminInitialTab] = useState<'roster' | 'assignment' | 'coaches' | 'coachEnrollment' | 'alerts'>('roster');
+  const [enrollmentInitialData, setEnrollmentInitialData] = useState<any | null>(null);
   
   // Free Demo Class Booking Modal State
   const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(false);
@@ -51,12 +53,19 @@ function MainApp() {
   ]);
 
   // Sync route on hash change if user uses browser back/forward or deep link
-  const handleNavigate = (view: string, extraId?: string, defaultSection: number = 1) => {
+  const handleNavigate = (view: string, extraId?: string, defaultSection?: any, prefillData?: any) => {
     setCurrentView(view);
     if (extraId) {
       setSelectedStudentId(extraId);
     }
-    setStudentDetailSection(defaultSection);
+    if (typeof defaultSection === 'number') {
+      setStudentDetailSection(defaultSection);
+    } else if (typeof defaultSection === 'string' && ['roster', 'assignment', 'coaches', 'coachEnrollment', 'alerts'].includes(defaultSection)) {
+      setAdminInitialTab(defaultSection as any);
+    }
+    if (view === 'enroll') {
+      setEnrollmentInitialData(prefillData || null);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -100,8 +109,15 @@ function MainApp() {
       case 'enroll':
         return (
           <EnrollmentPage
-            onNavigate={(view, studentId) => handleNavigate(view, studentId)}
+            onNavigate={(view, studentId, defaultSection, prefillData) =>
+              handleNavigate(view, studentId, defaultSection, prefillData)
+            }
             onOpenDemoModal={() => setIsDemoModalOpen(true)}
+            initialData={enrollmentInitialData}
+            onBackToDemoBookings={() => {
+              setEnrollmentInitialData(null);
+              handleNavigate('admin', undefined, 'alerts');
+            }}
           />
         );
 
@@ -148,7 +164,7 @@ function MainApp() {
           );
         }
 
-        if (user?.role !== 'admin') {
+        if (user?.role !== 'admin' && user?.role !== 'coach') {
           return (
             <div className="max-w-xl mx-auto px-4 py-16 sm:py-24 text-center">
               <div className="bg-white rounded-3xl p-8 sm:p-10 border-2 border-red-200 shadow-xl space-y-6">
@@ -158,10 +174,10 @@ function MainApp() {
                 
                 <div className="space-y-2">
                   <h1 className="text-2xl font-black text-slate-900">
-                    Administrator Privileges Required
+                    Staff Privileges Required
                   </h1>
                   <p className="text-sm text-slate-600 leading-relaxed">
-                    You are currently authenticated as a student account (<span className="font-bold text-slate-800">{user.username}</span>). Administrator privileges are required to access this dashboard.
+                    You are currently authenticated as a student account (<span className="font-bold text-slate-800">{user?.username}</span>). Staff privileges (Administrator or Coach) are required to access this dashboard.
                   </p>
                 </div>
 
@@ -189,14 +205,15 @@ function MainApp() {
 
         return (
           <AdminDashboardPage
-            onNavigate={(view, studentId, defaultSection) =>
-              handleNavigate(view, studentId, defaultSection)
+            onNavigate={(view, studentId, defaultSection, prefillData) =>
+              handleNavigate(view, studentId, defaultSection, prefillData)
             }
+            initialTab={adminInitialTab}
           />
         );
 
       case 'studentDetail':
-        // Guard student detail: Must be admin or authenticated
+        // Guard student detail: Must be admin, coach, or authenticated
         if (!isAuthenticated || !token) {
           return (
             <div className="max-w-xl mx-auto px-4 py-16 sm:py-24 text-center">
@@ -208,7 +225,7 @@ function MainApp() {
                   Authentication Required
                 </h1>
                 <p className="text-xs text-slate-600">
-                  Please log in with verified administrator credentials to review or edit this student file.
+                  Please log in with verified staff credentials to review or edit this student file.
                 </p>
                 <div className="flex justify-center gap-3">
                   <button
@@ -229,11 +246,37 @@ function MainApp() {
           );
         }
 
+        if (user?.role !== 'admin' && user?.role !== 'coach') {
+          return (
+            <div className="max-w-xl mx-auto px-4 py-16 sm:py-24 text-center">
+              <div className="bg-white rounded-3xl p-8 border-2 border-red-200 shadow-xl space-y-5">
+                <div className="w-14 h-14 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-center mx-auto text-red-600">
+                  <Lock className="w-7 h-7" />
+                </div>
+                <h1 className="text-xl font-extrabold text-slate-900">
+                  Staff Privileges Required
+                </h1>
+                <p className="text-xs text-slate-600">
+                  Access to student dossier and editing is restricted to administrators and assigned coaches.
+                </p>
+                <div className="flex justify-center gap-3">
+                  <button
+                    onClick={() => handleNavigate('parentPortal')}
+                    className="px-5 py-2.5 bg-[#F46E20] text-white font-bold rounded-xl text-xs cursor-pointer shadow"
+                  >
+                    Go to My Student Portal
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
         return (
           <StudentDetailPage
             studentId={selectedStudentId || user?.studentId || 'std-1'}
             initialSection={studentDetailSection}
-            onBack={() => handleNavigate(user?.role === 'admin' ? 'admin' : 'parentPortal')}
+            onBack={() => handleNavigate(user?.role === 'student' ? 'parentPortal' : 'admin')}
             onNavigate={handleNavigate}
           />
         );
@@ -360,7 +403,7 @@ function MainApp() {
         isOpen={isLoginModalOpen}
         onClose={closeLoginModal}
         onLoginSuccess={(loggedInUser) => {
-          if (loggedInUser.role === 'admin') {
+          if (loggedInUser.role === 'admin' || loggedInUser.role === 'coach') {
             handleNavigate('admin');
           } else {
             handleNavigate('parentPortal', loggedInUser.studentId);

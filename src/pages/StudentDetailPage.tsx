@@ -38,6 +38,7 @@ import {
 } from '../types';
 import { studentDetailProperties } from '../properties/studentDetail.properties';
 import { StarRating } from '../components/StarRating';
+import { formatGradeClass, formatDominantHand } from '../utils/formatters';
 import { CameraCaptureModal } from '../components/CameraCaptureModal';
 import { ProgressReportCard } from '../components/ProgressReportCard';
 import { AttendanceCalendarTracker } from '../components/AttendanceCalendarTracker';
@@ -337,7 +338,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900">
-                {student.fullName}
+                {student.displayName}
               </h1>
               <span
                 className={`px-3 py-0.5 rounded-full text-xs font-bold tracking-wide uppercase ${
@@ -352,7 +353,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-500 font-medium">
-              Grade {student.gradeClass} • {student.schoolName} • Enrolled: {student.enrollmentDate}
+              {student.gradeClass ? `${formatGradeClass(student.gradeClass)} • ` : ''}{student.schoolName ? `${student.schoolName} • ` : ''}Enrolled: {student.enrollmentDate}
             </p>
           </div>
         </div>
@@ -459,14 +460,61 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
             <form onSubmit={handleSaveProfile} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Student Full Name</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">First Name</label>
                   <input
                     type="text"
-                    value={profileForm.fullName || ''}
-                    onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })}
+                    value={profileForm.firstName || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const lastName = profileForm.lastName || '';
+                      setProfileForm({ 
+                        ...profileForm, 
+                        firstName: val,
+                        displayName: `${val} ${lastName}`.trim()
+                      });
+                    }}
                     className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                     required
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    value={profileForm.lastName || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const firstName = profileForm.firstName || '';
+                      setProfileForm({ 
+                        ...profileForm, 
+                        lastName: val,
+                        displayName: `${firstName} ${val}`.trim()
+                      });
+                    }}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Display Name</label>
+                  <input
+                    type="text"
+                    value={profileForm.displayName || ''}
+                    onChange={(e) => setProfileForm({ ...profileForm, displayName: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Mode of Learning</label>
+                  <select
+                    value={profileForm.modeOfLearning || 'In-person'}
+                    onChange={(e) => setProfileForm({ ...profileForm, modeOfLearning: e.target.value as 'In-person' | 'Online' })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
+                  >
+                    <option value="In-person">In-person</option>
+                    <option value="Online">Online</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Status</label>
@@ -477,6 +525,27 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                   >
                     <option value="Active">{studentDetailProperties.section1.activeOption}</option>
                     <option value="Inactive">{studentDetailProperties.section1.inactiveOption}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Grade / Class</label>
+                  <input
+                    type="text"
+                    value={profileForm.gradeClass || ''}
+                    onChange={(e) => setProfileForm({ ...profileForm, gradeClass: e.target.value })}
+                    placeholder="e.g. 5 or Grade 5"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Dominant Hand</label>
+                  <select
+                    value={profileForm.dominantHand || 'Right'}
+                    onChange={(e) => setProfileForm({ ...profileForm, dominantHand: e.target.value as DominantHand })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
+                  >
+                    <option value="Right">Right-handed</option>
+                    <option value="Left">Left-handed</option>
                   </select>
                 </div>
                 <div>
@@ -559,14 +628,20 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Student Profile</span>
-                  <p className="text-sm font-black text-slate-900">{student.fullName}</p>
-                  <p className="text-xs text-slate-600">DOB: {student.dateOfBirth} ({student.gender})</p>
-                  <p className="text-xs text-slate-600">Hand: {student.dominantHand} Handed</p>
+                  <p className="text-sm font-black text-slate-900">{student.displayName}</p>
+                  <p className="text-xs text-slate-600">
+                    {student.age ? `Age: ${student.age} yrs` : (student.dateOfBirth ? `DOB: ${student.dateOfBirth}` : '')} {student.gender ? `(${student.gender})` : ''}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    {student.gradeClass ? `${formatGradeClass(student.gradeClass)} • ` : ''}{formatDominantHand(student.dominantHand)} • <span className="font-bold text-[#0E3589]">{student.modeOfLearning || 'In-person'}</span>
+                  </p>
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Parent &amp; Contact</span>
-                  <p className="text-sm font-black text-slate-900">{student.parentName} ({student.relationship})</p>
+                  <p className="text-sm font-black text-slate-900">
+                    {student.parentName} {student.relationship ? `(${student.relationship})` : ''}
+                  </p>
                   <p className="text-xs text-slate-600">WA: {student.whatsappMobile}</p>
                   <p className="text-xs text-slate-600">{student.email}</p>
                 </div>
@@ -575,7 +650,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Schedule &amp; Slot</span>
                   <p className="text-sm font-black text-slate-900">{student.preferredDays}</p>
                   <p className="text-xs text-[#0E3589] font-bold">{student.preferredSlot}</p>
-                  <p className="text-xs text-slate-600">Medium: {student.instructionMedium}</p>
+                  {student.schoolName && <p className="text-xs text-slate-600">School: {student.schoolName}</p>}
                 </div>
               </div>
 
@@ -594,12 +669,12 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
                   <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                    <span className="text-slate-400 text-[10px] block font-sans">Username:</span>
-                    <strong className="text-slate-900">{student.username}</strong>
+                    <span className="text-slate-400 text-[10px] block font-sans">Login ID (Email):</span>
+                    <strong className="text-slate-900">{student.email || student.username}</strong>
                   </div>
                   <div className="bg-white p-2.5 rounded-xl border border-slate-200">
                     <span className="text-slate-400 text-[10px] block font-sans">Password:</span>
-                    <strong className="text-slate-900">{student.password || 'smartpen123'}</strong>
+                    <strong className="text-slate-900">{student.password || '••••••••'}</strong>
                   </div>
                 </div>
               </div>
@@ -622,7 +697,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                   <span>8 Classes Completed in Sequence • Fee Receipt Due</span>
                 </p>
                 <p className="text-[11px] text-orange-800 font-medium">
-                  {student.fullName} has completed 8 classes (Classes {(Math.floor(attendedCount / 8) - 1) * 8 + 1} - {Math.floor(attendedCount / 8) * 8}). ₹1,600 fee receipt is pending.
+                  {student.displayName} has completed 8 classes (Classes {(Math.floor(attendedCount / 8) - 1) * 8 + 1} - {Math.floor(attendedCount / 8) * 8}). ₹1,600 fee receipt is pending.
                 </p>
               </div>
               <button

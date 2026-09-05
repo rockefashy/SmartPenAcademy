@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
-import { db } from './db.ts';
+import { db } from './supabaseDb.ts';
 import { User, StudentProfile } from '../src/types';
+import { sendFeeReminderEmail } from './email.ts';
 
 // ================= RATE LIMITING FOR MUTATING TOOLS =================
 interface RateLimitRecord {
@@ -294,6 +295,17 @@ export function getToolsForRole(role?: string): FunctionDeclaration[] {
   if (role === 'admin') {
     return ALL_TOOLS;
   }
+  if (role === 'coach') {
+    // Coach tools: Scoped to their assigned students (Attendance, Profiles, Roster, Progress Reports)
+    return [
+      navigateToPageTool,
+      updateAttendanceTool,
+      getAttendanceTool,
+      getStudentProfileTool,
+      listStudentsTool,
+      generateProgressReportTool
+    ];
+  }
   if (role === 'student') {
     // Read-only tools scoped to own profile + navigation tools for enrollment, demo, and GPAY payment
     return [navigateToPageTool, getAttendanceTool, getFeeStatusTool, getStudentProfileTool];
@@ -303,8 +315,8 @@ export function getToolsForRole(role?: string): FunctionDeclaration[] {
 }
 
 // Helper to find student by fuzzy name or ID
-function findStudent(query: string): StudentProfile | undefined {
-  const students = db.getAllStudents();
+async function findStudent(query: string): Promise<StudentProfile | undefined> {
+  const students = await db.getAllStudents();
   const cleanQ = query.toLowerCase().trim().replace(/^(student|std|the student)\s+/i, '');
   
   // Exact ID
@@ -312,16 +324,16 @@ function findStudent(query: string): StudentProfile | undefined {
   if (match) return match;
 
   // Exact Name
-  match = students.find(s => s.fullName.toLowerCase() === cleanQ);
+  match = students.find(s => s.displayName.toLowerCase() === cleanQ);
   if (match) return match;
 
   // Partial Name Match
-  match = students.find(s => s.fullName.toLowerCase().includes(cleanQ) || cleanQ.includes(s.fullName.toLowerCase()));
+  match = students.find(s => s.displayName.toLowerCase().includes(cleanQ) || cleanQ.includes(s.displayName.toLowerCase()));
   if (match) return match;
 
   // First name match
   match = students.find(s => {
-    const firstName = s.fullName.toLowerCase().split(' ')[0];
+    const firstName = s.displayName.toLowerCase().split(' ')[0];
     return cleanQ.includes(firstName) || firstName.includes(cleanQ);
   });
   if (match) return match;
@@ -347,9 +359,9 @@ export async function executeTool(
 ): Promise<ToolCallResult> {
   const today = new Date().toISOString().split('T')[0];
 
-  const logAudit = (result: any, summary: string, success: boolean): ToolCallResult => {
+  const logAudit = async (result: any, summary: string, success: boolean): Promise<ToolCallResult> => {
     try {
-      db.recordToolAuditLog({
+      await db.recordToolAuditLog({
         actorId: userContext?.id || 'anonymous',
         actorUsername: userContext?.username || 'anonymous',
         actorRole: userContext?.role || 'student',
@@ -377,28 +389,32 @@ export async function executeTool(
   try {
     switch (name) {
       case 'updateAttendance': {
-        if (userContext?.role !== 'admin') {
-          return logAudit(null, 'Access Denied: Only administrators can update student attendance records.', false);
+        if (userContext?.role !== 'admin' && userContext?.role !== 'coach') {
+          return await logAudit(null, 'Access Denied: Only administrators and assigned coaches can update student attendance records.', false);
         }
 
         const rateCheck = checkToolRateLimit(userContext?.id || 'admin', 'updateAttendance', 15, 60 * 1000);
         if (!rateCheck.allowed) {
-          return logAudit(null, `Rate limit exceeded: Too many attendance updates requested in a short period. Please wait ${rateCheck.retryAfter} seconds before updating attendance again.`, false);
+          return await logAudit(null, `Rate limit exceeded: Too many attendance updates requested in a short period. Please wait ${rateCheck.retryAfter} seconds before updating attendance again.`, false);
         }
 
         const rawList = Array.isArray(args.studentNames) ? args.studentNames : [args.studentNames || 'all'];
         const targetDate = args.date === 'today' || !args.date ? today : args.date;
         const status = args.status === 'Absent' ? 'Absent' : 'Present';
-        const notes = args.notes || 'Marked via SmartPen AI Assistant';
+        const notes = args.notes || (userContext.role === 'coach' ? `Marked by Coach ${userContext.displayName}` : 'Marked via SmartPen AI Assistant');
 
         const updatedStudents: { id: string; name: string }[] = [];
         const recordsToSave: any[] = [];
         const notFound: string[] = [];
+        const unauthorized: string[] = [];
 
-        // If command says 'all', get all active students
+        // If command says 'all', get eligible active students
         if (rawList.some((s: string) => s.toLowerCase() === 'all' || s.toLowerCase() === 'all students')) {
-          const activeStudents = db.getAllStudents().filter(s => s.status === 'Active');
-          activeStudents.forEach(st => {
+          let targetStudents = (await db.getAllStudents()).filter(s => s.status === 'Active');
+          if (userContext.role === 'coach') {
+            targetStudents = targetStudents.filter(s => s.coachId === userContext.id);
+          }
+          targetStudents.forEach(st => {
             recordsToSave.push({
               studentId: st.id,
               date: targetDate,
@@ -406,12 +422,16 @@ export async function executeTool(
               status,
               notes
             });
-            updatedStudents.push({ id: st.id, name: st.fullName });
+            updatedStudents.push({ id: st.id, name: st.displayName });
           });
         } else {
           for (const item of rawList) {
-            const student = findStudent(String(item));
+            const student = await findStudent(String(item));
             if (student) {
+              if (userContext.role === 'coach' && student.coachId !== userContext.id) {
+                unauthorized.push(student.displayName);
+                continue;
+              }
               recordsToSave.push({
                 studentId: student.id,
                 date: targetDate,
@@ -419,7 +439,7 @@ export async function executeTool(
                 status,
                 notes
               });
-              updatedStudents.push({ id: student.id, name: student.fullName });
+              updatedStudents.push({ id: student.id, name: student.displayName });
             } else {
               notFound.push(String(item));
             }
@@ -427,16 +447,19 @@ export async function executeTool(
         }
 
         if (recordsToSave.length > 0) {
-          db.saveAttendanceBatch(recordsToSave);
+          await db.saveAttendanceBatch(recordsToSave);
         }
 
         const namesStr = updatedStudents.map(s => s.name).join(', ');
         let summary = `✓ Successfully marked attendance as **${status}** for ${updatedStudents.length} student(s): **${namesStr}** on **${targetDate}**.`;
+        if (unauthorized.length > 0) {
+          summary += `\n⚠️ Note: You are only permitted to update attendance for your assigned students (Skipped: ${unauthorized.join(', ')}).`;
+        }
         if (notFound.length > 0) {
           summary += ` (Could not match: ${notFound.join(', ')})`;
         }
 
-        return logAudit({ updatedCount: updatedStudents.length, students: updatedStudents, date: targetDate, status }, summary, true);
+        return await logAudit({ updatedCount: updatedStudents.length, students: updatedStudents, date: targetDate, status }, summary, true);
       }
 
       case 'getAttendance': {
@@ -444,45 +467,61 @@ export async function executeTool(
         let student: StudentProfile | undefined;
         if (userContext?.role === 'student') {
           if (!userContext.studentId) {
-            return logAudit(null, 'Access Denied: No student ID linked to your student account.', false);
+            return await logAudit(null, 'Access Denied: No student ID linked to your student account.', false);
           }
-          student = db.getStudentById(userContext.studentId);
+          student = await db.getStudentById(userContext.studentId);
           // If the student query explicitly targets someone else, reject with privacy error
           if (args.studentNameOrId) {
-            const requestedStudent = findStudent(args.studentNameOrId);
+            const requestedStudent = await findStudent(args.studentNameOrId);
             if (requestedStudent && requestedStudent.id !== userContext.studentId) {
-              return logAudit(null, 'Privacy Policy: Student accounts can only view their own attendance records.', false);
+              return await logAudit(null, 'Privacy Policy: Student accounts can only view their own attendance records.', false);
             }
           }
         } else if (args.studentNameOrId) {
-          student = findStudent(args.studentNameOrId);
+          student = await findStudent(args.studentNameOrId);
+          if (student && userContext?.role === 'coach' && student.coachId !== userContext.id) {
+            return await logAudit(null, `Scoping Policy: As a coach, you can only view attendance for students assigned to you. "${student.displayName}" is not assigned to your roster.`, false);
+          }
         }
 
         if (student) {
-          const records = db.getAttendanceByStudent(student.id);
+          const records = await db.getAttendanceByStudent(student.id);
           const presentCount = records.filter(r => r.status === 'Present').length;
           const absentCount = records.filter(r => r.status === 'Absent').length;
           const currentCycleProgress = presentCount % 8;
 
-          return logAudit({
-            studentName: student.fullName,
+          return await logAudit({
+            studentName: student.displayName,
             studentId: student.id,
             totalPresent: presentCount,
             totalAbsent: absentCount,
             currentCycleProgress: `${currentCycleProgress} / 8 classes completed in current cycle`,
             recentRecords: records.slice(-5)
-          }, `📊 **${student.fullName}** has attended **${presentCount} classes** (${absentCount} absent). Current 8-class cycle: **${currentCycleProgress}/8 classes completed**.`, true);
+          }, `📊 **${student.displayName}** has attended **${presentCount} classes** (${absentCount} absent). Current 8-class cycle: **${currentCycleProgress}/8 classes completed**.`, true);
         } else {
+          if (userContext?.role === 'coach') {
+            const myStudents = await db.getStudentsByCoachId(userContext.id);
+            const summaryData: string[] = [];
+            for (const s of myStudents) {
+              const studentRecs = await db.getAttendanceByStudent(s.id);
+              const count = studentRecs.filter(r => r.status === 'Present').length;
+              summaryData.push(`${s.displayName}: ${count} classes`);
+            }
+            return await logAudit({ totalStudents: myStudents.length, summary: summaryData }, `📊 Attendance Summary for your ${myStudents.length} assigned student(s):\n${summaryData.length === 0 ? 'No students currently assigned.' : summaryData.map(s => `• ${s}`).join('\n')}`, true);
+          }
+
           // Broad academy summary is admin-only
           if (userContext?.role !== 'admin') {
-            return logAudit(null, 'Access Denied: Only administrators can view academy-wide attendance summaries.', false);
+            return await logAudit(null, 'Access Denied: Only administrators can view academy-wide attendance summaries.', false);
           }
-          const allStudents = db.getAllStudents();
-          const summaryData = allStudents.map(s => {
-            const count = db.getAttendanceByStudent(s.id).filter(r => r.status === 'Present').length;
-            return `${s.fullName}: ${count} classes`;
-          });
-          return logAudit({ totalStudents: allStudents.length, summary: summaryData }, `📊 Attendance Summary for all ${allStudents.length} students:\n${summaryData.map(s => `• ${s}`).join('\n')}`, true);
+          const allStudents = await db.getAllStudents();
+          const summaryData: string[] = [];
+          for (const s of allStudents) {
+            const studentRecs = await db.getAttendanceByStudent(s.id);
+            const count = studentRecs.filter(r => r.status === 'Present').length;
+            summaryData.push(`${s.displayName}: ${count} classes`);
+          }
+          return await logAudit({ totalStudents: allStudents.length, summary: summaryData }, `📊 Attendance Summary for all ${allStudents.length} students:\n${summaryData.map(s => `• ${s}`).join('\n')}`, true);
         }
       }
 
@@ -491,29 +530,30 @@ export async function executeTool(
         let student: StudentProfile | undefined;
         if (userContext?.role === 'student') {
           if (!userContext.studentId) {
-            return logAudit(null, 'Access Denied: No student ID linked to your student account.', false);
+            return await logAudit(null, 'Access Denied: No student ID linked to your student account.', false);
           }
-          student = db.getStudentById(userContext.studentId);
+          student = await db.getStudentById(userContext.studentId);
           if (args.studentNameOrId) {
-            const requestedStudent = findStudent(args.studentNameOrId);
+            const requestedStudent = await findStudent(args.studentNameOrId);
             if (requestedStudent && requestedStudent.id !== userContext.studentId) {
-              return logAudit(null, 'Privacy Policy: Student accounts can only view their own fee receipts and status.', false);
+              return await logAudit(null, 'Privacy Policy: Student accounts can only view their own fee receipts and status.', false);
             }
           }
         } else if (args.studentNameOrId) {
-          student = findStudent(args.studentNameOrId);
+          student = await findStudent(args.studentNameOrId);
         }
 
         if (student) {
-          const presentCount = db.getAttendanceByStudent(student.id).filter(r => r.status === 'Present').length;
-          const fees = db.getFeesByStudent(student.id);
+          const attendanceRecs = await db.getAttendanceByStudent(student.id);
+          const presentCount = attendanceRecs.filter(r => r.status === 'Present').length;
+          const fees = await db.getFeesByStudent(student.id);
           const completedCycles = Math.floor(presentCount / 8);
           const isFeeDue = completedCycles > 0 && fees.filter(f => f.isPaid).length < completedCycles;
 
           const gpayLink = `upi://pay?pa=8861751000@okbizaxis&pn=SmartPen%20Academy&am=1600&cu=INR`;
 
-          return logAudit({
-            studentName: student.fullName,
+          return await logAudit({
+            studentName: student.displayName,
             studentId: student.id,
             classesAttended: presentCount,
             completedCycles,
@@ -521,29 +561,29 @@ export async function executeTool(
             paidReceiptsCount: fees.filter(f => f.isPaid).length,
             gpayNumber: '8861751000',
             gpayLink
-          }, `💳 **Fee Status for ${student.fullName}**:\n• Status: **${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ No pending Fee'}**\n• Classes Attended: ${presentCount} (${completedCycles} completed 8-class cycles)\n• Paid Receipts: ${fees.filter(f => f.isPaid).length}\n• Direct GPAY Payment: **8861751000**`, true);
+          }, `💳 **Fee Status for ${student.displayName}**:\n• Status: **${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ No pending Fee'}**\n• Classes Attended: ${presentCount} (${completedCycles} completed 8-class cycles)\n• Paid Receipts: ${fees.filter(f => f.isPaid).length}\n• Direct GPAY Payment: **8861751000**`, true);
         } else {
           if (userContext?.role !== 'admin') {
-            return logAudit(null, 'Access Denied: Only administrators can view academy fee alerts.', false);
+            return await logAudit(null, 'Access Denied: Only administrators can view academy fee alerts.', false);
           }
-          const alerts = db.getAlerts().filter(a => a.type === 'fee_due' && !a.isRead);
-          return logAudit({ pendingAlerts: alerts }, `💳 **Pending Fee Alerts (${alerts.length})**:\n${alerts.length === 0 ? '✓ No pending fee dues at this moment.' : alerts.map(a => `• **${a.title}**: ${a.message}`).join('\n')}`, true);
+          const alerts = (await db.getAlerts()).filter(a => a.type === 'fee_due' && !a.isRead);
+          return await logAudit({ pendingAlerts: alerts }, `💳 **Pending Fee Alerts (${alerts.length})**:\n${alerts.length === 0 ? '✓ No pending fee dues at this moment.' : alerts.map(a => `• **${a.title}**: ${a.message}`).join('\n')}`, true);
         }
       }
 
       case 'recordFeePayment': {
         if (userContext?.role !== 'admin') {
-          return logAudit(null, 'Access Denied: Only administrators can record coaching fee payments.', false);
+          return await logAudit(null, 'Access Denied: Only administrators can record coaching fee payments.', false);
         }
 
         const rateCheck = checkToolRateLimit(userContext?.id || 'admin', 'recordFeePayment', 10, 60 * 1000);
         if (!rateCheck.allowed) {
-          return logAudit(null, `Rate limit exceeded: Too many fee payment records requested in a short period. Please wait ${rateCheck.retryAfter} seconds before recording more payments.`, false);
+          return await logAudit(null, `Rate limit exceeded: Too many fee payment records requested in a short period. Please wait ${rateCheck.retryAfter} seconds before recording more payments.`, false);
         }
 
-        const student = findStudent(args.studentNameOrId);
+        const student = await findStudent(args.studentNameOrId);
         if (!student) {
-          return logAudit(null, `Could not find student matching "${args.studentNameOrId}".`, false);
+          return await logAudit(null, `Could not find student matching "${args.studentNameOrId}".`, false);
         }
 
         const amount = Number(args.amount) || 1600;
@@ -552,19 +592,19 @@ export async function executeTool(
 
         // Two-step confirmation gate for irreversible financial mutations
         if (!isConfirmed) {
-          return logAudit({
+          return await logAudit({
             draft: true,
-            studentName: student.fullName,
+            studentName: student.displayName,
             studentId: student.id,
             amount,
             cyclePeriod,
             paymentMethod: args.paymentMethod || 'GPAY (8861751000)'
-          }, `⚠️ **Confirmation Required Before Recording Payment**\n\n• **Student**: ${student.fullName} (ID: ${student.id})\n• **Amount**: ₹${amount}\n• **Cycle**: ${cyclePeriod}\n• **Method**: ${args.paymentMethod || 'GPAY (8861751000)'}\n\nPlease reply **"Confirm payment"** or **"Yes, record fee for ${student.fullName}"** to finalize this financial transaction.`, true);
+          }, `⚠️ **Confirmation Required Before Recording Payment**\n\n• **Student**: ${student.displayName} (ID: ${student.id})\n• **Amount**: ₹${amount}\n• **Cycle**: ${cyclePeriod}\n• **Method**: ${args.paymentMethod || 'GPAY (8861751000)'}\n\nPlease reply **"Confirm payment"** or **"Yes, record fee for ${student.displayName}"** to finalize this financial transaction.`, true);
         }
 
         const receiptNo = `REC-${Date.now().toString().slice(-4)}`;
 
-        const feeRecord = db.saveFeeRecord({
+        const feeRecord = await db.saveFeeRecord({
           studentId: student.id,
           yearMonth: cyclePeriod,
           amount,
@@ -576,71 +616,90 @@ export async function executeTool(
           receiptNo
         });
 
-        return logAudit(feeRecord, `✓ **Payment Confirmed & Recorded**: ₹${amount} for **${student.fullName}** (${cyclePeriod}). Receipt Number: **${receiptNo}** (${args.paymentMethod || 'GPAY'}).`, true);
+        return await logAudit(feeRecord, `✓ **Payment Confirmed & Recorded**: ₹${amount} for **${student.displayName}** (${cyclePeriod}). Receipt Number: **${receiptNo}** (${args.paymentMethod || 'GPAY'}).`, true);
       }
 
       case 'sendFeeReminder': {
         if (userContext?.role !== 'admin') {
-          return logAudit(null, 'Access Denied: Only administrators can dispatch fee reminders.', false);
+          return await logAudit(null, 'Access Denied: Only administrators can dispatch fee reminders.', false);
         }
 
         const rateCheck = checkToolRateLimit(userContext?.id || 'admin', 'sendFeeReminder', 10, 60 * 1000);
         if (!rateCheck.allowed) {
-          return logAudit(null, `Rate limit exceeded: Too many fee reminders requested in a short period. Please wait ${rateCheck.retryAfter} seconds before sending more reminders.`, false);
+          return await logAudit(null, `Rate limit exceeded: Too many fee reminders requested in a short period. Please wait ${rateCheck.retryAfter} seconds before sending more reminders.`, false);
         }
 
-        const student = findStudent(args.studentNameOrId);
+        const student = await findStudent(args.studentNameOrId);
         if (!student) {
-          return logAudit(null, `Could not find student matching "${args.studentNameOrId}".`, false);
+          return await logAudit(null, `Could not find student matching "${args.studentNameOrId}".`, false);
         }
 
         const amount = Number(args.amount) || 1600;
         const gpayLink = `upi://pay?pa=8861751000@okbizaxis&pn=SmartPen%20Academy&am=${amount}&cu=INR`;
 
-        const reminder = db.saveFeeReminder({
+        const reminder = await db.saveFeeReminder({
           studentId: student.id,
           parentEmail: student.email,
           parentName: student.parentName,
-          studentName: student.fullName,
+          studentName: student.displayName,
           amount,
           month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
           gpayLink,
           status: 'Sent'
         });
 
-        return logAudit(reminder, `📲 Dispatched Fee Reminder of **₹${amount}** to **${student.parentName}** (${student.email}) for student **${student.fullName}** with Google Pay UPI link to **8861751000**.`, true);
+        if (student.email) {
+          sendFeeReminderEmail({
+            toEmail: student.email,
+            parentName: student.parentName,
+            studentName: student.displayName,
+            amount,
+            gpayLink
+          }).catch(err => {
+            console.error('[Resend Background Error] AI agent fee reminder email dispatch:', err);
+          });
+        }
+
+        return await logAudit(reminder, `📲 Dispatched Fee Reminder of **₹${amount}** to **${student.parentName}** (${student.email}) for student **${student.displayName}** with Google Pay UPI link to **8861751000**.`, true);
       }
 
       case 'getStudentProfile': {
         let query = args.studentNameOrId;
         if (userContext?.role === 'student') {
           if (!userContext.studentId) {
-            return logAudit(null, 'Access Denied: No student profile linked to your account.', false);
+            return await logAudit(null, 'Access Denied: No student profile linked to your account.', false);
           }
           // Student can only request their own profile
           if (query) {
-            const requestedStudent = findStudent(query);
+            const requestedStudent = await findStudent(query);
             if (requestedStudent && requestedStudent.id !== userContext.studentId) {
-              return logAudit(null, 'Privacy Policy: You can only view your own student profile details.', false);
+              return await logAudit(null, 'Privacy Policy: You can only view your own student profile details.', false);
             }
           }
           query = userContext.studentId;
         }
 
-        const student = findStudent(query);
+        const student = await findStudent(query);
         if (!student) {
-          return logAudit(null, `No student profile found matching "${query}".`, false);
+          return await logAudit(null, `No student profile found matching "${query}".`, false);
         }
 
-        return logAudit(student, `📋 **Student Profile: ${student.fullName}** (${student.status})\n• **Grade & School**: ${student.gradeClass} at ${student.schoolName}\n• **Hand / Script**: ${student.dominantHand} Hand • ${student.scriptsRequired.join(', ')}\n• **Batch Schedule**: ${student.preferredDays} at **${student.preferredSlot}**\n• **Parent Contact**: ${student.parentName} (${student.whatsappMobile}, ${student.email})\n• **Baseline Speed**: ${student.baselineSpeedWpm || 16} WPM`, true);
+        if (userContext?.role === 'coach' && student.coachId !== userContext.id) {
+          return await logAudit(null, `Privacy Scoping: Coach access is restricted to assigned students. "${student.displayName}" is not assigned to your coaching roster.`, false);
+        }
+
+        return await logAudit(student, `📋 **Student Profile: ${student.displayName}** (${student.status})\n• **Coach**: ${student.coachName || 'Unassigned'}\n• **Grade & School**: ${student.gradeClass} at ${student.schoolName}\n• **Hand / Script**: ${student.dominantHand} Hand • ${student.scriptsRequired.join(', ')}\n• **Batch Schedule**: ${student.preferredDays} at **${student.preferredSlot}**\n• **Parent Contact**: ${student.parentName} (${student.whatsappMobile}, ${student.email})\n• **Baseline Speed**: ${student.baselineSpeedWpm || 16} WPM`, true);
       }
 
       case 'listStudents': {
-        if (userContext?.role !== 'admin') {
-          return logAudit(null, 'Access Denied: Only administrators can view the full roster of students.', false);
+        if (userContext?.role !== 'admin' && userContext?.role !== 'coach') {
+          return await logAudit(null, 'Access Denied: Only administrators and coaches can view student rosters.', false);
         }
 
-        const students = db.getAllStudents();
+        let students = userContext.role === 'coach' 
+          ? await db.getStudentsByCoachId(userContext.id)
+          : await db.getAllStudents();
+
         const statusFilter = args.status?.toLowerCase();
         let filtered = students;
         if (statusFilter && statusFilter !== 'all') {
@@ -648,52 +707,57 @@ export async function executeTool(
         }
         if (args.search) {
           const q = args.search.toLowerCase();
-          filtered = filtered.filter(s => s.fullName.toLowerCase().includes(q) || s.gradeClass.toLowerCase().includes(q));
+          filtered = filtered.filter(s => s.displayName.toLowerCase().includes(q) || s.gradeClass.toLowerCase().includes(q));
         }
 
-        const listStr = filtered.map((s, idx) => `${idx + 1}. **${s.fullName}** (${s.gradeClass}) - ${s.preferredDays} @ ${s.preferredSlot} [${s.status}]`).join('\n');
+        const listStr = filtered.map((s, idx) => `${idx + 1}. **${s.displayName}** (${s.gradeClass}) - ${s.preferredDays} @ ${s.preferredSlot} [${s.status}]${s.coachName ? ` • Coach: ${s.coachName}` : ''}`).join('\n');
 
-        return logAudit({ count: filtered.length, students: filtered }, `📋 **Enrolled Students (${filtered.length})**:\n${listStr}`, true);
+        const title = userContext.role === 'coach' ? `Your Assigned Students (${filtered.length})` : `Enrolled Students (${filtered.length})`;
+        return await logAudit({ count: filtered.length, students: filtered }, `📋 **${title}**:\n${filtered.length === 0 ? 'No students match your criteria.' : listStr}`, true);
       }
 
       case 'getAdminAlerts': {
         if (userContext?.role !== 'admin') {
-          return logAudit(null, 'Access Denied: Only administrators can view operational alerts.', false);
+          return await logAudit(null, 'Access Denied: Only administrators can view operational alerts.', false);
         }
 
-        const alerts = db.getAlerts();
+        const alerts = await db.getAlerts();
         const unread = alerts.filter(a => !a.isRead);
         const targetList = args.unreadOnly ? unread : alerts;
 
-        return logAudit({ total: alerts.length, unreadCount: unread.length, alerts: targetList }, `🔔 **System Alerts (${unread.length} unread / ${alerts.length} total)**:\n${targetList.length === 0 ? '✓ All alerts are cleared!' : targetList.map(a => `• **${a.title}**: ${a.message}`).join('\n')}`, true);
+        return await logAudit({ total: alerts.length, unreadCount: unread.length, alerts: targetList }, `🔔 **System Alerts (${unread.length} unread / ${alerts.length} total)**:\n${targetList.length === 0 ? '✓ All alerts are cleared!' : targetList.map(a => `• **${a.title}**: ${a.message}`).join('\n')}`, true);
       }
 
       case 'getDemoBookings': {
         if (userContext?.role !== 'admin') {
-          return logAudit(null, 'Access Denied: Only administrators can access prospective trial bookings.', false);
+          return await logAudit(null, 'Access Denied: Only administrators can access prospective trial bookings.', false);
         }
 
-        const bookings = db.getDemoBookings();
-        return logAudit({ count: bookings.length, bookings }, `📅 **Free Demo Class Bookings (${bookings.length})**:\n${bookings.length === 0 ? 'No trial bookings yet.' : bookings.map(b => `• **${b.studentName}** (Age ${b.age}) - Slot: ${b.preferredSlot} - Contact: ${b.contactNumber} [${b.status}]`).join('\n')}`, true);
+        const bookings = await db.getDemoBookings();
+        return await logAudit({ count: bookings.length, bookings }, `📅 **Free Demo Class Bookings (${bookings.length})**:\n${bookings.length === 0 ? 'No trial bookings yet.' : bookings.map(b => `• **${b.studentName}** (Age ${b.age}) - Date: ${b.preferredDate} (${b.preferredTimeSlot}) - Contact: ${b.contactNumber} [${b.status}]`).join('\n')}`, true);
       }
 
       case 'generateProgressReport': {
-        if (userContext?.role !== 'admin') {
-          return logAudit(null, 'Access Denied: Only administrators can create progress reports.', false);
+        if (userContext?.role !== 'admin' && userContext?.role !== 'coach') {
+          return await logAudit(null, 'Access Denied: Only administrators and assigned coaches can create progress reports.', false);
         }
 
         const rateCheck = checkToolRateLimit(userContext?.id || 'admin', 'generateProgressReport', 10, 60 * 1000);
         if (!rateCheck.allowed) {
-          return logAudit(null, `Rate limit exceeded: Too many progress reports generated in a short period. Please wait ${rateCheck.retryAfter} seconds before generating more reports.`, false);
+          return await logAudit(null, `Rate limit exceeded: Too many progress reports generated in a short period. Please wait ${rateCheck.retryAfter} seconds before generating more reports.`, false);
         }
 
-        const student = findStudent(args.studentNameOrId);
+        const student = await findStudent(args.studentNameOrId);
         if (!student) {
-          return logAudit(null, `Could not find student matching "${args.studentNameOrId}".`, false);
+          return await logAudit(null, `Could not find student matching "${args.studentNameOrId}".`, false);
+        }
+
+        if (userContext.role === 'coach' && student.coachId !== userContext.id) {
+          return await logAudit(null, `Scoping Policy: You can only generate progress reports for students assigned to you. "${student.displayName}" is not assigned to your coaching roster.`, false);
         }
 
         const stars = Number(args.overallStars) || 5;
-        const report = db.saveProgressReport({
+        const report = await db.saveProgressReport({
           studentId: student.id,
           reportDate: today,
           reportTitle: 'Progress Report',
@@ -714,7 +778,7 @@ export async function executeTool(
           savedToFolder: '/progress_reports/'
         });
 
-        return logAudit(report, `⭐ Generated Progress Report (**${report.milestoneTitle}**) for **${student.fullName}** with **${stars} Stars** rating!`, true);
+        return await logAudit(report, `⭐ Generated Progress Report (**${report.milestoneTitle}**) for **${student.displayName}** with **${stars} Stars** rating!`, true);
       }
 
       case 'navigateToPage': {
@@ -746,7 +810,7 @@ export async function executeTool(
           actionDescription = 'Navigating to Course Syllabus & Modules...';
         } else if (target.includes('admin') || target.includes('dashboard')) {
           if (userContext?.role !== 'admin') {
-            return logAudit(null, 'Access Denied: Only administrators can access the Admin Workspace.', false);
+            return await logAudit(null, 'Access Denied: Only administrators can access the Admin Workspace.', false);
           }
           pageTitle = 'Administrator Workspace';
           resolvedView = 'admin';
@@ -766,7 +830,7 @@ export async function executeTool(
           reason
         };
 
-        return logAudit(
+        return await logAudit(
           navPayload,
           `🧭 **${pageTitle}**: ${actionDescription}`,
           true
@@ -774,11 +838,11 @@ export async function executeTool(
       }
 
       default:
-        return logAudit(null, `Tool ${name} is not recognized.`, false);
+        return await logAudit(null, `Tool ${name} is not recognized.`, false);
     }
   } catch (error: any) {
     console.error(`Error executing tool ${name}:`, error);
-    return logAudit(null, `Error executing tool ${name}: ${error.message || error}`, false);
+    return await logAudit(null, `Error executing tool ${name}: ${error.message || error}`, false);
   }
 }
 
@@ -815,10 +879,10 @@ export async function runLocalAgent(
     const status = prevContent.includes('absent') ? 'Absent' : 'Present';
     let targetNames: string[] = [];
 
-    const allStudents = db.getAllStudents();
+    const allStudents = await db.getAllStudents();
     allStudents.forEach(st => {
-      if (prevContent.includes(st.fullName.toLowerCase())) {
-        targetNames.push(st.fullName);
+      if (prevContent.includes(st.displayName.toLowerCase())) {
+        targetNames.push(st.displayName);
       }
     });
 
@@ -842,10 +906,10 @@ export async function runLocalAgent(
   // Handle follow-up confirmation for fee payment
   if (isAwaitingFeeConfirm && isExplicitConfirmationOnly && userContext?.role === 'admin') {
     let studentQuery = '';
-    const allStudents = db.getAllStudents();
+    const allStudents = await db.getAllStudents();
     allStudents.forEach(st => {
-      if (prevContent.includes(st.fullName.toLowerCase())) {
-        studentQuery = st.fullName;
+      if (prevContent.includes(st.displayName.toLowerCase())) {
+        studentQuery = st.displayName;
       }
     });
 
@@ -908,11 +972,11 @@ export async function runLocalAgent(
       targetNames = ['all'];
     } else {
       // Find students from database mentioned in prompt
-      const allStudents = db.getAllStudents();
+      const allStudents = await db.getAllStudents();
       allStudents.forEach(st => {
-        const firstName = st.fullName.toLowerCase().split(' ')[0];
-        if (p.includes(firstName) || p.includes(st.fullName.toLowerCase()) || p.includes(st.id.toLowerCase())) {
-          targetNames.push(st.fullName);
+        const firstName = st.displayName.toLowerCase().split(' ')[0];
+        if (p.includes(firstName) || p.includes(st.displayName.toLowerCase()) || p.includes(st.id.toLowerCase())) {
+          targetNames.push(st.displayName);
         }
       });
 
@@ -922,7 +986,7 @@ export async function runLocalAgent(
         numberMatches.forEach(m => {
           const num = parseInt(m.replace(/\D/g, ''), 10) - 1;
           if (num >= 0 && num < allStudents.length) {
-            targetNames.push(allStudents[num].fullName);
+            targetNames.push(allStudents[num].displayName);
           }
         });
       }
@@ -932,10 +996,10 @@ export async function runLocalAgent(
         const afterFor = prompt.split(/for|to|students?/i)[1];
         if (afterFor) {
           const candidates = afterFor.split(/,|and|\bfor\b|\btoday\b/i).map(s => s.trim()).filter(Boolean);
-          candidates.forEach(c => {
-            const found = findStudent(c);
-            if (found) targetNames.push(found.fullName);
-          });
+          for (const c of candidates) {
+            const found = await findStudent(c);
+            if (found) targetNames.push(found.displayName);
+          }
         }
       }
     }
@@ -950,8 +1014,9 @@ export async function runLocalAgent(
     if (isMultiOrAmbiguous) {
       const studentListDisplay = targetNames.includes('all') ? 'All Active Students' : targetNames.join(', ');
       const todayStr = new Date().toISOString().split('T')[0];
+      const activeCount = (await db.getAllStudents()).filter(s => s.status === 'Active').length;
       return {
-        reply: `⚠️ **Confirmation Required Before Updating Attendance**\n\n• **Students**: ${studentListDisplay} (${targetNames.includes('all') ? db.getAllStudents().filter(s => s.status === 'Active').length : targetNames.length} students)\n• **Status**: **${status}**\n• **Date**: **${todayStr}**\n\nPlease reply **"Confirm attendance"** or **"Yes, proceed"** to officially mark and record these attendance records.`,
+        reply: `⚠️ **Confirmation Required Before Updating Attendance**\n\n• **Students**: ${studentListDisplay} (${targetNames.includes('all') ? activeCount : targetNames.length} students)\n• **Status**: **${status}**\n• **Date**: **${todayStr}**\n\nPlease reply **"Confirm attendance"** or **"Yes, proceed"** to officially mark and record these attendance records.`,
         toolResults: []
       };
     }
@@ -972,10 +1037,10 @@ export async function runLocalAgent(
   // Attendance check
   if (p.includes('attendance') || p.includes('classes attended') || p.includes('class count')) {
     let studentQuery = '';
-    const allStudents = db.getAllStudents();
+    const allStudents = await db.getAllStudents();
     allStudents.forEach(st => {
-      if (p.includes(st.fullName.toLowerCase()) || p.includes(st.fullName.toLowerCase().split(' ')[0])) {
-        studentQuery = st.fullName;
+      if (p.includes(st.displayName.toLowerCase()) || p.includes(st.displayName.toLowerCase().split(' ')[0])) {
+        studentQuery = st.displayName;
       }
     });
     const result = await executeTool('getAttendance', { studentNameOrId: studentQuery }, userContext, 'local_agent');
@@ -987,10 +1052,10 @@ export async function runLocalAgent(
   if (p.includes('fee') || p.includes('payment') || p.includes('gpay') || p.includes('dues') || p.includes('receipt')) {
     if (p.includes('pay') && p.includes('record')) {
       let studentQuery = '';
-      const allStudents = db.getAllStudents();
+      const allStudents = await db.getAllStudents();
       allStudents.forEach(st => {
-        if (p.includes(st.fullName.toLowerCase()) || p.includes(st.fullName.toLowerCase().split(' ')[0])) {
-          studentQuery = st.fullName;
+        if (p.includes(st.displayName.toLowerCase()) || p.includes(st.displayName.toLowerCase().split(' ')[0])) {
+          studentQuery = st.displayName;
         }
       });
 
@@ -1006,10 +1071,10 @@ export async function runLocalAgent(
 
     if (p.includes('remind') || p.includes('send reminder')) {
       let studentQuery = '';
-      const allStudents = db.getAllStudents();
+      const allStudents = await db.getAllStudents();
       allStudents.forEach(st => {
-        if (p.includes(st.fullName.toLowerCase()) || p.includes(st.fullName.toLowerCase().split(' ')[0])) {
-          studentQuery = st.fullName;
+        if (p.includes(st.displayName.toLowerCase()) || p.includes(st.displayName.toLowerCase().split(' ')[0])) {
+          studentQuery = st.displayName;
         }
       });
       const result = await executeTool('sendFeeReminder', { studentNameOrId: studentQuery || 'Khwaish Sharma' }, userContext, 'local_agent');
@@ -1018,10 +1083,10 @@ export async function runLocalAgent(
     }
 
     let studentQuery = '';
-    const allStudents = db.getAllStudents();
+    const allStudents = await db.getAllStudents();
     allStudents.forEach(st => {
-      if (p.includes(st.fullName.toLowerCase()) || p.includes(st.fullName.toLowerCase().split(' ')[0])) {
-        studentQuery = st.fullName;
+      if (p.includes(st.displayName.toLowerCase()) || p.includes(st.displayName.toLowerCase().split(' ')[0])) {
+        studentQuery = st.displayName;
       }
     });
     const result = await executeTool('getFeeStatus', { studentNameOrId: studentQuery }, userContext, 'local_agent');
@@ -1046,10 +1111,10 @@ export async function runLocalAgent(
   // Progress report
   if (p.includes('progress report') || p.includes('report card') || p.includes('evaluation')) {
     let studentQuery = '';
-    const allStudents = db.getAllStudents();
+    const allStudents = await db.getAllStudents();
     allStudents.forEach(st => {
-      if (p.includes(st.fullName.toLowerCase()) || p.includes(st.fullName.toLowerCase().split(' ')[0])) {
-        studentQuery = st.fullName;
+      if (p.includes(st.displayName.toLowerCase()) || p.includes(st.displayName.toLowerCase().split(' ')[0])) {
+        studentQuery = st.displayName;
       }
     });
 
@@ -1074,17 +1139,23 @@ export async function runLocalAgent(
   // Default greetings & help
   if (userContext?.role === 'admin') {
     return {
-      reply: `Hello **${userContext.fullName || 'Admin'}**! I am your **SmartPen AI Assistant**. I can perform real-time actions across the academy:\n\n• **Mark attendance**: *"Update attendance for Student 1, 2, 3 for today"* or *"Mark Aryan and Ananya as Present"*\n• **Check Fee Dues & Alerts**: *"Check fee alerts"* or *"Send fee reminder to Khwaish"*\n• **Lookup Profiles**: *"Show student profile for Aarav"*\n• **Generate Progress Reports**: *"Generate progress report for Siddharth"*\n\nHow can I help you today?`,
+      reply: `Hello **${userContext.displayName || 'Admin'}**! I am your **SmartPen AI Assistant**. I can perform real-time actions across the academy:\n\n• **Mark attendance**: *"Update attendance for Student 1, 2, 3 for today"* or *"Mark Aryan and Ananya as Present"*\n• **Check Fee Dues & Alerts**: *"Check fee alerts"* or *"Send fee reminder to Khwaish"*\n• **Lookup Profiles**: *"Show student profile for Aarav"*\n• **Generate Progress Reports**: *"Generate progress report for Siddharth"*\n\nHow can I help you today?`,
+      toolResults: []
+    };
+  } else if (userContext?.role === 'coach') {
+    const designationSuffix = userContext.designation ? ` (${userContext.designation})` : '';
+    return {
+      reply: `Hello Coach **${userContext.displayName || 'Tutor'}**${designationSuffix}! Welcome to your coaching assistant. You can manage your assigned students:\n\n• **Mark attendance**: *"Mark Aarav as Present today"*\n• **View assigned roster**: *"Show my assigned students"*\n• **Generate progress report**: *"Create progress report for my student"*\n• **Lookup student profile**: *"Show profile for Ananya"*\n\nWhat would you like to work on?`,
       toolResults: []
     };
   } else if (userContext?.role === 'student') {
     return {
-      reply: `Hello **${userContext.fullName || 'Student'}**! Welcome to your AI Handwriting Assistant. You can ask me:\n\n• *"What is my attendance record?"*\n• *"Do I have any pending fee?"*\n• *"What is my class schedule and milestone?"*\n• *"Show my skill ratings"*\n\nWhat would you like to review today?`,
+      reply: `Hello **${userContext.displayName || 'Student'}**! Welcome to your AI Handwriting Assistant. You can ask me:\n\n• *"What is my attendance record?"*\n• *"Do I have any pending fee?"*\n• *"What is my class schedule and milestone?"*\n• *"Show my skill ratings"*\n\nWhat would you like to review today?`,
       toolResults: []
     };
   } else {
     return {
-      reply: `Welcome to SmartPen Academy AI! Please **sign in** with your administrator or student credentials to access real-time attendance management, fee tracking, and progress analytics.`,
+      reply: `Welcome to SmartPen Academy AI! Please **sign in** with your administrator, coach, or student credentials to access real-time attendance management, student tracking, and progress analytics.`,
       toolResults: []
     };
   }
@@ -1100,7 +1171,7 @@ Academy Info: SmartPen Academy, Founder & Head Coach Mrs. Deepthy Rock. Fee poli
   if (userContext?.role === 'admin') {
     return `${baseHeader}
 Logged-in User Context (ADMINISTRATOR):
-• Name: ${userContext.fullName}
+• Name: ${userContext.displayName}
 • Role: admin
 • Username: ${userContext.username}
 
@@ -1111,10 +1182,26 @@ Admin Guidelines:
 4. Keep your conversational response warm, clear, professional, and well formatted with markdown bullet points.`;
   }
 
+  if (userContext?.role === 'coach') {
+    return `${baseHeader}
+Logged-in User Context (COACH / TUTOR):
+• Name: ${userContext.displayName}
+• Role: coach
+• Designation: ${userContext.designation || 'Coach'}
+• User ID: ${userContext.id}
+
+Coach Guidelines:
+1. SCOPED COACHING ACCESS: As a Coach, you have permission to manage attendance, student profiles, and progress reports EXCLUSIVELY FOR YOUR ASSIGNED STUDENTS.
+2. ATTENDANCE: You can mark and update attendance for students assigned to you. If you attempt to update or view a student not assigned to your coaching roster, the system will prevent it.
+3. PROGRESS REPORTS: You can generate and review milestone progress reports for your assigned students.
+4. FINANCIAL & ENROLLMENT BOUNDARIES: Coaches DO NOT manage academy fees, ledger records, or institute-level configurations. Those remain the exclusive responsibility of Administrator Mrs. Deepthy Rock.
+5. Keep your tone encouraging, instructional, concise, and focused on student handwriting mastery.`;
+  }
+
   if (userContext?.role === 'student') {
     return `${baseHeader}
 Logged-in User Context (STUDENT / PARENT):
-• Name: ${userContext.fullName}
+• Name: ${userContext.displayName}
 • Role: student
 • Username: ${userContext.username}
 • Student ID: ${userContext.studentId || 'N/A'}

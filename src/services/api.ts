@@ -7,9 +7,11 @@ import {
   ProgressReport, 
   FeeReminder,
   User,
+  CoachProfile,
   DemoBooking,
   AdminAlert,
-  Testimonial
+  Testimonial,
+  LoginResponse
 } from '../types';
 import { supabaseAuthService } from './supabaseAuthService';
 
@@ -25,49 +27,80 @@ const getAuthHeaders = (): HeadersInit => {
 };
 
 export const api = {
-  // Auth (Supabase Auth first with server fallback & httpOnly cookie synchronization)
-  async login(credentials: { username: string; password: string; role?: string }): Promise<{ token: string; user: User }> {
-    // 1. Try Supabase Auth if enabled
-    if (supabaseAuthService.isEnabled()) {
-      try {
-        const supabaseRes = await supabaseAuthService.signIn(credentials.username, credentials.password);
-        if (supabaseRes && supabaseRes.user && supabaseRes.user.email) {
-          // Harmonize with Backend: Issue backend JWT and set httpOnly cookie
-          const exchangeRes = await fetch('/api/auth/supabase-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              supabaseToken: supabaseRes.token,
-              email: supabaseRes.user.email,
-              fullName: supabaseRes.user.fullName,
-              role: credentials.role || supabaseRes.user.role,
-              studentId: supabaseRes.user.studentId,
-              id: supabaseRes.user.id,
-              username: supabaseRes.user.username
-            })
-          });
-
-          if (exchangeRes.ok) {
-            const sessionData = await exchangeRes.json();
-            return sessionData;
-          }
-        }
-      } catch (err: any) {
-        console.warn('[API Auth] Supabase auth attempt:', err.message);
-      }
-    }
-
-    // 2. Server JWT Auth (Bcrypt + httpOnly cookie)
+  // Auth
+  async login(credentials: { email?: string; username?: string; identifier?: string; password: string; role?: string }): Promise<LoginResponse> {
+    const loginIdentifier = credentials.identifier || credentials.email || credentials.username || '';
+    
+    // Server JWT Auth (supports email, username, or phone + multi-account resolution + httpOnly cookie)
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(credentials),
+      body: JSON.stringify({
+        identifier: loginIdentifier,
+        email: loginIdentifier,
+        password: credentials.password,
+        role: credentials.role
+      }),
     });
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({ error: 'Authentication failed' }));
       throw new Error(err.error || 'Authentication failed');
+    }
+    return res.json();
+  },
+
+  async selectRole(payload: { selectionToken: string; selectedRole: string }): Promise<LoginResponse> {
+    const res = await fetch('/api/auth/select-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Role selection failed' }));
+      throw new Error(err.error || 'Role selection failed');
+    }
+    return res.json();
+  },
+
+  async selectStudent(payload: { selectionToken: string; selectedUserId: string }): Promise<{ token: string; user: User }> {
+    const res = await fetch('/api/auth/select-student', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Student selection failed' }));
+      throw new Error(err.error || 'Student selection failed');
+    }
+    return res.json();
+  },
+
+  async switchStudent(studentId: string): Promise<{ token: string; user: User }> {
+    const res = await fetch('/api/auth/switch-student', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ studentId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to switch student' }));
+      throw new Error(err.error || 'Failed to switch student');
+    }
+    return res.json();
+  },
+
+  async changePassword(data: { email: string; currentPassword?: string; newPassword: string }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to update password' }));
+      throw new Error(err.error || 'Failed to update password');
     }
     return res.json();
   },
@@ -83,28 +116,163 @@ export const api = {
     return { success: true };
   },
 
-  async forgotPassword(identifier: string): Promise<{ success: boolean; message: string; email?: string }> {
-    if (supabaseAuthService.isEnabled() && identifier.includes('@')) {
-      try {
-        await supabaseAuthService.resetPassword(identifier.trim());
-        return {
-          success: true,
-          message: `Password reset link has been dispatched to ${identifier.trim()}`,
-          email: identifier.trim()
-        };
-      } catch (e: any) {
-        console.warn('[API Auth] Supabase password reset error:', e.message);
-      }
-    }
-
+  async forgotPassword(identifier: string): Promise<{ success: boolean; message: string; email?: string; resetToken?: string }> {
     const res = await fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier }),
     });
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({ error: 'Account not found' }));
       throw new Error(err.error || 'Account not found');
+    }
+    return res.json();
+  },
+
+  async resetPasswordWithToken(data: { token: string; newPassword: string }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Password reset failed' }));
+      throw new Error(err.error || 'Password reset failed');
+    }
+    return res.json();
+  },
+
+  // Coaches API
+  async getPublicCoaches(): Promise<Array<{
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    displayName: string;
+    designation: string;
+    specializations: string[];
+    educationalQualification?: string;
+    status: string;
+  }>> {
+    const res = await fetch('/api/coaches/public');
+    if (!res.ok) throw new Error('Failed to fetch public coaches');
+    return res.json();
+  },
+
+  async getCoaches(): Promise<CoachProfile[]> {
+    const res = await fetch('/api/coaches', {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to fetch coaches');
+    return res.json();
+  },
+
+  async updateMyProfile(data: {
+    displayName?: string;
+    phoneNumber?: string;
+    avatarUrl?: string;
+  }): Promise<{ success: boolean; message?: string; user?: any }> {
+    const res = await fetch('/api/auth/me', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      credentials: 'include',
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to update profile' }));
+      throw new Error(err.error || 'Failed to update profile');
+    }
+    return res.json();
+  },
+
+  async createCoach(data: {
+    firstName?: string;
+    lastName?: string;
+    displayName?: string;
+    email: string;
+    phoneNumber: string;
+    address?: string;
+    dateOfJoining?: string;
+    status?: 'Active' | 'Inactive';
+    dateOfLeaving?: string;
+    educationalQualification?: string;
+    designation?: string;
+    specializations?: string[];
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+    notes?: string;
+    password?: string;
+  }): Promise<CoachProfile> {
+    const res = await fetch('/api/coaches', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to create coach' }));
+      throw new Error(err.error || 'Failed to create coach');
+    }
+    return res.json();
+  },
+
+  async updateCoach(id: string, updates: {
+    firstName?: string;
+    lastName?: string;
+    displayName?: string;
+    email?: string;
+    phoneNumber?: string;
+    address?: string;
+    dateOfJoining?: string;
+    status?: 'Active' | 'Inactive';
+    dateOfLeaving?: string;
+    educationalQualification?: string;
+    designation?: string;
+    specializations?: string[];
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+    notes?: string;
+    password?: string;
+  }): Promise<CoachProfile> {
+    const res = await fetch(`/api/coaches/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to update coach' }));
+      throw new Error(err.error || 'Failed to update coach');
+    }
+    return res.json();
+  },
+
+  async deleteCoach(id: string): Promise<{ success: boolean; message?: string }> {
+    const res = await fetch(`/api/coaches/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to delete coach' }));
+      throw new Error(err.error || 'Failed to delete coach');
+    }
+    return res.json();
+  },
+
+  async assignCoachToStudent(studentId: string, coachId: string | null): Promise<StudentProfile> {
+    const res = await fetch(`/api/students/${studentId}/assign-coach`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ coachId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to assign coach' }));
+      throw new Error(err.error || 'Failed to assign coach');
     }
     return res.json();
   },
@@ -219,8 +387,11 @@ export const api = {
     return res.json();
   },
 
-  async deleteAttendance(studentId: string, date: string): Promise<{ success: boolean }> {
-    const res = await fetch(`/api/attendance/${studentId}/${date}`, {
+  async deleteAttendance(idOrStudentId: string, date?: string): Promise<{ success: boolean }> {
+    const url = date 
+      ? `/api/attendance/${encodeURIComponent(idOrStudentId)}/${encodeURIComponent(date)}`
+      : `/api/attendance/${encodeURIComponent(idOrStudentId)}`;
+    const res = await fetch(url, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
@@ -319,7 +490,7 @@ export const api = {
     const headers = ['ID', 'Full Name', 'Parent Name', 'WhatsApp Mobile', 'Email', 'Grade', 'School', 'Dominant Hand', 'Grip Type', 'Batch Days', 'Time Slot', 'Status', 'Enrollment Date'];
     const rows = students.map((s) => [
       `"${s.id}"`,
-      `"${s.fullName.replace(/"/g, '""')}"`,
+      `"${s.displayName.replace(/"/g, '""')}"`,
       `"${s.parentName.replace(/"/g, '""')}"`,
       `"${s.whatsappMobile}"`,
       `"${s.email}"`,
@@ -465,9 +636,12 @@ export const api = {
 
   async createDemoBooking(data: {
     studentName: string;
+    parentName: string;
     age: string;
     contactNumber: string;
-    preferredSlot: string;
+    preferredDate: string;
+    preferredTimeSlot: string;
+    modeOfLearning?: 'In-person' | 'Online';
     notes?: string;
   }): Promise<DemoBooking> {
     const res = await fetch('/api/demo-bookings', {
@@ -497,7 +671,10 @@ export const api = {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
-    if (!res.ok) throw new Error('Failed to delete demo booking');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete demo booking');
+    }
     return res.json();
   },
 

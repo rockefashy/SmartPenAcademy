@@ -43,6 +43,7 @@ import {
 import { parentPortalProperties } from '../properties/parentPortal.properties';
 import { commonProperties } from '../properties/common.properties';
 import { ProgressReportCard } from '../components/ProgressReportCard';
+import { formatGradeClass } from '../utils/formatters';
 import { SmartPenLogo } from '../components/SmartPenLogo';
 import { AttendanceCalendarTracker } from '../components/AttendanceCalendarTracker';
 
@@ -57,7 +58,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
   onNavigate,
   onOpenLogin,
 }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, switchStudent } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'progress' | 'works' | 'attendance' | 'fees' | 'testimony'>('overview');
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -89,6 +90,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
 
   const loadPortalData = async () => {
     setIsLoading(true);
+    setTestimonyErrorMsg(null);
     try {
       let targetId = studentId;
       if (!targetId && user?.studentId) {
@@ -108,7 +110,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
           api.getFeesByStudent(targetId),
           api.getStudentWorks(targetId),
           api.getProgressReports(targetId),
-          api.getTestimonialsByStudent(targetId).catch(() => []),
+          api.getTestimonialsByStudent(targetId),
         ]);
 
         setStudent(studentData);
@@ -125,6 +127,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
       }
     } catch (err: any) {
       console.error('Failed to load parent portal student data:', err);
+      setTestimonyErrorMsg(err.message || 'Failed to load student data');
     } finally {
       setIsLoading(false);
     }
@@ -159,7 +162,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
     try {
       const saved = await api.submitTestimonial({
         studentId: student.id,
-        studentName: student.fullName,
+        studentName: student.displayName,
         parentName: testimonyParentName.trim() || student.parentName || 'Parent',
         grade: `Grade ${student.gradeClass}, ${student.schoolName}`,
         schoolName: student.schoolName,
@@ -257,7 +260,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                 <span>Coach Admin Preview Mode</span>
               </div>
               <p className="text-xs sm:text-sm font-bold text-white mt-1">
-                Viewing Parent Portal for <span className="text-amber-200 font-extrabold">{student.fullName}</span> (Grade {student.gradeClass})
+                Viewing Parent Portal for <span className="text-amber-200 font-extrabold">{student.displayName}</span> (Grade {student.gradeClass})
               </p>
             </div>
           </div>
@@ -268,7 +271,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
               onClick={() => onNavigate('studentDetail', student.id)}
               className="px-4 py-2 bg-white hover:bg-slate-100 text-[#0E3589] font-black text-xs rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all active:scale-95"
               id="btn-preview-back-student-file"
-              title={`Return to ${student.fullName}'s Student Dossier`}
+              title={`Return to ${student.displayName}'s Student Dossier`}
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back to Student File</span>
@@ -290,11 +293,30 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
       {/* Compact Header: Welcome with minimal spacing and height */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-            Welcome, {student.fullName}!
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Welcome, {student.displayName}!
+            </h1>
+            {user?.role === 'student' && user.siblingStudents && user.siblingStudents.length > 1 && (
+              <div className="flex items-center gap-1.5 bg-orange-50 px-2.5 py-1 rounded-xl border border-orange-200">
+                <span className="text-[11px] font-bold text-[#F46E20]">Family Profiles:</span>
+                <select
+                  value={student.id}
+                  onChange={(e) => switchStudent(e.target.value)}
+                  className="bg-white text-xs font-bold text-slate-800 py-0.5 px-2 rounded-lg border border-orange-200 focus:outline-none focus:ring-1 focus:ring-[#F46E20] cursor-pointer"
+                  id="select-portal-switch-student"
+                >
+                  {user.siblingStudents.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.displayName || s.fullName} {s.age ? `(Age ${s.age})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Grade {student.gradeClass} • {student.schoolName} • Coach: {commonProperties.founderName}
+            Grade {student.gradeClass} • {student.schoolName} • Coach: {student.coachName || commonProperties.founderName}
           </p>
         </div>
 
@@ -628,8 +650,8 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
               <div className="flex items-center gap-2 bg-blue-50 px-4 py-2.5 rounded-2xl border border-blue-200/70 shrink-0">
                 <GraduationCap className="w-5 h-5 text-[#0E3589]" />
                 <div className="text-xs font-bold text-[#0E3589]">
-                  <span>{student.fullName}</span>
-                  <span className="text-slate-500 font-normal"> ({student.gradeClass})</span>
+                  <span>{student.displayName}</span>
+                  {student.gradeClass && <span className="text-slate-500 font-normal"> ({formatGradeClass(student.gradeClass)})</span>}
                 </div>
               </div>
             </div>
@@ -923,12 +945,12 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
 
                   <div className="pt-3 border-t border-slate-100 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-[#0E3589] text-white flex items-center justify-center font-black text-xs shadow-xs">
-                      {student.fullName.charAt(0)}
+                      {student.displayName.charAt(0)}
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-900">{student.fullName}</h4>
+                      <h4 className="text-xs font-bold text-slate-900">{student.displayName}</h4>
                       <p className="text-[11px] text-slate-500 font-sans">
-                        Grade {student.gradeClass} • {testimonyParentName || student.parentName || 'Parent'} ({testimonyRelationship})
+                        {student.gradeClass ? `${formatGradeClass(student.gradeClass)} • ` : ''}{testimonyParentName || student.parentName || 'Parent'} ({testimonyRelationship})
                       </p>
                     </div>
                   </div>

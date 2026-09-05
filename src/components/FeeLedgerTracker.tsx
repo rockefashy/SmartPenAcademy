@@ -149,7 +149,7 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
           studentId: student.id,
           parentPhone: student.whatsappMobile,
           parentName: student.parentName,
-          studentName: student.fullName,
+          studentName: student.displayName,
           amount: numAmount,
           milestone: cleanMilestone,
           receiptNumber: formReceiptNumber.trim() || undefined
@@ -284,7 +284,7 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
         studentId: student.id,
         parentPhone: student.whatsappMobile,
         parentName: student.parentName,
-        studentName: student.fullName,
+        studentName: student.displayName,
         amount: fee.amount || 1600,
         milestone: cleanMilestone,
         receiptNumber: fee.receiptNumber || fee.receiptNo
@@ -877,7 +877,7 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
             <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
               <div className="flex justify-between items-center text-slate-600">
                 <span className="font-medium">Student:</span>
-                <span className="font-bold text-slate-900">{student.fullName}</span>
+                <span className="font-bold text-slate-900">{student.displayName}</span>
               </div>
               <div className="flex justify-between items-center text-slate-600">
                 <span className="font-medium">Milestone / Month:</span>

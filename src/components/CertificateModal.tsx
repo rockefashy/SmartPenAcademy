@@ -75,7 +75,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
   };
 
   const handleCopyCitation = () => {
-    const text = `🏆 SmartPen Academy - Star Achiever Award\nStudent: ${student.fullName}\nAward: ${awardTitle}\nMilestone: ${milestoneTitle}\nRating: ${report?.overallStars || 5} Stars ★★★★★\nCitation: "${customCitation}"\nCoach: Mrs. Deepthy Rock, SmartPen Academy`;
+    const text = `🏆 SmartPen Academy - Star Achiever Award\nStudent: ${student.displayName}\nAward: ${awardTitle}\nMilestone: ${milestoneTitle}\nRating: ${report?.overallStars || 5} Stars ★★★★★\nCitation: "${customCitation}"\nCoach: Mrs. Deepthy Rock, SmartPen Academy`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
@@ -115,7 +115,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-blue-100 font-medium">
-                Conferred to <strong className="text-white">{student.fullName}</strong> ({student.gradeClass} • {student.schoolName})
+                Conferred to <strong className="text-white">{student.displayName}</strong> ({student.gradeClass} • {student.schoolName})
               </p>
             </div>
           </div>

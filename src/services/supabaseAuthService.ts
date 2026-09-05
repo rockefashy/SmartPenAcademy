@@ -18,20 +18,16 @@ export const supabaseAuthService = {
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('email, id, full_name, role, student_id')
+          .select('email, id, first_name, last_name, role, student_id')
           .or(`email.ilike.${email}%,id.eq.${email}`)
           .limit(1)
           .maybeSingle();
 
         if (data && data.email) {
           email = data.email;
-        } else {
-          // Special fallback for quick test accounts
-          if (identifier === 'admin') email = 'admin@smartpen.academy';
-          if (identifier === 'student_khwaish') email = 'parent.khwaish@gmail.com';
         }
       } catch (e) {
-        console.warn('[SupabaseAuth] Username to email resolution fallback:', e);
+        console.warn('[SupabaseAuth] Username to email resolution:', e);
       }
     }
 
@@ -64,11 +60,17 @@ export const supabaseAuthService = {
       }
 
       const meta = data.user.user_metadata || {};
+      const firstName = userProfile?.first_name || meta.first_name || '';
+      const lastName = userProfile?.last_name || meta.last_name || '';
+      const derivedName = `${firstName} ${lastName}`.trim() || data.user.email?.split('@')[0] || 'User';
+      const displayName = userProfile?.display_name || derivedName;
       const appUser: User = {
         id: userProfile?.id || data.user.id,
         username: data.user.email?.split('@')[0] || 'user',
         email: data.user.email || '',
-        fullName: userProfile?.full_name || meta.full_name || meta.name || data.user.email?.split('@')[0] || 'User',
+        displayName,
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
         role: userProfile?.role || meta.role || (data.user.email?.includes('admin') ? 'admin' : 'student'),
         studentId: userProfile?.student_id || meta.student_id,
       };
@@ -87,16 +89,23 @@ export const supabaseAuthService = {
   async signUp(
     email: string,
     password: string,
-    metadata: { fullName: string; role?: 'admin' | 'student'; studentId?: string; phone?: string }
+    metadata: { displayName?: string; fullName?: string; role?: 'admin' | 'student'; studentId?: string; phone?: string; firstName?: string; lastName?: string }
   ): Promise<{ user: User; session: any } | null> {
     if (!this.isEnabled()) return null;
+
+    const derivedDisplayName = metadata.displayName || metadata.fullName || '';
+    const parts = derivedDisplayName.trim().split(' ');
+    const firstName = metadata.firstName || parts[0] || '';
+    const lastName = metadata.lastName || parts.slice(1).join(' ') || '';
 
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          full_name: metadata.fullName,
+          display_name: derivedDisplayName,
+          first_name: firstName,
+          last_name: lastName,
           role: metadata.role || 'student',
           student_id: metadata.studentId,
           phone: metadata.phone,
@@ -112,7 +121,8 @@ export const supabaseAuthService = {
       await supabase.from('users').upsert({
         id: data.user.id,
         email: data.user.email,
-        full_name: metadata.fullName,
+        first_name: firstName,
+        last_name: lastName,
         role: metadata.role || 'student',
         student_id: metadata.studentId,
         phone: metadata.phone,
@@ -126,7 +136,9 @@ export const supabaseAuthService = {
       id: data.user.id,
       username: email.split('@')[0],
       email: data.user.email || email,
-      fullName: metadata.fullName,
+      displayName: derivedDisplayName,
+      firstName: metadata.firstName,
+      lastName: metadata.lastName,
       role: metadata.role || 'student',
       studentId: metadata.studentId,
     };
@@ -174,11 +186,17 @@ export const supabaseAuthService = {
         .maybeSingle();
 
       const meta = user.user_metadata || {};
+      const firstName = profile?.first_name || meta.first_name || '';
+      const lastName = profile?.last_name || meta.last_name || '';
+      const derivedName = `${firstName} ${lastName}`.trim() || user.email?.split('@')[0] || 'User';
+      const displayName = profile?.display_name || derivedName;
       return {
         id: profile?.id || user.id,
         username: user.email?.split('@')[0] || 'user',
         email: user.email || '',
-        fullName: profile?.full_name || meta.full_name || user.email?.split('@')[0] || 'User',
+        displayName,
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
         role: profile?.role || meta.role || (user.email?.includes('admin') ? 'admin' : 'student'),
         studentId: profile?.student_id || meta.student_id,
       };

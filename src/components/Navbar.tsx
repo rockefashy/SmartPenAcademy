@@ -27,7 +27,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenDemoBooking }) => {
-  const { user, isAuthenticated, logout, openLoginModal } = useAuth();
+  const { user, isAuthenticated, logout, openLoginModal, switchStudent } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Close mobile menu on view change or window resize to desktop
@@ -132,47 +132,103 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
             <SmartPenLogo size="lg" />
           </button>
 
-          {/* Top Right Header Action Controls - Permanent Enroll Now & Sign In visible across all screen sizes */}
+          {/* Top Right Header Action Controls - Sign In & Navigation controls visible across all screen sizes */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Permanent Enroll Now Button on Top Right across all screens */}
-            <button
-              onClick={() => handleNavClick('enroll')}
-              className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-extrabold text-white rounded-xl transition-all cursor-pointer shadow-md hover:shadow-lg active:scale-95 flex items-center gap-1.5 min-h-[38px] sm:min-h-[42px] ${
-                currentView === 'enroll'
-                  ? 'bg-[#d95509] ring-2 ring-orange-300 ring-offset-1'
-                  : 'bg-[#F46E20] hover:bg-[#e05c10]'
-              }`}
-              id="btn-nav-permanent-enroll"
-            >
-              <span>Enroll Now</span>
-              <span className="text-amber-200">→</span>
-            </button>
-
-            {/* Permanent Sign In / Account Controls next to Enroll Now (Visible on Mobile & Web) */}
+            {/* Permanent Sign In / Account Controls (Visible on Mobile & Web) */}
             <div className="flex items-center gap-2">
               {isAuthenticated ? (
-                <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-100/90 hover:bg-slate-100 px-2 sm:px-3 py-1 sm:py-1.5 rounded-2xl border border-slate-200/90 shadow-2xs transition-colors">
-                  <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-white text-xs font-black shadow-xs shrink-0 ${
-                    user?.role === 'admin' ? 'bg-[#0E3589]' : 'bg-[#F46E20]'
-                  }`}>
-                    {user?.fullName.charAt(0) || 'U'}
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  {user?.role === 'student' && user.siblingStudents && user.siblingStudents.length > 1 && (
+                    <div className="hidden sm:block">
+                      <select
+                        value={user.studentId || ''}
+                        onChange={(e) => switchStudent(e.target.value)}
+                        className="bg-orange-50 hover:bg-orange-100 text-[#F46E20] text-[11px] font-bold py-1 px-2.5 rounded-xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-400 cursor-pointer transition-colors shadow-2xs"
+                        title="Switch Student Profile"
+                        id="select-navbar-switch-student"
+                      >
+                        {user.siblingStudents.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            Viewing: {s.displayName} {s.age ? `(${s.age}y)` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-100/90 hover:bg-slate-100 px-2 sm:px-3 py-1 sm:py-1.5 rounded-2xl border border-slate-200/90 shadow-2xs transition-colors">
+                    {user?.role === 'admin' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleNavClick('admin')}
+                        className="flex items-center gap-1.5 sm:gap-2 text-left cursor-pointer group focus:outline-none"
+                        title="Go to Admin Portal"
+                        id="link-nav-admin-portal"
+                      >
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-white text-xs font-black shadow-xs shrink-0 bg-[#0E3589] group-hover:ring-2 group-hover:ring-blue-400 transition-all">
+                          {user?.displayName.charAt(0) || 'A'}
+                        </div>
+                        <div className="text-left hidden sm:block">
+                          <p className="text-xs font-extrabold text-slate-800 leading-tight truncate max-w-[120px] group-hover:text-[#0E3589] transition-colors">
+                            {user?.displayName}
+                          </p>
+                          <p className="text-[10px] font-bold text-[#0E3589] group-hover:underline inline-flex items-center gap-0.5 leading-tight">
+                            <span>Admin Portal</span>
+                            <span className="text-[9px]">↗</span>
+                          </p>
+                        </div>
+                      </button>
+                    ) : user?.role === 'coach' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleNavClick('admin')}
+                        className="flex items-center gap-1.5 sm:gap-2 text-left cursor-pointer group focus:outline-none"
+                        title="Go to Coach Portal"
+                        id="link-nav-coach-portal"
+                      >
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-white text-xs font-black shadow-xs shrink-0 bg-amber-600 group-hover:ring-2 group-hover:ring-amber-400 transition-all">
+                          {user?.displayName.charAt(0) || 'C'}
+                        </div>
+                        <div className="text-left hidden sm:block">
+                          <p className="text-xs font-extrabold text-slate-800 leading-tight truncate max-w-[120px] group-hover:text-amber-700 transition-colors">
+                            {user?.displayName}
+                          </p>
+                          <p className="text-[10px] font-bold text-amber-700 group-hover:underline inline-flex items-center gap-0.5 leading-tight">
+                            <span>Coach Portal</span>
+                            <span className="text-[9px]">↗</span>
+                          </p>
+                        </div>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleNavClick('parentPortal')}
+                        className="flex items-center gap-1.5 sm:gap-2 text-left cursor-pointer group focus:outline-none"
+                        title="Go to Student Portal"
+                        id="link-nav-student-portal"
+                      >
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-white text-xs font-black shadow-xs shrink-0 bg-[#F46E20] group-hover:ring-2 group-hover:ring-orange-400 transition-all">
+                          {user?.displayName.charAt(0) || 'U'}
+                        </div>
+                        <div className="text-left hidden sm:block">
+                          <p className="text-xs font-extrabold text-slate-800 leading-tight truncate max-w-[120px] group-hover:text-[#F46E20] transition-colors">
+                            {user?.displayName}
+                          </p>
+                          <p className="text-[10px] font-semibold text-slate-500 capitalize leading-tight">
+                            Student
+                          </p>
+                        </div>
+                      </button>
+                    )}
+                    <button
+                      onClick={logout}
+                      className="p-1 sm:p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer ml-0.5"
+                      title={commonProperties.nav.logout}
+                      id="btn-logout"
+                    >
+                      <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </button>
                   </div>
-                  <div className="text-left hidden sm:block">
-                    <p className="text-xs font-extrabold text-slate-800 leading-tight">
-                      {user?.fullName}
-                    </p>
-                    <p className="text-[10px] font-semibold text-slate-500 capitalize leading-tight">
-                      {user?.role === 'admin' ? 'Coach' : 'Student'}
-                    </p>
-                  </div>
-                  <button
-                    onClick={logout}
-                    className="p-1 sm:p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
-                    title={commonProperties.nav.logout}
-                    id="btn-logout"
-                  >
-                    <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  </button>
                 </div>
               ) : (
                 <button
@@ -268,8 +324,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
               <span>{commonProperties.nav.testimonials}</span>
             </a>
 
-            {/* Conditional Portal Links: Show ONLY Admin Portal if admin, ONLY Student Portal if non-admin */}
-            {isAuthenticated && user?.role === 'admin' && (
+            {/* Conditional Portal Links: Show Admin / Coach Portal if staff, Student Portal if student */}
+            {isAuthenticated && (user?.role === 'admin' || user?.role === 'coach') && (
               <button
                 onClick={() => handleNavClick('admin')}
                 className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
@@ -280,11 +336,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                 id="nav-link-admin"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-[#0E3589]" />
-                <span>{commonProperties.nav.adminDashboard}</span>
+                <span>{user?.role === 'coach' ? 'Coach Portal' : commonProperties.nav.adminDashboard}</span>
               </button>
             )}
 
-            {isAuthenticated && user?.role !== 'admin' && (
+            {isAuthenticated && user?.role === 'student' && (
               <button
                 onClick={() => handleNavClick('parentPortal')}
                 className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
@@ -309,21 +365,42 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
             {/* User Info Bar if Logged In on Mobile */}
             {isAuthenticated && (
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200">
-                <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-black shadow-xs ${
-                    user?.role === 'admin' ? 'bg-[#0E3589]' : 'bg-[#F46E20]'
-                  }`}>
-                    {user?.fullName.charAt(0) || 'U'}
+                {user?.role === 'admin' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleNavClick('admin')}
+                    className="flex items-center gap-3 text-left group cursor-pointer"
+                    title="Go to Admin Portal"
+                  >
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-black shadow-xs bg-[#0E3589] group-hover:ring-2 group-hover:ring-blue-400">
+                      {user?.displayName.charAt(0) || 'A'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800 leading-tight group-hover:text-[#0E3589]">
+                        {user?.displayName}
+                      </p>
+                      <span className="text-xs font-bold text-[#0E3589] group-hover:underline inline-flex items-center gap-0.5">
+                        Admin Portal <span className="text-[9px]">↗</span>
+                      </span>
+                    </div>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-black shadow-xs ${
+                      user?.role === 'coach' ? 'bg-amber-600' : 'bg-[#F46E20]'
+                    }`}>
+                      {user?.displayName.charAt(0) || 'U'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800 leading-tight">
+                        {user?.displayName}
+                      </p>
+                      <p className="text-xs text-slate-500 capitalize">
+                        {user?.role === 'coach' ? (user.designation || 'Coach') : 'Student'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-800 leading-tight">
-                      {user?.fullName}
-                    </p>
-                    <p className="text-xs text-slate-500 capitalize">
-                      {user?.role === 'admin' ? 'Administrator / Coach' : 'Student'}
-                    </p>
-                  </div>
-                </div>
+                )}
                 <button
                   onClick={() => {
                     logout();
@@ -402,8 +479,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                 <ChevronRight className="w-4 h-4 text-slate-400" />
               </button>
 
-              {/* Conditional Portal Links: Show ONLY Admin Portal if admin, ONLY Student Portal if non-admin */}
-              {isAuthenticated && user?.role === 'admin' && (
+              {/* Conditional Portal Links: Show Admin / Coach Portal if staff, Student Portal if student */}
+              {isAuthenticated && (user?.role === 'admin' || user?.role === 'coach') && (
                 <button
                   onClick={() => {
                     handleNavClick('admin');
@@ -417,13 +494,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                 >
                   <div className="flex items-center gap-3">
                     <ShieldCheck className="w-4 h-4 text-[#0E3589]" />
-                    <span>{commonProperties.nav.adminDashboard}</span>
+                    <span>{user?.role === 'coach' ? 'Coach Portal' : commonProperties.nav.adminDashboard}</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </button>
               )}
 
-              {isAuthenticated && user?.role !== 'admin' && (
+              {isAuthenticated && user?.role === 'student' && (
                 <button
                   onClick={() => {
                     handleNavClick('parentPortal');

@@ -34,7 +34,7 @@ export const AIAgentChatWidget: React.FC<AIAgentChatWidgetProps> = ({
   const isWidgetOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
   const toggleOpen = onToggleOpen || (() => setInternalIsOpen(!internalIsOpen));
 
-  const displayName = currentStudent?.name || (currentUser as any)?.fullName || currentUser?.name || 'Khwaish Sharma';
+  const displayName = currentStudent?.name || currentUser?.displayName || currentUser?.name || 'Khwaish Sharma';
 
   return (
     <>
@@ -67,7 +67,7 @@ export const AIAgentChatWidget: React.FC<AIAgentChatWidgetProps> = ({
                 <Sparkles className="w-3 h-3 text-[#F95F1E]" />
               </div>
               <p className="text-[11px] text-blue-100/90 font-medium leading-none mt-0.5">
-                {displayName}
+                SmartPen Academy
               </p>
             </div>
           </motion.button>

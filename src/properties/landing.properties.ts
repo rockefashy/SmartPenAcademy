@@ -23,6 +23,8 @@ export const landingProperties = {
     timingNotice: "Available All Days • Preferred Slots between 4:00 PM – 7:00 PM",
     studentNameLabel: "Student Name",
     studentNamePlaceholder: "Enter child's full name",
+    parentNameLabel: "Parent / Guardian Name",
+    parentNamePlaceholder: "Enter parent's full name",
     ageLabel: "Age / Current Grade",
     agePlaceholder: "e.g., 8 years / Grade 3",
     contactLabel: "Contact Number (Phone / WhatsApp)",

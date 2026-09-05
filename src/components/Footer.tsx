@@ -75,14 +75,6 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </li>
               <li>
                 <button
-                  onClick={() => onNavigate('enroll')}
-                  className="hover:text-amber-300 transition-colors text-left"
-                >
-                  {commonProperties.nav.enroll}
-                </button>
-              </li>
-              <li>
-                <button
                   onClick={() => onNavigate('admin')}
                   className="hover:text-amber-300 transition-colors text-left"
                 >

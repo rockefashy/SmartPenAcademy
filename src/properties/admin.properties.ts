@@ -4,6 +4,7 @@ export const adminProperties = {
     subtitle: "Manage student rosters, live monthly attendance sheets, fee collection logs, and evaluation reports.",
     academyInfo: "SmartPen Academy Management Portal • Founded by Mrs. Deepthy Rock",
     exportExcelBtn: "Export Roster (CSV)",
+    newCoachEnrollBtn: "+ Enroll Coach",
     newStudentEnrollBtn: "+ Enroll New Student",
     quickStats: {
       totalEnrolled: "Total Students",
@@ -31,6 +32,12 @@ export const adminProperties = {
   messages: {
     attendanceMarkedSuccess: "Session attendance recorded for {name}!",
     feeMarkedSuccess: "Fee payment receipt (₹1,600 / 8 Classes) recorded for {name}!",
+    coachCreatedSuccess: "Coach \"{name}\" ({designation}) enrolled successfully!",
+    coachValidationName: "Please enter the coach's full name.",
+    coachValidationEmail: "Please enter a valid email address for the coach.",
+    coachValidationPhone: "Please enter a valid phone number for the coach.",
+    coachValidationPassword: "Initial coach password is required (minimum 8 characters).",
+    coachValidationPasswordLength: "Coach password must be at least 8 characters long."
   },
 
   tabs: {
@@ -154,7 +161,7 @@ export const adminProperties = {
     columns: {
       studentName: "Student & Age",
       contact: "Parent Mobile / WhatsApp",
-      slot: "Preferred Slot (4 - 7 PM)",
+      slot: "Preferred Date & Timeslot",
       status: "Booking Status",
       receivedAt: "Received Date & Time",
       actions: "Quick Actions",
@@ -162,6 +169,6 @@ export const adminProperties = {
     emptyAlerts: "No demo class bookings or alerts found.",
     markAllReadBtn: "Mark All Alerts as Read",
     refreshBtn: "Refresh Inquiries",
-    whatsappFollowupText: "Hello! Mrs. Deepthy Rock from SmartPen Academy regarding your Free Demo Class booking for {name}. Are you available for the {slot} session?",
+    whatsappFollowupText: "Hello! Mrs. Deepthy Rock from SmartPen Academy regarding your Free Demo Class booking for {name}. Are you available for the session on {date} at {time}?",
   }
 };

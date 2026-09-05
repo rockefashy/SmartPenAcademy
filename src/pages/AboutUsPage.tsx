@@ -282,11 +282,11 @@ export const AboutUsPage: React.FC<AboutUsPageProps> = ({ onNavigate, onOpenDemo
                   <span>Book for a Free Demo Class</span>
                 </button>
                 <button
-                  onClick={() => onNavigate('enroll')}
+                  onClick={() => onNavigate('syllabus')}
                   className="w-full py-3 px-6 bg-white hover:bg-slate-50 text-[#0E3589] font-bold text-xs rounded-xl border border-slate-200 transition-all cursor-pointer"
-                  id="btn-about-enroll"
+                  id="btn-about-curriculum"
                 >
-                  Direct Student Enrollment →
+                  Explore Course Curriculum →
                 </button>
               </div>
             </div>

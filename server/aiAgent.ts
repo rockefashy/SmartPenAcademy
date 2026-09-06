@@ -2,41 +2,18 @@ import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 import { db } from './supabaseDb.ts';
 import { User, StudentProfile } from '../src/types';
 import { sendFeeReminderEmail } from './email.ts';
+import { landingProperties } from '../src/properties/landing.properties.ts';
 
-// ================= RATE LIMITING FOR MUTATING TOOLS =================
-interface RateLimitRecord {
-  count: number;
-  resetTime: number;
-}
-const toolRateLimitStore = new Map<string, RateLimitRecord>();
-
-// Clean up expired tool rate limit buckets periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, bucket] of toolRateLimitStore.entries()) {
-    if (bucket.resetTime < now) {
-      toolRateLimitStore.delete(key);
-    }
-  }
-}, 60000);
-
-function checkToolRateLimit(userId: string, toolName: string, maxCalls: number, windowMs: number): { allowed: boolean; retryAfter: number } {
-  const key = `${userId}:${toolName}`;
-  const now = Date.now();
-  let bucket = toolRateLimitStore.get(key);
-
-  if (!bucket || bucket.resetTime < now) {
-    toolRateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
-    return { allowed: true, retryAfter: 0 };
-  }
-
-  if (bucket.count >= maxCalls) {
-    const retryAfter = Math.ceil((bucket.resetTime - now) / 1000);
-    return { allowed: false, retryAfter };
-  }
-
-  bucket.count += 1;
-  return { allowed: true, retryAfter: 0 };
+// ================= RATE LIMITING FOR MUTATING TOOLS (SUPABASE-BACKED ATOMIC RPC) =================
+async function checkToolRateLimit(
+  userId: string, 
+  toolName: string, 
+  maxCalls: number, 
+  windowMs: number
+): Promise<{ allowed: boolean; retryAfter: number }> {
+  const key = `tool:${userId}:${toolName}`;
+  const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
+  return await db.checkRateLimit(key, maxCalls, windowSeconds);
 }
 
 export interface ToolCallResult {
@@ -277,8 +254,95 @@ const navigateToPageTool: FunctionDeclaration = {
   }
 };
 
-export const ALL_TOOLS = [
+const getCurriculumTool: FunctionDeclaration = {
+  name: 'getCurriculum',
+  description: 'Get comprehensive details on SmartPen Academy curriculum, the 7 progressive training modules, print & cursive scripts, exam speed boosters, and specialized holiday workshops.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      topic: {
+        type: Type.STRING,
+        description: 'Optional focus: "modules", "workshops", "benefits", or "all". Default is "all".'
+      }
+    }
+  }
+};
+
+const getAboutUsTool: FunctionDeclaration = {
+  name: 'getAboutUs',
+  description: 'Get details about SmartPen Academy, its founder Mrs. Deepthy Rock, coaching methodology, ISO certification, location, online classes, and direct contact coordinates (8861751000).',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {}
+  }
+};
+
+const getTestimonialsTool: FunctionDeclaration = {
+  name: 'getTestimonials',
+  description: 'Get verified parent testimonials, reviews, star ratings, and student handwriting transformation stories.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      limit: {
+        type: Type.INTEGER,
+        description: 'Maximum number of reviews to return (default 5).'
+      }
+    }
+  }
+};
+
+const bookDemoClassTool: FunctionDeclaration = {
+  name: 'bookDemoClass',
+  description: 'Directly schedule and book a Free Trial Demo Class for a prospective student, or inspect available demo class slots (4:00 PM – 7:00 PM all days).',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      childName: {
+        type: Type.STRING,
+        description: 'Name of the student attending the trial class.'
+      },
+      childAge: {
+        type: Type.INTEGER,
+        description: 'Age of the child (ages 4 to 18).'
+      },
+      parentName: {
+        type: Type.STRING,
+        description: 'Full name of parent or guardian.'
+      },
+      parentPhone: {
+        type: Type.STRING,
+        description: 'Parent phone or WhatsApp number.'
+      },
+      preferredDate: {
+        type: Type.STRING,
+        description: 'Date in YYYY-MM-DD format (e.g. "2026-09-10").'
+      },
+      preferredTimeSlot: {
+        type: Type.STRING,
+        description: 'Preferred slot between 4:00 PM and 7:00 PM (e.g. "04:00 PM", "05:00 PM", "06:00 PM").'
+      },
+      modeOfLearning: {
+        type: Type.STRING,
+        description: '"In-person" or "Online". Default is "In-person".'
+      },
+      notes: {
+        type: Type.STRING,
+        description: 'Child handwriting challenges or areas of concern (e.g. grip, speed, exam neatness).'
+      }
+    }
+  }
+};
+
+export const PUBLIC_TOOLS = [
   navigateToPageTool,
+  getCurriculumTool,
+  getAboutUsTool,
+  getTestimonialsTool,
+  bookDemoClassTool
+];
+
+export const ALL_TOOLS = [
+  ...PUBLIC_TOOLS,
   updateAttendanceTool,
   getAttendanceTool,
   getFeeStatusTool,
@@ -291,27 +355,47 @@ export const ALL_TOOLS = [
   generateProgressReportTool
 ];
 
+// Helper to check if a coach has permission to access an assigned student
+export function canCoachAccessStudent(userContext: User | null, student: StudentProfile): boolean {
+  if (!userContext) return false;
+  if (userContext.role === 'admin') return true;
+  if (userContext.role === 'coach') {
+    if (!student.coachId) return false;
+    const coachKeys = new Set([userContext.id, userContext.coachId].filter(Boolean));
+    return coachKeys.has(student.coachId);
+  }
+  return false;
+}
+
 export function getToolsForRole(role?: string): FunctionDeclaration[] {
   if (role === 'admin') {
     return ALL_TOOLS;
   }
   if (role === 'coach') {
-    // Coach tools: Scoped to their assigned students (Attendance, Profiles, Roster, Progress Reports)
+    // Coach tools: Full functional parity with Admin for assigned students + All Public Tools
     return [
-      navigateToPageTool,
+      ...PUBLIC_TOOLS,
       updateAttendanceTool,
       getAttendanceTool,
       getStudentProfileTool,
       listStudentsTool,
-      generateProgressReportTool
+      generateProgressReportTool,
+      getFeeStatusTool,
+      recordFeePaymentTool,
+      sendFeeReminderTool
     ];
   }
   if (role === 'student') {
-    // Read-only tools scoped to own profile + navigation tools for enrollment, demo, and GPAY payment
-    return [navigateToPageTool, getAttendanceTool, getFeeStatusTool, getStudentProfileTool];
+    // Student tools: Read-only personal records + All Public Tools
+    return [
+      ...PUBLIC_TOOLS,
+      getAttendanceTool,
+      getFeeStatusTool,
+      getStudentProfileTool
+    ];
   }
-  // Public / Guest tools
-  return [navigateToPageTool, getDemoBookingsTool];
+  // Public / Guest visitors have full access to public portal tools
+  return PUBLIC_TOOLS;
 }
 
 // Helper to find student by fuzzy name or ID
@@ -393,7 +477,7 @@ export async function executeTool(
           return await logAudit(null, 'Access Denied: Only administrators and assigned coaches can update student attendance records.', false);
         }
 
-        const rateCheck = checkToolRateLimit(userContext?.id || 'admin', 'updateAttendance', 15, 60 * 1000);
+        const rateCheck = await checkToolRateLimit(userContext?.id || 'admin', 'updateAttendance', 15, 60 * 1000);
         if (!rateCheck.allowed) {
           return await logAudit(null, `Rate limit exceeded: Too many attendance updates requested in a short period. Please wait ${rateCheck.retryAfter} seconds before updating attendance again.`, false);
         }
@@ -412,7 +496,7 @@ export async function executeTool(
         if (rawList.some((s: string) => s.toLowerCase() === 'all' || s.toLowerCase() === 'all students')) {
           let targetStudents = (await db.getAllStudents()).filter(s => s.status === 'Active');
           if (userContext.role === 'coach') {
-            targetStudents = targetStudents.filter(s => s.coachId === userContext.id);
+            targetStudents = targetStudents.filter(s => canCoachAccessStudent(userContext, s));
           }
           targetStudents.forEach(st => {
             recordsToSave.push({
@@ -428,7 +512,7 @@ export async function executeTool(
           for (const item of rawList) {
             const student = await findStudent(String(item));
             if (student) {
-              if (userContext.role === 'coach' && student.coachId !== userContext.id) {
+              if (userContext.role === 'coach' && !canCoachAccessStudent(userContext, student)) {
                 unauthorized.push(student.displayName);
                 continue;
               }
@@ -479,7 +563,7 @@ export async function executeTool(
           }
         } else if (args.studentNameOrId) {
           student = await findStudent(args.studentNameOrId);
-          if (student && userContext?.role === 'coach' && student.coachId !== userContext.id) {
+          if (student && userContext?.role === 'coach' && !canCoachAccessStudent(userContext, student)) {
             return await logAudit(null, `Scoping Policy: As a coach, you can only view attendance for students assigned to you. "${student.displayName}" is not assigned to your roster.`, false);
           }
         }
@@ -500,7 +584,9 @@ export async function executeTool(
           }, `📊 **${student.displayName}** has attended **${presentCount} classes** (${absentCount} absent). Current 8-class cycle: **${currentCycleProgress}/8 classes completed**.`, true);
         } else {
           if (userContext?.role === 'coach') {
-            const myStudents = await db.getStudentsByCoachId(userContext.id);
+            const coachKey = userContext.coachId || userContext.id;
+            const coachAlt = userContext.coachId ? userContext.id : undefined;
+            const myStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
             const summaryData: string[] = [];
             for (const s of myStudents) {
               const studentRecs = await db.getAttendanceByStudent(s.id);
@@ -544,6 +630,10 @@ export async function executeTool(
         }
 
         if (student) {
+          if (userContext?.role === 'coach' && !canCoachAccessStudent(userContext, student)) {
+            return await logAudit(null, `Privacy Scoping: As a coach, you can only view fee status for students assigned to your coaching roster. "${student.displayName}" is not assigned to you.`, false);
+          }
+
           const attendanceRecs = await db.getAttendanceByStudent(student.id);
           const presentCount = attendanceRecs.filter(r => r.status === 'Present').length;
           const fees = await db.getFeesByStudent(student.id);
@@ -563,8 +653,30 @@ export async function executeTool(
             gpayLink
           }, `💳 **Fee Status for ${student.displayName}**:\n• Status: **${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ No pending Fee'}**\n• Classes Attended: ${presentCount} (${completedCycles} completed 8-class cycles)\n• Paid Receipts: ${fees.filter(f => f.isPaid).length}\n• Direct GPAY Payment: **8861751000**`, true);
         } else {
+          if (userContext?.role === 'coach') {
+            const coachKey = userContext.coachId || userContext.id;
+            const coachAlt = userContext.coachId ? userContext.id : undefined;
+            const myStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
+            const dues: string[] = [];
+            let dueCount = 0;
+            for (const s of myStudents) {
+              const attendanceRecs = await db.getAttendanceByStudent(s.id);
+              const presentCount = attendanceRecs.filter(r => r.status === 'Present').length;
+              const fees = await db.getFeesByStudent(s.id);
+              const completedCycles = Math.floor(presentCount / 8);
+              const isFeeDue = completedCycles > 0 && fees.filter(f => f.isPaid).length < completedCycles;
+              if (isFeeDue) dueCount++;
+              dues.push(`• **${s.displayName}**: ${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ Paid up to date'} (${presentCount} classes, ${fees.filter(f => f.isPaid).length} receipts)`);
+            }
+            return await logAudit(
+              { totalStudents: myStudents.length, dueCount, rosterFees: dues },
+              `💳 **Fee Status for Your Assigned Students (${myStudents.length} students, ${dueCount} with dues)**:\n${dues.length === 0 ? 'No students currently assigned.' : dues.join('\n')}`,
+              true
+            );
+          }
+
           if (userContext?.role !== 'admin') {
-            return await logAudit(null, 'Access Denied: Only administrators can view academy fee alerts.', false);
+            return await logAudit(null, 'Access Denied: Only administrators and coaches can view fee summaries.', false);
           }
           const alerts = (await db.getAlerts()).filter(a => a.type === 'fee_due' && !a.isRead);
           return await logAudit({ pendingAlerts: alerts }, `💳 **Pending Fee Alerts (${alerts.length})**:\n${alerts.length === 0 ? '✓ No pending fee dues at this moment.' : alerts.map(a => `• **${a.title}**: ${a.message}`).join('\n')}`, true);
@@ -572,11 +684,11 @@ export async function executeTool(
       }
 
       case 'recordFeePayment': {
-        if (userContext?.role !== 'admin') {
-          return await logAudit(null, 'Access Denied: Only administrators can record coaching fee payments.', false);
+        if (userContext?.role !== 'admin' && userContext?.role !== 'coach') {
+          return await logAudit(null, 'Access Denied: Only administrators and assigned coaches can record coaching fee payments.', false);
         }
 
-        const rateCheck = checkToolRateLimit(userContext?.id || 'admin', 'recordFeePayment', 10, 60 * 1000);
+        const rateCheck = await checkToolRateLimit(userContext?.id || 'admin', 'recordFeePayment', 10, 60 * 1000);
         if (!rateCheck.allowed) {
           return await logAudit(null, `Rate limit exceeded: Too many fee payment records requested in a short period. Please wait ${rateCheck.retryAfter} seconds before recording more payments.`, false);
         }
@@ -584,6 +696,10 @@ export async function executeTool(
         const student = await findStudent(args.studentNameOrId);
         if (!student) {
           return await logAudit(null, `Could not find student matching "${args.studentNameOrId}".`, false);
+        }
+
+        if (userContext?.role === 'coach' && !canCoachAccessStudent(userContext, student)) {
+          return await logAudit(null, `Privacy Scoping: As a coach, you can only record fee payments for your assigned students. "${student.displayName}" is not assigned to your coaching roster.`, false);
         }
 
         const amount = Number(args.amount) || 1600;
@@ -620,11 +736,11 @@ export async function executeTool(
       }
 
       case 'sendFeeReminder': {
-        if (userContext?.role !== 'admin') {
-          return await logAudit(null, 'Access Denied: Only administrators can dispatch fee reminders.', false);
+        if (userContext?.role !== 'admin' && userContext?.role !== 'coach') {
+          return await logAudit(null, 'Access Denied: Only administrators and assigned coaches can dispatch fee reminders.', false);
         }
 
-        const rateCheck = checkToolRateLimit(userContext?.id || 'admin', 'sendFeeReminder', 10, 60 * 1000);
+        const rateCheck = await checkToolRateLimit(userContext?.id || 'admin', 'sendFeeReminder', 10, 60 * 1000);
         if (!rateCheck.allowed) {
           return await logAudit(null, `Rate limit exceeded: Too many fee reminders requested in a short period. Please wait ${rateCheck.retryAfter} seconds before sending more reminders.`, false);
         }
@@ -632,6 +748,10 @@ export async function executeTool(
         const student = await findStudent(args.studentNameOrId);
         if (!student) {
           return await logAudit(null, `Could not find student matching "${args.studentNameOrId}".`, false);
+        }
+
+        if (userContext?.role === 'coach' && !canCoachAccessStudent(userContext, student)) {
+          return await logAudit(null, `Privacy Scoping: As a coach, you can only dispatch fee reminders to your assigned students. "${student.displayName}" is not assigned to your coaching roster.`, false);
         }
 
         const amount = Number(args.amount) || 1600;
@@ -684,7 +804,7 @@ export async function executeTool(
           return await logAudit(null, `No student profile found matching "${query}".`, false);
         }
 
-        if (userContext?.role === 'coach' && student.coachId !== userContext.id) {
+        if (userContext?.role === 'coach' && !canCoachAccessStudent(userContext, student)) {
           return await logAudit(null, `Privacy Scoping: Coach access is restricted to assigned students. "${student.displayName}" is not assigned to your coaching roster.`, false);
         }
 
@@ -697,7 +817,7 @@ export async function executeTool(
         }
 
         let students = userContext.role === 'coach' 
-          ? await db.getStudentsByCoachId(userContext.id)
+          ? await db.getStudentsByCoachId(userContext.coachId || userContext.id, userContext.coachId ? userContext.id : undefined)
           : await db.getAllStudents();
 
         const statusFilter = args.status?.toLowerCase();
@@ -742,7 +862,7 @@ export async function executeTool(
           return await logAudit(null, 'Access Denied: Only administrators and assigned coaches can create progress reports.', false);
         }
 
-        const rateCheck = checkToolRateLimit(userContext?.id || 'admin', 'generateProgressReport', 10, 60 * 1000);
+        const rateCheck = await checkToolRateLimit(userContext?.id || 'admin', 'generateProgressReport', 10, 60 * 1000);
         if (!rateCheck.allowed) {
           return await logAudit(null, `Rate limit exceeded: Too many progress reports generated in a short period. Please wait ${rateCheck.retryAfter} seconds before generating more reports.`, false);
         }
@@ -752,7 +872,7 @@ export async function executeTool(
           return await logAudit(null, `Could not find student matching "${args.studentNameOrId}".`, false);
         }
 
-        if (userContext.role === 'coach' && student.coachId !== userContext.id) {
+        if (userContext.role === 'coach' && !canCoachAccessStudent(userContext, student)) {
           return await logAudit(null, `Scoping Policy: You can only generate progress reports for students assigned to you. "${student.displayName}" is not assigned to your coaching roster.`, false);
         }
 
@@ -779,6 +899,152 @@ export async function executeTool(
         });
 
         return await logAudit(report, `⭐ Generated Progress Report (**${report.milestoneTitle}**) for **${student.displayName}** with **${stars} Stars** rating!`, true);
+      }
+
+      case 'getCurriculum': {
+        const syllabus = landingProperties.syllabusSection;
+        const workshops = landingProperties.adsAndWorkshopsSection.workshops;
+        const benefits = landingProperties.benefitsSection.cards;
+
+        const topic = (args.topic || 'all').toLowerCase();
+
+        let summary = `📚 **SmartPen Academy Curriculum Blueprint**\n*${syllabus.title} — ${syllabus.subtitle}*\n\n`;
+
+        if (topic === 'workshops' || topic === 'all') {
+          summary += `### Specialized Bootcamps & Intensives:\n`;
+          workshops.forEach(w => {
+            summary += `• **${w.title}** [${w.badge}]: ${w.subtitle} (${w.duration}, ${w.ageGroup})\n  - Highlights: ${w.highlights.join('; ')}\n`;
+          });
+          summary += `\n`;
+        }
+
+        if (topic === 'modules' || topic === 'all') {
+          summary += `### 7 Progressive Training Modules:\n`;
+          syllabus.modules.forEach(m => {
+            summary += `• **Module ${m.number}: ${m.title}**\n  - ${m.items.join('\n  - ')}\n`;
+          });
+          summary += `\n`;
+        }
+
+        if (topic === 'benefits' || topic === 'all') {
+          summary += `### Core Student Outcomes:\n`;
+          benefits.forEach(b => {
+            summary += `• **${b.title}** [${b.badge}]: ${b.description}\n`;
+          });
+          summary += `\n`;
+        }
+
+        summary += `✨ *${syllabus.footerBanner}*\n\n💡 *Tip: You can book a free demo class to get your child's writing assessed before enrolling!*`;
+
+        return await logAudit({ modules: syllabus.modules, workshops, benefits }, summary, true);
+      }
+
+      case 'getAboutUs': {
+        const founder = landingProperties.founderSection;
+        const hero = landingProperties.hero;
+        const footer = landingProperties.footer;
+
+        let summary = `✍️ **About SmartPen Academy**\n\n`;
+        summary += `**${founder.title}**\n*${founder.subtitle}*\n\n`;
+        summary += founder.bio.join('\n\n') + '\n\n';
+        summary += `> "${founder.quote}"\n> — *${founder.signature}*\n\n`;
+        summary += `### Academy Key Highlights:\n`;
+        hero.stats.forEach(st => {
+          summary += `• **${st.number}** ${st.label} (${st.highlight})\n`;
+        });
+        summary += `\n• **Core Pillars**: ${hero.featuresPill.join(' • ')}\n`;
+        summary += `• **Coaching Formats**: In-Person (Bangalore Center) & Interactive Online Classes Worldwide\n`;
+        summary += `• **Direct Phone & WhatsApp**: **8861751000**\n`;
+        summary += `• **Standard Fee**: ₹1,600 per 8-class cycle (GPAY UPI to 8861751000)\n`;
+        summary += `\n${footer.legal}`;
+
+        return await logAudit({ founder, stats: hero.stats }, summary, true);
+      }
+
+      case 'getTestimonials': {
+        const limit = Number(args.limit) || 5;
+        let testimonials = await db.getTestimonials(undefined, 'Published');
+
+        if (testimonials.length === 0) {
+          const featured = [
+            {
+              parentName: 'Mrs. Sangeetha Sharma',
+              studentName: 'Ananya Sharma',
+              grade: 'Grade 4',
+              rating: 5,
+              review: 'Visible improvement in just 10 classes! The finger grip correction stopped hand cramps completely. Her school teacher specifically wrote a note praising her improved notebook presentation.'
+            },
+            {
+              parentName: 'Mr. Rajesh Kumar',
+              studentName: 'Siddharth Kumar',
+              grade: 'Grade 9',
+              rating: 5,
+              review: 'His exam writing speed jumped from 14 to 26 WPM without losing neatness. The exam margin formatting and formula structure taught by Mrs. Deepthy Rock helped him score 94% in his term finals.'
+            },
+            {
+              parentName: 'Dr. Priya Mehta',
+              studentName: 'Aarav Mehta',
+              grade: 'Grade 2',
+              rating: 5,
+              review: 'Gentle, encouraging approach by Mrs. Deepthy Rock. Aarav used to avoid writing and struggle with pencil pressure. Now he writes neatly and with joy.'
+            }
+          ];
+
+          let summary = `🌟 **Verified Parent Voices & Success Stories**:\n\n`;
+          featured.forEach(f => {
+            summary += `• ⭐⭐⭐⭐⭐ **${f.parentName}** (Parent of ${f.studentName}, ${f.grade}):\n  *"${f.review}"*\n\n`;
+          });
+          summary += `💬 *Join over 15,000 students who transformed their handwriting with SmartPen Academy!*`;
+          return await logAudit({ count: featured.length, testimonials: featured }, summary, true);
+        }
+
+        const list = testimonials.slice(0, limit).map(t => {
+          const stars = '⭐'.repeat(t.rating || 5);
+          const author = t.parentName ? `${t.parentName} (Parent of ${t.studentName})` : t.studentName;
+          const gradeInfo = t.grade ? ` [Grade ${t.grade}]` : '';
+          return `• ${stars} **${author}**${gradeInfo}:\n  *"${t.review}"*`;
+        }).join('\n\n');
+
+        return await logAudit(
+          { count: testimonials.length, testimonials: testimonials.slice(0, limit) },
+          `🌟 **Verified Parent Testimonials (${testimonials.length} reviews)**:\n\n${list}\n\n💬 *Join over 15,000 students who transformed their handwriting with SmartPen Academy!*`,
+          true
+        );
+      }
+
+      case 'bookDemoClass': {
+        const { childName, childAge, parentName, parentPhone, preferredDate, preferredTimeSlot, modeOfLearning, notes } = args;
+
+        if (childName && parentName && parentPhone) {
+          const targetDate = preferredDate || new Date(Date.now() + 86400000).toISOString().split('T')[0];
+          const targetSlot = preferredTimeSlot || '04:00 PM';
+          const ageVal = parseInt(String(childAge || '8').replace(/\D/g, ''), 10) || 8;
+
+          const sName = String(childName || (args as any).studentName || '').trim();
+          const { booking } = await db.createDemoBooking({
+            studentName: sName,
+            age: ageVal,
+            parentName: String(parentName).trim(),
+            contactNumber: String(parentPhone).trim(),
+            preferredDate: targetDate,
+            preferredTimeSlot: targetSlot,
+            modeOfLearning: modeOfLearning === 'Online' ? 'Online' : 'In-person',
+            notes: notes ? String(notes).trim() : 'Booked via SmartPen AI Assistant'
+          });
+
+          return await logAudit(
+            booking,
+            `🎉 **Free Demo Class Booked Successfully!**\n\n• **Student**: ${booking.studentName} (Age ${booking.age})\n• **Parent**: ${booking.parentName} (${booking.contactNumber})\n• **Scheduled Date**: **${booking.preferredDate}**\n• **Time Slot**: **${booking.preferredTimeSlot}**\n• **Mode**: ${booking.modeOfLearning}\n\nHead Coach **Mrs. Deepthy Rock** will connect with you on WhatsApp/Phone shortly to confirm your session.\n\n*Looking forward to welcoming ${booking.studentName} to SmartPen Academy!*`,
+            true
+          );
+        }
+
+        const timePresets = ["04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM", "06:00 PM", "06:30 PM", "07:00 PM"];
+        return await logAudit(
+          { availableSlots: timePresets },
+          `📅 **Free Demo Class Information & Available Slots**:\n\n• **Timing**: Available All Days • 1-on-1 Personalized Slots\n• **Available Slots**: ${timePresets.join(', ')}\n• **Ages**: 4 to 18 years (Preschool to Grade 12)\n• **Session Includes**: Handwriting speed assessment, kinetic pencil grip diagnosis, and personalized learning plan by Mrs. Deepthy Rock.\n\nTo book right now in chat, please provide:\n1. **Child's Name & Age**\n2. **Parent Name & Contact Number**\n3. **Preferred Date (YYYY-MM-DD) & Time Slot** (e.g. 04:00 PM)\n\n*(Or ask me to "Open demo booking" to fill the quick form on your screen!)*`,
+          true
+        );
       }
 
       case 'navigateToPage': {
@@ -874,7 +1140,7 @@ export async function runLocalAgent(
     p.startsWith('yes, mark');
 
   // Handle follow-up confirmation for attendance
-  if (isAwaitingAttendanceConfirm && isExplicitConfirmationOnly && userContext?.role === 'admin') {
+  if (isAwaitingAttendanceConfirm && isExplicitConfirmationOnly && (userContext?.role === 'admin' || userContext?.role === 'coach')) {
     // Parse the students, date, and status from the previous prompt/content
     const status = prevContent.includes('absent') ? 'Absent' : 'Present';
     let targetNames: string[] = [];
@@ -904,7 +1170,7 @@ export async function runLocalAgent(
   }
 
   // Handle follow-up confirmation for fee payment
-  if (isAwaitingFeeConfirm && isExplicitConfirmationOnly && userContext?.role === 'admin') {
+  if (isAwaitingFeeConfirm && isExplicitConfirmationOnly && (userContext?.role === 'admin' || userContext?.role === 'coach')) {
     let studentQuery = '';
     const allStudents = await db.getAllStudents();
     allStudents.forEach(st => {
@@ -926,6 +1192,25 @@ export async function runLocalAgent(
     };
   }
 
+  // Public Web Portal Knowledge Intents: Curriculum, About Us, Testimonials, Demo Booking
+  if (p.includes('curriculum') || p.includes('syllabus') || p.includes('module') || p.includes('what do you teach') || p.includes('course') || p.includes('workshop') || p.includes('bootcamp')) {
+    const result = await executeTool('getCurriculum', { topic: 'all' }, userContext, 'local_agent');
+    toolResults.push(result);
+    return { reply: result.summary, toolResults };
+  }
+
+  if (p.includes('about') || p.includes('who is') || p.includes('deepthy') || p.includes('founder') || p.includes('philosophy') || p.includes('academy info')) {
+    const result = await executeTool('getAboutUs', {}, userContext, 'local_agent');
+    toolResults.push(result);
+    return { reply: result.summary, toolResults };
+  }
+
+  if (p.includes('testimonial') || p.includes('review') || p.includes('feedback') || p.includes('parent voice') || p.includes('rating') || p.includes('what parents say') || p.includes('experience')) {
+    const result = await executeTool('getTestimonials', { limit: 5 }, userContext, 'local_agent');
+    toolResults.push(result);
+    return { reply: result.summary, toolResults };
+  }
+
   // 1. Navigation intents: Enroll, Book a demo, GPAY payment, syllabus, about
   if (p.includes('enroll') || p.includes('register') || p.includes('join') || p.includes('admission') || p.includes('sign up')) {
     const result = await executeTool('navigateToPage', { target: 'enroll', reason: 'Student Registration / Enrollment' }, userContext, 'local_agent');
@@ -937,10 +1222,12 @@ export async function runLocalAgent(
   }
 
   if (p.includes('book demo') || p.includes('free demo') || p.includes('book a demo') || p.includes('trial class') || (p.includes('demo') && (p.includes('book') || p.includes('schedule') || p.includes('slot')))) {
-    const result = await executeTool('navigateToPage', { target: 'demo', reason: 'Book Free Demo Class' }, userContext, 'local_agent');
+    const result = await executeTool('bookDemoClass', {}, userContext, 'local_agent');
+    const navResult = await executeTool('navigateToPage', { target: 'demo', reason: 'Book Free Demo Class' }, userContext, 'local_agent');
     toolResults.push(result);
+    toolResults.push(navResult);
     return {
-      reply: `I have launched the **Free Demo Class Booking** window for you! You can pick your preferred date and time slot (4:00 PM – 7:00 PM) to experience Mrs. Deepthy Rock's personalized coaching.`,
+      reply: `${result.summary}\n\nI have also opened the **Free Demo Class Booking** window for you!`,
       toolResults
     };
   }
@@ -956,7 +1243,7 @@ export async function runLocalAgent(
 
   // Attendance update pattern: e.g. "update attendance for student 1, 2, 3 for today" or "mark attendance for aryan as present"
   if (p.includes('attendance') && (p.includes('update') || p.includes('mark') || p.includes('present') || p.includes('absent') || p.includes('save') || p.includes('record'))) {
-    if (userContext?.role !== 'admin') {
+    if (userContext?.role !== 'admin' && userContext?.role !== 'coach') {
       return {
         reply: `⚠️ **Permission Denied**: Student and parent accounts cannot record or update attendance records. Only Head Coach / Administrator **Mrs. Deepthy Rock** has permission to officially mark attendance. You can view your current attendance count by asking *"What is my attendance?"*.`,
         toolResults: []
@@ -1145,7 +1432,7 @@ export async function runLocalAgent(
   } else if (userContext?.role === 'coach') {
     const designationSuffix = userContext.designation ? ` (${userContext.designation})` : '';
     return {
-      reply: `Hello Coach **${userContext.displayName || 'Tutor'}**${designationSuffix}! Welcome to your coaching assistant. You can manage your assigned students:\n\n• **Mark attendance**: *"Mark Aarav as Present today"*\n• **View assigned roster**: *"Show my assigned students"*\n• **Generate progress report**: *"Create progress report for my student"*\n• **Lookup student profile**: *"Show profile for Ananya"*\n\nWhat would you like to work on?`,
+      reply: `Hello Coach **${userContext.displayName || 'Tutor'}**${designationSuffix}! Welcome to your coaching assistant. You have full management over your assigned students:\n\n• **Attendance**: *"Mark Aarav as Present today"* or *"Update attendance for my batch"*\n• **Fee Management**: *"Check fee status for my students"*, *"Send fee reminder to [Student]"*, or *"Record fee payment"*\n• **Progress Reports**: *"Generate progress report for my student"*\n• **Roster & Profiles**: *"Show my assigned students"* or *"Show profile for Ananya"*\n\nWhat would you like to work on?`,
       toolResults: []
     };
   } else if (userContext?.role === 'student') {
@@ -1166,7 +1453,28 @@ function buildRoleSystemInstruction(userContext: User | null): string {
   const todayStr = new Date().toISOString().split('T')[0];
   const baseHeader = `You are SmartPen Academy's intelligent AI Assistant.
 Current Date: ${todayStr}
-Academy Info: SmartPen Academy, Founder & Head Coach Mrs. Deepthy Rock. Fee policy: ₹1,600 for every 8 classes. Google Pay payment number: 8861751000.`;
+Academy Info: SmartPen Academy, Founder & Principal Coach Mrs. Deepthy Rock. 
+Fee policy: ₹1,600 for every 8 classes. Google Pay payment number: 8861751000 (UPI: 8861751000@okbizaxis).
+Age Groups: 4 to 18 years (Preschool to Grade 12).
+Locations & Mode: Bangalore Coaching Center & Live Interactive Online Classes Worldwide.
+
+PUBLIC WEB PORTAL KNOWLEDGE BASE (Available to all users, parents, and visitors):
+1. Curriculum Blueprint (7 Progressive Modules):
+   - Module 1: Assessment & Foundation (Tripod grip, posture, wrist alignment)
+   - Module 2: Letter Formation & Consistency (Uniform letter size, height, shape, slant)
+   - Module 3: Spacing & Alignment & Word Formation (Letter/word spacing, baseline control, word joins)
+   - Module 4: Sentence & Paragraph Writing (Margins, headings, underline tactics)
+   - Module 5: Academic Excellence (Subject presentation, Math numericals/formulas, diagrams)
+   - Module 6: Speed & Presentation Improvement (Timed drills, exam speed without losing neatness)
+   - Module 7: Final Improvement & Confidence (Individual feedback, SmartPen Certification)
+2. Specialized Bootcamps & Workshops:
+   - Super-Speed Exam Writing Intensive (Grades 5-12, eliminates exam time crunch)
+   - Little Scribblers: Grip & Fine Motor Foundation (Ages 4-6, color-coded 4-line stroke guidance)
+   - Artistic Cursive & Calligraphy Masterclass (Ages 7-18, fluid loops, signature styling)
+3. Founder: Mrs. Deepthy Rock, certified handwriting analyst with over a decade of pedagogical research in kinetic motor skills and exam psychology. Visible transformation guaranteed in as few as 10 classes.
+4. Free Demo Class: Available all days with 1-on-1 personalized slots between 04:00 PM and 07:00 PM. Parents can book directly via chat (providing child name, age, parent name, contact number, preferred date & time) or via the booking window.
+5. Parent Testimonials: Over 15,000 students coached with 98.4% exam presentation improvement and verified 5-star parent ratings.
+6. Public Portal Tools: You can invoke getCurriculum, getAboutUs, getTestimonials, bookDemoClass, and navigateToPage for any user inquiry regarding public academy information.`;
 
   if (userContext?.role === 'admin') {
     return `${baseHeader}
@@ -1191,11 +1499,12 @@ Logged-in User Context (COACH / TUTOR):
 • User ID: ${userContext.id}
 
 Coach Guidelines:
-1. SCOPED COACHING ACCESS: As a Coach, you have permission to manage attendance, student profiles, and progress reports EXCLUSIVELY FOR YOUR ASSIGNED STUDENTS.
-2. ATTENDANCE: You can mark and update attendance for students assigned to you. If you attempt to update or view a student not assigned to your coaching roster, the system will prevent it.
-3. PROGRESS REPORTS: You can generate and review milestone progress reports for your assigned students.
-4. FINANCIAL & ENROLLMENT BOUNDARIES: Coaches DO NOT manage academy fees, ledger records, or institute-level configurations. Those remain the exclusive responsibility of Administrator Mrs. Deepthy Rock.
-5. Keep your tone encouraging, instructional, concise, and focused on student handwriting mastery.`;
+1. PROTECTED ROSTER ACCESS: As a Coach, you have complete functional management over your ASSIGNED STUDENTS (identical to the administrator's powers over students). This includes marking attendance, viewing student profiles, generating milestone progress reports, checking fee status, dispatching fee reminders, and recording fee payments.
+2. SCOPED ATTENDANCE & PROFILES: You can mark and update attendance and inspect student profiles for students assigned to you. Any attempt to query or update students outside your coaching roster will be prevented by the system.
+3. FEE MANAGEMENT FOR ASSIGNED STUDENTS: You can check fee status, dispatch fee reminder emails with UPI links, and record fee payments for your assigned students.
+4. FINANCIAL CONFIRMATION POLICY: For recordFeePayment, if the coach is requesting to record a payment for the first time without explicit prior confirmation, set confirmed: false to produce a safety draft. If the coach explicitly says "Confirm payment", "Yes, record", or "Proceed", set confirmed: true.
+5. NON-STUDENT RESTRICTIONS: Prospective website trial bookings (unassigned leads) and academy-level alerts remain global administrator tools.
+6. Keep your tone encouraging, instructional, concise, and focused on student handwriting mastery.`;
   }
 
   if (userContext?.role === 'student') {
@@ -1220,15 +1529,16 @@ Student / Parent Guidelines:
   }
 
   return `${baseHeader}
-Logged-in User Context: Guest (Not logged in)
+Logged-in User Context: GUEST / VISITOR (Not logged in)
 
 Guest Guidelines:
-1. Provide information about SmartPen Academy's courses (Print Mastery, Cursive Fluency, Speed Writing, Exam Prep), batch timings, and fee policy (₹1,600 per 8 classes).
-2. ENROLLMENT, DEMO BOOKING & GPAY NAVIGATION:
-   • If a guest asks to enroll or register, call \`navigateToPage\` with target: "enroll".
-   • If a guest wants to book a free demo class / trial, call \`navigateToPage\` with target: "demo".
-   • If a guest asks to GPAY or pay fees to coach, call \`navigateToPage\` with target: "gpay".
-3. Guests cannot view private student records or modify attendance. Encourage users to sign in with their credentials to access student portal records or administrative controls.`;
+1. Enthusiastically welcome the prospective parent or student to SmartPen Academy.
+2. Provide rich, accurate answers about our courses, 7-module curriculum, specialized workshops, fee policy (₹1,600 for 8 classes), and Founder Mrs. Deepthy Rock.
+3. Call getCurriculum, getAboutUs, getTestimonials, and bookDemoClass whenever relevant.
+4. When a visitor expresses interest in trial classes, invite them to book a Free Demo Class (slots between 4 PM and 7 PM) or call navigateToPage with target: "demo".
+5. When a visitor wants to enroll, call navigateToPage with target: "enroll".
+6. When a visitor asks how to pay coaching fees, call navigateToPage with target: "gpay".
+7. Explain that private student attendance records, fee payment ledgers, and coach rosters require signing in with registered credentials.`;
 }
 
 // Master AI Agent Process Function with Instant Fast-Path and High-Speed Low-Latency Fallbacks

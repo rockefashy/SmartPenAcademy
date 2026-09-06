@@ -49,17 +49,25 @@ import { AttendanceCalendarTracker } from '../components/AttendanceCalendarTrack
 
 interface ParentPortalPageProps {
   studentId?: string;
+  initialTab?: 'overview' | 'progress' | 'works' | 'attendance' | 'fees' | 'testimony';
   onNavigate: (view: string, extraId?: string, defaultSection?: number) => void;
   onOpenLogin: () => void;
 }
 
 export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
   studentId,
+  initialTab = 'overview',
   onNavigate,
   onOpenLogin,
 }) => {
   const { user, isAuthenticated, switchStudent } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'progress' | 'works' | 'attendance' | 'fees' | 'testimony'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'progress' | 'works' | 'attendance' | 'fees' | 'testimony'>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [fees, setFees] = useState<FeeRecord[]>([]);
@@ -287,6 +295,40 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
               <span>Admin Dashboard</span>
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Inactive / Alumni Student Status Notice */}
+      {student.status === 'Inactive' && (
+        <div 
+          className="bg-gradient-to-r from-amber-50 to-orange-50/70 border-2 border-amber-200/80 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-slate-800 shadow-xs animate-in fade-in duration-200"
+          id="banner-inactive-student-portal"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-200 text-amber-800 flex items-center justify-center shrink-0">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-extrabold text-sm text-slate-900">{student.displayName} — Alumni Archive</span>
+                <span className="px-2 py-0.5 bg-amber-200/70 text-amber-900 text-[10px] font-black rounded-full uppercase tracking-wider border border-amber-300">
+                  Read-Only Archive
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                {student.dateOfLeaving ? `Date of Leaving: ${student.dateOfLeaving} • ` : ''}
+                You have permanent access to view past attendance, progress reports, worksheets, and fee receipts.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('testimony')}
+            className="px-4 py-2 bg-[#F46E20] hover:bg-[#e05c10] text-white text-xs font-black rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Leave a Testimonial</span>
+          </button>
         </div>
       )}
 

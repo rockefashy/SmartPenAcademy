@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
+  Eye,
+  X,
+  AlertCircle,
   Trophy, 
   Smile, 
   Heart, 
@@ -34,6 +37,7 @@ export const ProgressReportCard: React.FC<ProgressReportCardProps> = ({
   onDelete,
   isEmailing = false,
 }) => {
+  const [zoomImg, setZoomImg] = useState<string | null>(null);
   const getSkillIcon = (key: string) => {
     switch (key) {
       case 'letterFormation':
@@ -207,12 +211,15 @@ export const ProgressReportCard: React.FC<ProgressReportCardProps> = ({
           </div>
         </div>
 
-        {/* Optional Before & After Writing Works Comparison */}
+        {/* Before & After Writing Works Comparison with Click-to-Zoom */}
         {(report.beforePhotoData || report.afterPhotoData) && (
           <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#0E3589]">
-              <ImageIcon className="w-4 h-4 text-[#F46E20]" />
-              <span>Writing Transformation Samples Attached</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#0E3589]">
+                <ImageIcon className="w-4 h-4 text-[#F46E20]" />
+                <span>Writing Transformation Samples Attached</span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-medium">Click image to enlarge</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {report.beforePhotoData && (
@@ -221,13 +228,20 @@ export const ProgressReportCard: React.FC<ProgressReportCardProps> = ({
                     <span>Baseline Sample (Before)</span>
                     <span className="text-slate-400">Class 1</span>
                   </div>
-                  <div className="border border-rose-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                  <div 
+                    onClick={() => setZoomImg(report.beforePhotoData || null)}
+                    className="border border-rose-200 rounded-xl overflow-hidden bg-white shadow-xs relative group cursor-pointer"
+                  >
                     <img
                       src={report.beforePhotoData}
                       alt="Before sample"
-                      className="w-full h-44 object-contain bg-slate-50"
+                      className="w-full h-48 object-contain bg-slate-50 group-hover:scale-105 transition-transform duration-300"
                       referrerPolicy="no-referrer"
                     />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1.5">
+                      <Eye className="w-4 h-4" />
+                      <span>View Full Image</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -236,19 +250,45 @@ export const ProgressReportCard: React.FC<ProgressReportCardProps> = ({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[11px] font-bold text-emerald-600">
                     <span>Transformed Sample (After)</span>
-                    <span className="text-slate-400">{report.milestoneTitle || "Class 10"}</span>
+                    <span className="text-slate-400">{report.milestoneTitle || "After 10 Classes"}</span>
                   </div>
-                  <div className="border border-emerald-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                  <div 
+                    onClick={() => setZoomImg(report.afterPhotoData || null)}
+                    className="border border-emerald-200 rounded-xl overflow-hidden bg-white shadow-xs relative group cursor-pointer"
+                  >
                     <img
                       src={report.afterPhotoData}
                       alt="After sample"
-                      className="w-full h-44 object-contain bg-slate-50"
+                      className="w-full h-48 object-contain bg-slate-50 group-hover:scale-105 transition-transform duration-300"
                       referrerPolicy="no-referrer"
                     />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1.5">
+                      <Eye className="w-4 h-4" />
+                      <span>View Full Image</span>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
+
+            {zoomImg && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xs">
+                <div className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b">
+                    <h4 className="font-bold text-sm text-[#0E3589]">Handwriting Sample Zoom</h4>
+                    <button
+                      onClick={() => setZoomImg(null)}
+                      className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 font-bold cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="bg-slate-900 rounded-2xl overflow-hidden max-h-[65vh] flex items-center justify-center">
+                    <img src={zoomImg} alt="Enlarged writing sample" className="max-h-[65vh] max-w-full object-contain" />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

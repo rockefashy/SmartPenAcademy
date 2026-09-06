@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Star } from 'lucide-react';
 
 interface StarRatingProps {
-  value: number;
+  value?: number;
+  rating?: number; // Support both value and rating
   max?: number;
   onChange?: (val: number) => void;
   readOnly?: boolean;
@@ -12,12 +13,19 @@ interface StarRatingProps {
 
 export const StarRating: React.FC<StarRatingProps> = ({
   value,
+  rating,
   max = 5,
   onChange,
   readOnly = false,
   size = 'md',
   className = '',
 }) => {
+  const [hoverRating, setHoverRating] = useState<number | null>(null);
+
+  // Normalize rating from either value or rating prop
+  const currentRating = typeof value === 'number' ? value : (typeof rating === 'number' ? rating : 0);
+  const displayRating = hoverRating !== null ? hoverRating : currentRating;
+
   const sizeClasses = {
     sm: 'w-4 h-4',
     md: 'w-5 h-5',
@@ -26,27 +34,34 @@ export const StarRating: React.FC<StarRatingProps> = ({
   };
 
   return (
-    <div className={`inline-flex items-center gap-1 ${className}`}>
+    <div
+      className={`inline-flex items-center gap-1 ${className}`}
+      onMouseLeave={() => !readOnly && setHoverRating(null)}
+    >
       {Array.from({ length: max }, (_, index) => {
         const starNumber = index + 1;
-        const isFilled = starNumber <= value;
+        const isFilled = starNumber <= displayRating;
 
         return (
           <button
             key={index}
             type="button"
             disabled={readOnly}
+            onMouseEnter={() => !readOnly && setHoverRating(starNumber)}
             onClick={() => !readOnly && onChange && onChange(starNumber)}
-            className={`transition-transform focus:outline-none ${
-              !readOnly ? 'cursor-pointer hover:scale-125 active:scale-95' : 'cursor-default'
+            className={`transition-all duration-150 focus:outline-none p-0.5 rounded ${
+              !readOnly
+                ? 'cursor-pointer hover:scale-125 active:scale-95'
+                : 'cursor-default'
             }`}
             title={`${starNumber} of ${max} stars`}
+            aria-label={`${starNumber} of ${max} stars`}
           >
             <Star
-              className={`${sizeClasses[size]} ${
+              className={`${sizeClasses[size]} transition-colors duration-150 ${
                 isFilled
-                  ? 'text-amber-400 fill-amber-400 drop-shadow-[0_1px_2px_rgba(245,158,11,0.4)]'
-                  : 'text-slate-300 fill-slate-100'
+                  ? 'text-amber-400 fill-amber-400 drop-shadow-[0_1px_3px_rgba(245,158,11,0.5)]'
+                  : 'text-slate-300 fill-slate-100 hover:text-amber-300'
               }`}
             />
           </button>

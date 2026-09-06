@@ -92,15 +92,45 @@ export const api = {
     return res.json();
   },
 
-  async changePassword(data: { email: string; currentPassword?: string; newPassword: string }): Promise<{ success: boolean; message: string }> {
+  async changePassword(data: {
+    email: string;
+    currentPassword?: string;
+    newPassword: string;
+    targetStudentId?: string;
+    targetUserId?: string;
+    applyToAll?: boolean;
+  }): Promise<{ success: boolean; message: string; loggedOut?: boolean }> {
     const res = await fetch('/api/auth/change-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(data),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Failed to update password' }));
       throw new Error(err.error || 'Failed to update password');
+    }
+    return res.json();
+  },
+
+  async getFamilyStudents(identifier: string): Promise<{
+    students: Array<{
+      id: string;
+      studentId: string;
+      userId?: string;
+      displayName: string;
+      age?: number;
+      gradeClass?: string;
+      schoolName?: string;
+    }>;
+  }> {
+    const res = await fetch('/api/auth/family-students', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier }),
+    });
+    if (!res.ok) {
+      return { students: [] };
     }
     return res.json();
   },
@@ -555,7 +585,10 @@ export const api = {
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Failed to upload student work');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to upload student work');
+    }
     return res.json();
   },
 
@@ -564,7 +597,23 @@ export const api = {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
-    if (!res.ok) throw new Error('Failed to delete student work');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete student work');
+    }
+    return res.json();
+  },
+
+  async bulkDeleteStudentWorks(ids: string[]): Promise<{ success: boolean; count: number }> {
+    const res = await fetch('/api/student-works/bulk-delete', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ ids }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to bulk delete student works');
+    }
     return res.json();
   },
 

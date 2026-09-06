@@ -3,6 +3,9 @@ export const enrollmentProperties = {
     academyName: "SMART PEN ACADEMY",
     tagline: "Transforming Handwriting into Academic Excellence • Ages 4 to 18",
     formTitle: "Student Registration Form",
+    enrollFormTitle: "Enroll New Student",
+    editFormTitle: "Edit Student",
+    editTagline: "Update student profile details, guardian contacts, schedules, and learning modules.",
     freeDiagnosticBanner: "✨ BOOK FOR A FREE DEMO CLASS (ALL DAYS 4–7 PM) — Experience the SmartPen Method with Mrs. Deepthy Rock! Call/WhatsApp: 8861751000 ✨",
   },
 
@@ -114,8 +117,10 @@ export const enrollmentProperties = {
     mediaConsent: "Media Consent: I consent to anonymized handwriting samples (Before/After) being used for progress tracking and educational portfolios."
   },
 
-  submitButton: "Complete Student Enrollment",
-  submittingText: "Creating Student Profile & Sending Credentials...",
+  submitButton: "Enroll New Student",
+  submittingText: "Enrolling Student & Sending Credentials...",
+  editSubmitButton: "Save Student Details",
+  editSubmittingText: "Saving Student Details & Sending Notifications...",
   
   validation: {
     fullNameRequired: "Student full name is required.",

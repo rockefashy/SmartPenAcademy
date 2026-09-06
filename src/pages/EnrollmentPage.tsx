@@ -10,19 +10,21 @@ import {
   ShieldCheck, 
   CheckCircle, 
   ArrowRight,
-  ArrowLeft,
   AlertCircle,
   Lock,
   Sparkles,
-  UserCheck
+  UserCheck,
+  Save,
+  X,
+  Users
 } from 'lucide-react';
 import { enrollmentProperties } from '../properties/enrollment.properties';
 import { api } from '../services/api';
-import { DominantHand, Gender } from '../types';
+import { DominantHand, Gender, StudentProfile } from '../types';
 import { formatDominantHand } from '../utils/formatters';
 
 interface EnrollmentPageProps {
-  onNavigate: (view: string, studentId?: string, defaultSection?: any) => void;
+  onNavigate?: (view: string, studentId?: string, defaultSection?: any) => void;
   onOpenDemoModal?: () => void;
   initialData?: {
     studentName?: string;
@@ -32,15 +34,32 @@ interface EnrollmentPageProps {
     modeOfLearning?: 'In-person' | 'Online';
     notes?: string;
     fromDemoBookingId?: string;
+    isSiblingEnrollment?: boolean;
+    siblingOfStudentId?: string;
+    siblingOfStudentName?: string;
+    email?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+    residentialArea?: string;
   } | null;
   onBackToDemoBookings?: () => void;
+  mode?: 'enroll' | 'edit';
+  studentToEdit?: StudentProfile | null;
+  onSuccess?: (student: any, isEdit: boolean) => void;
+  onCancel?: () => void;
 }
 
 export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({ 
   onNavigate, 
   initialData, 
-  onBackToDemoBookings 
+  mode = 'enroll',
+  studentToEdit,
+  onSuccess,
+  onCancel
 }) => {
+  const isEditMode = mode === 'edit' || !!studentToEdit;
+  const isSiblingEnrollment = Boolean(initialData?.isSiblingEnrollment);
+
   // Helper to parse student pre-population from demo booking inquiry
   const parsePrefillData = (data?: typeof initialData) => {
     const rawName = (data?.studentName || '').trim();
@@ -57,7 +76,23 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
       modeOfLearning: mode as 'In-person' | 'Online',
       parentName: data?.parentName || '',
       whatsappMobile: data?.contactNumber || '',
+      email: data?.email || '',
+      emergencyContactName: data?.emergencyContactName || '',
+      emergencyContactPhone: data?.emergencyContactPhone || '',
+      residentialArea: data?.residentialArea || '',
+      isSiblingEnrollment: Boolean(data?.isSiblingEnrollment),
+      siblingOfStudentName: data?.siblingOfStudentName || '',
+      siblingOfStudentId: data?.siblingOfStudentId || ''
     };
+  };
+
+  // Helper to parse schedule days string
+  const parseDays = (daysStr?: string): string[] => {
+    if (!daysStr) return [];
+    return daysStr
+      .split(/&|,|\band\b/i)
+      .map((s) => s.trim())
+      .filter((s) => s && !['&', ',', 'and'].includes(s.toLowerCase()));
   };
 
   const initialValues = parsePrefillData(initialData);
@@ -75,34 +110,25 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
   // Section 2: Parent details & Login setup
   const [parentName, setParentName] = useState(initialValues.parentName);
   const [whatsappMobile, setWhatsappMobile] = useState(initialValues.whatsappMobile);
-  const [emergencyContactName, setEmergencyContactName] = useState('');
-  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
-  const [email, setEmail] = useState('');
+  const [emergencyContactName, setEmergencyContactName] = useState(initialValues.emergencyContactName);
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState(initialValues.emergencyContactPhone);
+  const [email, setEmail] = useState(initialValues.email);
   const [password, setPassword] = useState('');
-  const [residentialArea, setResidentialArea] = useState('');
+  const [residentialArea, setResidentialArea] = useState(initialValues.residentialArea);
 
-  // Synchronize state when initialData changes or arrives on screen load
-  useEffect(() => {
-    if (initialData) {
-      const parsed = parsePrefillData(initialData);
-      setFirstName(parsed.firstName);
-      setLastName(parsed.lastName);
-      setAge(parsed.age);
-      setModeOfLearning(parsed.modeOfLearning);
-      setParentName(parsed.parentName);
-      setWhatsappMobile(parsed.whatsappMobile);
-    }
-  }, [initialData]);
+  // Status & Date of Leaving Governance (Admin Controlled)
+  const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
+  const [dateOfLeaving, setDateOfLeaving] = useState<string>('');
 
-  // Section 3: Programs & Modules (No defaults on load, select at least one)
+  // Section 3: Programs & Modules
   const [scriptsRequired, setScriptsRequired] = useState<string[]>([]);
   const [academicModules, setAcademicModules] = useState<string[]>([]);
 
-  // Section 4: Schedule (No defaults on load, mandatory 2 days and 1 time slot)
+  // Section 4: Schedule
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [preferredSlot, setPreferredSlot] = useState<string>('');
 
-  // Section 5: Areas of Concern (Parent Observations) (No defaults on load, select at least one)
+  // Section 5: Areas of Concern (Parent Observations)
   const [diagnosticObservations, setDiagnosticObservations] = useState<string[]>([]);
 
   // Section 6: Consents & Declaration
@@ -119,6 +145,50 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
     email: string;
     password: string;
   } | null>(null);
+
+  // Synchronize state when studentToEdit or initialData changes
+  useEffect(() => {
+    if (studentToEdit) {
+      const parts = (studentToEdit.displayName || '').trim().split(/\s+/);
+      setFirstName(studentToEdit.firstName || parts[0] || '');
+      setLastName(studentToEdit.lastName || parts.slice(1).join(' ') || '');
+      setModeOfLearning(studentToEdit.modeOfLearning || 'In-person');
+      setAge(studentToEdit.age !== undefined && studentToEdit.age !== null ? studentToEdit.age : '');
+      setGender(studentToEdit.gender || 'Female');
+      setGradeClass(studentToEdit.gradeClass || '');
+      setDominantHand(studentToEdit.dominantHand || 'Right');
+      setSchoolName(studentToEdit.schoolName || '');
+      setParentName(studentToEdit.parentName || '');
+      setWhatsappMobile(studentToEdit.whatsappMobile || '');
+      setEmergencyContactName(studentToEdit.emergencyContactName || '');
+      setEmergencyContactPhone(studentToEdit.emergencyContactPhone || studentToEdit.emergencyPhone || '');
+      setEmail(studentToEdit.email || '');
+      setPassword(''); // Blank when editing to preserve current password
+      setResidentialArea(studentToEdit.residentialArea || '');
+      setScriptsRequired(Array.isArray(studentToEdit.scriptsRequired) ? studentToEdit.scriptsRequired : []);
+      setAcademicModules(Array.isArray(studentToEdit.academicModules) ? studentToEdit.academicModules : []);
+      setSelectedDays(parseDays(studentToEdit.preferredDays));
+      setPreferredSlot(studentToEdit.preferredSlot || '');
+      setDiagnosticObservations(Array.isArray(studentToEdit.diagnosticObservations) ? studentToEdit.diagnosticObservations : []);
+      setPracticeCommitment(studentToEdit.practiceCommitment !== false);
+      setFeePolicyAccepted(studentToEdit.feePolicyAccepted !== false);
+      setMediaConsent(studentToEdit.mediaConsent !== false);
+      setStatus(studentToEdit.status || 'Active');
+      setDateOfLeaving(studentToEdit.dateOfLeaving || '');
+    } else if (initialData) {
+      const parsed = parsePrefillData(initialData);
+      setFirstName(parsed.firstName);
+      setLastName(parsed.lastName);
+      setAge(parsed.age);
+      setModeOfLearning(parsed.modeOfLearning);
+      setParentName(parsed.parentName);
+      setWhatsappMobile(parsed.whatsappMobile);
+      if (parsed.email) setEmail(parsed.email);
+      if (parsed.emergencyContactName) setEmergencyContactName(parsed.emergencyContactName);
+      if (parsed.emergencyContactPhone) setEmergencyContactPhone(parsed.emergencyContactPhone);
+      if (parsed.residentialArea) setResidentialArea(parsed.residentialArea);
+    }
+  }, [studentToEdit, initialData]);
 
   const toggleScript = (script: string) => {
     setScriptsRequired((prev) =>
@@ -144,7 +214,6 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
         return prev.filter((d) => d !== day);
       }
       if (prev.length >= 2) {
-        // Replace oldest or keep max 2 by swapping
         return [prev[1], day];
       }
       return [...prev, day];
@@ -181,8 +250,13 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
       return;
     }
 
-    if (!password || password.length < 8) {
+    if (!isEditMode && !isSiblingEnrollment && (!password || password.length < 8)) {
       setErrorMessage(enrollmentProperties.validation.passwordRequired);
+      return;
+    }
+
+    if (isEditMode && password && password.length < 8) {
+      setErrorMessage(enrollmentProperties.validation.passwordMinLength);
       return;
     }
 
@@ -214,120 +288,190 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
     setIsSubmitting(true);
 
     try {
-      const payload = {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        displayName: calculatedDisplayName,
-        fullName: calculatedDisplayName,
-        modeOfLearning,
-        age: Number(age),
-        gender,
-        gradeClass: gradeClass.trim() || undefined,
-        dominantHand,
-        schoolName: schoolName.trim() || '',
-        parentName: parentName.trim(),
-        whatsappMobile: whatsappMobile.trim() || '',
-        emergencyContactName: emergencyContactName.trim() || undefined,
-        emergencyContactPhone: emergencyContactPhone.trim() || undefined,
-        email: email.trim().toLowerCase(),
-        password: password.trim(),
-        residentialArea: residentialArea.trim() || '',
-        scriptsRequired,
-        academicModules,
-        diagnosticObservations,
-        preferredDays: selectedDays.join(' & '),
-        preferredSlot,
-        practiceCommitment,
-        feePolicyAccepted,
-        mediaConsent,
-        username: email.trim().toLowerCase(),
-        status: 'Active' as const,
-        enrollmentDate: new Date().toISOString().split('T')[0],
-      };
+      if (isEditMode && studentToEdit) {
+        // ==================== EDIT STUDENT FLOW ====================
+        const updatePayload: any = {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          displayName: calculatedDisplayName,
+          fullName: calculatedDisplayName,
+          modeOfLearning,
+          age: Number(age),
+          gender,
+          gradeClass: gradeClass.trim() || undefined,
+          dominantHand,
+          schoolName: schoolName.trim() || '',
+          parentName: parentName.trim(),
+          whatsappMobile: whatsappMobile.trim() || '',
+          emergencyContactName: emergencyContactName.trim() || undefined,
+          emergencyContactPhone: emergencyContactPhone.trim() || undefined,
+          email: email.trim().toLowerCase(),
+          residentialArea: residentialArea.trim() || '',
+          scriptsRequired,
+          academicModules,
+          diagnosticObservations,
+          preferredDays: selectedDays.join(' & '),
+          preferredSlot,
+          status,
+          dateOfLeaving: status === 'Inactive' ? (dateOfLeaving || new Date().toISOString().split('T')[0]) : null,
+          practiceCommitment,
+          feePolicyAccepted,
+          mediaConsent,
+        };
 
-      const result = await api.enrollStudent(payload);
+        if (password && password.trim().length >= 8) {
+          updatePayload.password = password.trim();
+        }
 
-      // If enrolled via fast-track from a demo booking inquiry, auto-update demo booking status to 'Enrolled'
-      if (initialData?.fromDemoBookingId) {
-        try {
-          await api.updateDemoBooking(initialData.fromDemoBookingId, { status: 'Enrolled' });
-        } catch (updateErr) {
-          console.warn('Could not auto-update demo booking status:', updateErr);
+        const updatedStudent = await api.updateStudent(studentToEdit.id, updatePayload);
+
+        if (onSuccess) {
+          onSuccess(updatedStudent, true);
+        } else if (onNavigate) {
+          onNavigate('admin', undefined, 'roster');
+        }
+      } else {
+        // ==================== ENROLL NEW STUDENT FLOW ====================
+        const payload: any = {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          displayName: calculatedDisplayName,
+          fullName: calculatedDisplayName,
+          modeOfLearning,
+          age: Number(age),
+          gender,
+          gradeClass: gradeClass.trim() || undefined,
+          dominantHand,
+          schoolName: schoolName.trim() || '',
+          parentName: parentName.trim(),
+          whatsappMobile: whatsappMobile.trim() || '',
+          emergencyContactName: emergencyContactName.trim() || undefined,
+          emergencyContactPhone: emergencyContactPhone.trim() || undefined,
+          email: email.trim().toLowerCase(),
+          password: isSiblingEnrollment ? undefined : (password ? password.trim() : undefined),
+          isSiblingEnrollment,
+          siblingOfStudentId: initialData?.siblingOfStudentId,
+          siblingOfStudentName: initialData?.siblingOfStudentName,
+          residentialArea: residentialArea.trim() || '',
+          scriptsRequired,
+          academicModules,
+          diagnosticObservations,
+          preferredDays: selectedDays.join(' & '),
+          preferredSlot,
+          practiceCommitment,
+          feePolicyAccepted,
+          mediaConsent,
+          username: email.trim().toLowerCase(),
+          status: 'Active' as const,
+          enrollmentDate: new Date().toISOString().split('T')[0],
+        };
+
+        const result = await api.enrollStudent(payload);
+
+        // If enrolled via fast-track from a demo booking inquiry, auto-update demo booking status to 'Enrolled'
+        if (initialData?.fromDemoBookingId) {
+          try {
+            await api.updateDemoBooking(initialData.fromDemoBookingId, { status: 'Enrolled' });
+          } catch (updateErr) {
+            console.warn('Could not auto-update demo booking status:', updateErr);
+          }
+        }
+
+        // Trigger confetti celebration!
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
+
+        if (onSuccess) {
+          onSuccess(result.student, false);
+        } else {
+          setSuccessModalData({
+            studentId: result.student.id,
+            studentName: result.student.displayName,
+            email: result.student.email || result.credentials?.parentEmail || email.trim().toLowerCase(),
+            password: password.trim(),
+          });
         }
       }
-
-      // Trigger confetti celebration!
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
-
-      setSuccessModalData({
-        studentId: result.student.id,
-        studentName: result.student.displayName,
-        email: result.student.email || result.credentials?.parentEmail || email.trim().toLowerCase(),
-        password: password.trim(),
-      });
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to complete registration');
+      setErrorMessage(err.message || 'Failed to process student details');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 font-sans">
-      {/* Top Bar: Back to Demo Inquiries navigation */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => {
-            if (onBackToDemoBookings) {
-              onBackToDemoBookings();
-            } else {
-              onNavigate('admin', undefined, 'alerts');
-            }
-          }}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-[#0E3589] font-bold text-xs rounded-2xl border border-slate-200 shadow-xs hover:border-[#0E3589]/40 transition-all cursor-pointer group"
-          id="btn-back-to-demo-bookings"
-        >
-          <ArrowLeft className="w-4 h-4 text-[#F46E20] group-hover:-translate-x-0.5 transition-transform" />
-          <span>← Back to Demo Inquiries</span>
-        </button>
-
-        {initialData?.fromDemoBookingId && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-[#F46E20] text-xs font-extrabold rounded-xl border border-orange-200 shadow-2xs">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Fast-Track Demo Conversion</span>
-          </span>
-        )}
-      </div>
-
-      {/* Fast-Track Pre-population Notice Banner */}
-      {initialData && (
-        <div className="mb-6 p-4 bg-orange-50/90 border border-orange-200 rounded-2xl flex items-start sm:items-center gap-3.5 shadow-xs">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 font-sans">
+      {/* Top Banner: Fast-Track Demo Conversion Notice if applicable */}
+      {initialData?.fromDemoBookingId && !isEditMode && (
+        <div className="mb-6 p-4 bg-orange-50/90 border border-orange-200 rounded-2xl flex items-start sm:items-center gap-3.5 shadow-xs animate-in fade-in duration-200">
           <div className="w-10 h-10 rounded-xl bg-[#F46E20] text-white flex items-center justify-center shrink-0 shadow-xs">
             <UserCheck className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-black text-slate-900">
-              Fast-Track Pre-populated for {initialData.studentName || 'Student'}
-            </p>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-100 text-[#F46E20]">
+                Fast-Track Conversion
+              </span>
+              <p className="text-xs font-black text-slate-900">
+                Pre-populated from Demo Booking
+              </p>
+            </div>
             <p className="text-[11px] text-slate-600 mt-0.5">
-              Student name, parent contact, age, and preferred mode were automatically populated from the demo booking inquiry. Please complete the remaining curriculum options and submit to complete registration.
+              Student details and parent contacts were automatically imported from inquiry. Complete curriculum selections below to finalize registration.
             </p>
           </div>
         </div>
       )}
 
-      {/* Simple Clean Header */}
+      {/* Editing Banner */}
+      {isEditMode && studentToEdit && (
+        <div className="mb-6 p-4 bg-blue-50/90 border border-blue-200 rounded-2xl flex items-center justify-between gap-3.5 shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#0E3589] text-white flex items-center justify-center shrink-0 shadow-xs">
+              <User className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-[#0E3589]">
+                  Editing Student
+                </span>
+                <p className="text-xs font-black text-slate-900">
+                  {studentToEdit.displayName}
+                </p>
+              </div>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                Modifications will update student credentials, batch schedule, and trigger email notifications to parent & admin.
+              </p>
+            </div>
+          </div>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-600 font-bold text-xs rounded-xl border border-slate-200 transition-colors cursor-pointer shrink-0"
+            >
+              Cancel Edit
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Form Header */}
       <div className="text-center mb-8">
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-          {enrollmentProperties.header.formTitle}
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight" id="form-heading-title">
+          {isEditMode 
+            ? (enrollmentProperties.header.editFormTitle || "Edit Student") 
+            : (enrollmentProperties.header.enrollFormTitle || enrollmentProperties.header.formTitle || "Enroll New Student")
+          }
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 mt-1.5 font-medium">
-          {enrollmentProperties.header.tagline}
+          {isEditMode 
+            ? (enrollmentProperties.header.editTagline || `Updating profile and enrollment settings for ${studentToEdit?.displayName || 'Student'}`) 
+            : enrollmentProperties.header.tagline
+          }
         </p>
       </div>
 
@@ -339,8 +483,80 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
         </div>
       )}
 
-      {/* Main Registration Form */}
+      {/* Main Registration / Edit Form */}
       <form onSubmit={handleSubmit} className="space-y-8" id="student-enrollment-form">
+        {/* ========================================================================= */}
+        {/* SECTION: ACCOUNT STATUS & LIFECYCLE GOVERNANCE (ADMIN EDIT MODE ONLY)     */}
+        {/* ========================================================================= */}
+        {isEditMode && (
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-amber-200 shadow-md space-y-4" id="section-admin-status-governance">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-amber-100">
+              <div className="flex items-center gap-2.5 text-slate-900">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                  <ShieldCheck className="w-5 h-5 text-[#0E3589]" />
+                </div>
+                <div>
+                  <h2 className="text-sm sm:text-base font-extrabold uppercase tracking-wide text-slate-900">
+                    Account Status &amp; Lifecycle Governance
+                  </h2>
+                  <p className="text-xs text-slate-500">Only administrators have access to change student status or record date of leaving.</p>
+                </div>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-black border self-start sm:self-auto ${
+                status === 'Active' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-rose-100 text-rose-800 border-rose-300'
+              }`} id="badge-current-edit-status">
+                {status}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Student Enrollment Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={status}
+                  onChange={(e) => {
+                    const newStatus = e.target.value as 'Active' | 'Inactive';
+                    setStatus(newStatus);
+                    if (newStatus === 'Inactive' && !dateOfLeaving) {
+                      setDateOfLeaving(new Date().toISOString().split('T')[0]);
+                    } else if (newStatus === 'Active') {
+                      setDateOfLeaving('');
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                  id="select-student-status"
+                >
+                  <option value="Active">Active (Can Login &amp; Assigned to Coach)</option>
+                  <option value="Inactive">Inactive (Deactivated / Left Academy)</option>
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Only Active students can log into their application and be managed by coaches.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Date of Leaving {status === 'Inactive' ? <span className="text-red-500">*</span> : <span className="text-slate-400 font-normal">(Optional)</span>}
+                </label>
+                <input
+                  type="date"
+                  value={dateOfLeaving}
+                  onChange={(e) => setDateOfLeaving(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                  id="input-student-date-of-leaving"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {status === 'Inactive' 
+                    ? 'Records the date when the student completed or discontinued their courses.' 
+                    : 'Auto-set when marked Inactive. Leave blank while student is actively enrolled.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ========================================================================= */}
         {/* SECTION 1: STUDENT PROFILE                                               */}
         {/* ========================================================================= */}
@@ -383,16 +599,33 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
               />
             </div>
 
-            {/* Age (Numeric in years) - Mandatory */}
+            {/* Display Name preview */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {enrollmentProperties.section1.displayName}
+              </label>
+              <input
+                type="text"
+                readOnly
+                value={`${firstName.trim()} ${lastName.trim()}`.trim()}
+                placeholder={enrollmentProperties.section1.displayNamePlaceholder}
+                className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-700 font-semibold cursor-not-allowed"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                {enrollmentProperties.section1.displayNameHint}
+              </p>
+            </div>
+
+            {/* Age & Gender */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {enrollmentProperties.section1.age} *
               </label>
               <input
                 type="number"
+                min="3"
+                max="25"
                 required
-                min={3}
-                max={25}
                 value={age}
                 onChange={(e) => setAge(e.target.value)}
                 placeholder={enrollmentProperties.section1.agePlaceholder}
@@ -401,7 +634,6 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
               />
             </div>
 
-            {/* Gender - Mandatory */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {enrollmentProperties.section1.gender} *
@@ -412,13 +644,13 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                 id="select-student-gender"
               >
-                {enrollmentProperties.section1.genderOptions.map((g) => (
-                  <option key={g} value={g}>{g}</option>
+                {enrollmentProperties.section1.genderOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
             </div>
 
-            {/* Grade / Class - Optional */}
+            {/* Grade / Class */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {enrollmentProperties.section1.gradeClass}
@@ -433,31 +665,30 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
               />
             </div>
 
-            {/* Dominant Hand - Mandatory */}
+            {/* Dominant Hand */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {enrollmentProperties.section1.dominantHand} *
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex gap-4 pt-1">
                 {enrollmentProperties.section1.dominantHandOptions.map((hand) => (
-                  <button
-                    key={hand}
-                    type="button"
-                    onClick={() => setDominantHand(hand as DominantHand)}
-                    className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                      dominantHand === hand
-                        ? 'bg-[#0E3589] text-white border-[#0E3589]'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    {formatDominantHand(hand)}
-                  </button>
+                  <label key={hand} className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
+                    <input
+                      type="radio"
+                      name="dominantHand"
+                      value={hand}
+                      checked={dominantHand === hand}
+                      onChange={() => setDominantHand(hand as DominantHand)}
+                      className="text-[#0E3589] focus:ring-[#0E3589]"
+                    />
+                    <span>{formatDominantHand(hand)}</span>
+                  </label>
                 ))}
               </div>
             </div>
 
             {/* School Name */}
-            <div className="sm:col-span-2">
+            <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {enrollmentProperties.section1.schoolName}
               </label>
@@ -472,25 +703,23 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
             </div>
 
             {/* Mode of Learning */}
-            <div className="sm:col-span-2">
+            <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {enrollmentProperties.section1.modeOfLearning} *
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="flex gap-4 pt-1">
                 {enrollmentProperties.section1.modeOfLearningOptions.map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setModeOfLearning(opt as 'In-person' | 'Online')}
-                    className={`py-2.5 px-4 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                      modeOfLearning === opt
-                        ? 'bg-[#0E3589] text-white border-[#0E3589] shadow-sm'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                    id={`btn-student-mode-${opt.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
-                  >
-                    <span>{opt === 'In-person' ? '🏫 In-person Classroom' : '💻 Online Live Class'}</span>
-                  </button>
+                  <label key={opt} className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
+                    <input
+                      type="radio"
+                      name="modeOfLearning"
+                      value={opt}
+                      checked={modeOfLearning === opt}
+                      onChange={() => setModeOfLearning(opt as 'In-person' | 'Online')}
+                      className="text-[#0E3589] focus:ring-[#0E3589]"
+                    />
+                    <span>{opt}</span>
+                  </label>
                 ))}
               </div>
             </div>
@@ -498,17 +727,42 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
         </div>
 
         {/* ========================================================================= */}
-        {/* SECTION 2: PARENT / GUARDIAN CONTACT DETAILS & LOGIN SETUP                */}
+        {/* SECTION 2: PARENT CONTACT & LOGIN CREDENTIALS                             */}
         {/* ========================================================================= */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-orange-100 shadow-md space-y-5" id="section-2-parent-details">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-orange-100 text-[#F46E20]">
-            <Phone className="w-5 h-5 text-[#0E3589]" />
-            <h2 className="text-sm sm:text-base font-extrabold uppercase tracking-wide text-slate-800">
-              {enrollmentProperties.section2.title}
-            </h2>
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200 shadow-md space-y-5" id="section-2-parent-details">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-slate-800">
+            <div className="flex items-center gap-2.5">
+              <Phone className="w-5 h-5 text-[#0E3589]" />
+              <h2 className="text-sm sm:text-base font-extrabold uppercase tracking-wide">
+                {enrollmentProperties.section2.title}
+              </h2>
+            </div>
+            {isSiblingEnrollment && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-bold border border-purple-200" id="badge-sibling-locked">
+                <Users className="w-3.5 h-3.5" />
+                <span>Family Account (Locked)</span>
+              </span>
+            )}
           </div>
 
+          {isSiblingEnrollment && (
+            <div className="p-3.5 bg-purple-50/90 border border-purple-200 rounded-2xl flex items-start gap-3 text-purple-900" id="banner-sibling-enrollment">
+              <div className="w-8 h-8 rounded-xl bg-purple-200 text-purple-800 flex items-center justify-center shrink-0 mt-0.5 font-bold">
+                <Users className="w-4 h-4" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-purple-950">
+                  Enrolling a Sibling for {initialData?.siblingOfStudentName || 'Student'}
+                </p>
+                <p className="text-[11px] text-purple-800 leading-relaxed">
+                  Parent contact details are pre-populated from the existing family account and locked to guarantee profile linkage. The student will automatically inherit the family account password.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Parent Name */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {enrollmentProperties.section2.parentName} *
@@ -516,59 +770,81 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
               <input
                 type="text"
                 required
+                readOnly={isSiblingEnrollment}
                 value={parentName}
                 onChange={(e) => setParentName(e.target.value)}
                 placeholder={enrollmentProperties.section2.parentNamePlaceholder}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F46E20]"
+                className={`w-full px-4 py-2.5 rounded-xl text-sm text-slate-900 transition-all ${
+                  isSiblingEnrollment 
+                    ? 'bg-slate-100 border border-slate-300 text-slate-700 font-semibold cursor-not-allowed' 
+                    : 'bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]'
+                }`}
                 id="input-parent-name"
               />
             </div>
 
+            {/* WhatsApp Mobile */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {enrollmentProperties.section2.whatsappMobile} *
               </label>
               <input
-                type="text"
+                type="tel"
                 required
+                readOnly={isSiblingEnrollment}
                 value={whatsappMobile}
                 onChange={(e) => setWhatsappMobile(e.target.value)}
                 placeholder={enrollmentProperties.section2.whatsappMobilePlaceholder}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F46E20]"
-                id="input-parent-whatsapp"
+                className={`w-full px-4 py-2.5 rounded-xl text-sm text-slate-900 transition-all ${
+                  isSiblingEnrollment 
+                    ? 'bg-slate-100 border border-slate-300 text-slate-700 font-semibold cursor-not-allowed' 
+                    : 'bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]'
+                }`}
+                id="input-whatsapp-mobile"
               />
             </div>
 
-            {/* Emergency Contact Details */}
+            {/* Emergency Contact Name */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {enrollmentProperties.section2.emergencyContactName}
               </label>
               <input
                 type="text"
+                readOnly={isSiblingEnrollment}
                 value={emergencyContactName}
                 onChange={(e) => setEmergencyContactName(e.target.value)}
                 placeholder={enrollmentProperties.section2.emergencyContactNamePlaceholder}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F46E20]"
-                id="input-emergency-contact-name"
+                className={`w-full px-4 py-2.5 rounded-xl text-sm text-slate-900 transition-all ${
+                  isSiblingEnrollment 
+                    ? 'bg-slate-100 border border-slate-300 text-slate-700 font-semibold cursor-not-allowed' 
+                    : 'bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]'
+                }`}
+                id="input-emergency-name"
               />
             </div>
 
+            {/* Emergency Contact Phone */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {enrollmentProperties.section2.emergencyContactPhone}
               </label>
               <input
-                type="text"
+                type="tel"
+                readOnly={isSiblingEnrollment}
                 value={emergencyContactPhone}
                 onChange={(e) => setEmergencyContactPhone(e.target.value)}
                 placeholder={enrollmentProperties.section2.emergencyContactPhonePlaceholder}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F46E20]"
-                id="input-emergency-contact-phone"
+                className={`w-full px-4 py-2.5 rounded-xl text-sm text-slate-900 transition-all ${
+                  isSiblingEnrollment 
+                    ? 'bg-slate-100 border border-slate-300 text-slate-700 font-semibold cursor-not-allowed' 
+                    : 'bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]'
+                }`}
+                id="input-emergency-phone"
               />
             </div>
 
-            {/* Email Address - Login ID */}
+            {/* Email Address (Login ID) */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {enrollmentProperties.section2.emailAddress} *
@@ -576,42 +852,64 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
               <input
                 type="email"
                 required
+                readOnly={isSiblingEnrollment}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={enrollmentProperties.section2.emailAddressPlaceholder}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F46E20]"
-                id="input-parent-email"
+                className={`w-full px-4 py-2.5 rounded-xl text-sm text-slate-900 transition-all ${
+                  isSiblingEnrollment 
+                    ? 'bg-slate-100 border border-slate-300 text-slate-700 font-semibold cursor-not-allowed' 
+                    : 'bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]'
+                }`}
+                id="input-email-login"
               />
-              <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                {enrollmentProperties.section2.emailAddressHint}
+              <p className="text-[11px] text-slate-500 mt-1">
+                {isSiblingEnrollment 
+                  ? 'Locked to link this student profile directly to the family account.' 
+                  : enrollmentProperties.section2.emailAddressHint}
               </p>
             </div>
 
-            {/* Password field - 8 char */}
+            {/* Password */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                {enrollmentProperties.section2.password} *
+                {enrollmentProperties.section2.password} {isEditMode ? '(Optional - leave blank to keep unchanged)' : isSiblingEnrollment ? '(Locked - Inherited from Family)' : '*'}
               </label>
-              <div className="relative">
+              {isSiblingEnrollment ? (
+                <div className="w-full px-4 py-2.5 bg-slate-100 border border-slate-300 rounded-xl text-xs text-slate-600 flex items-center justify-between cursor-not-allowed select-none" id="box-password-sibling-locked">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-slate-400" />
+                    <span className="font-semibold text-slate-700">•••••••••••• (Inherited from Family Account)</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-purple-800 bg-purple-100 px-2.5 py-0.5 rounded-md border border-purple-200">
+                    Locked
+                  </span>
+                </div>
+              ) : (
                 <input
                   type="password"
-                  required
-                  minLength={8}
+                  required={!isEditMode}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={enrollmentProperties.section2.passwordPlaceholder}
-                  className="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F46E20]"
-                  id="input-parent-password"
+                  placeholder={
+                    isEditMode 
+                      ? "Leave blank to keep existing password" 
+                      : enrollmentProperties.section2.passwordPlaceholder
+                  }
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                  id="input-password"
                 />
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
-                  <Lock className="w-4 h-4" />
-                </div>
-              </div>
-              <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                {enrollmentProperties.section2.passwordHint}
+              )}
+              <p className="text-[11px] text-slate-500 mt-1">
+                {isEditMode 
+                  ? 'Enter a new password (min 8 chars) only if you wish to change credentials' 
+                  : isSiblingEnrollment 
+                  ? 'Family password inherited automatically. Admin cannot issue a new password in Sibling flow. Parents can manage or customize passwords directly from their portal.' 
+                  : enrollmentProperties.section2.passwordHint}
               </p>
             </div>
 
+            {/* Residential Area */}
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {enrollmentProperties.section2.residentialArea}
@@ -621,7 +919,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                 value={residentialArea}
                 onChange={(e) => setResidentialArea(e.target.value)}
                 placeholder={enrollmentProperties.section2.residentialAreaPlaceholder}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F46E20]"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                 id="input-residential-area"
               />
             </div>
@@ -629,72 +927,64 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
         </div>
 
         {/* ========================================================================= */}
-        {/* SECTION 3: PROGRAM SELECTION & SKILL GOALS                                */}
+        {/* SECTION 3: PROGRAM SELECTION & SKILL GOALS                               */}
         {/* ========================================================================= */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200 shadow-md space-y-6" id="section-3-programs">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 text-[#0E3589]">
-            <BookOpen className="w-5 h-5 text-[#0084F4]" />
-            <h2 className="text-sm sm:text-base font-extrabold uppercase tracking-wide text-slate-800">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200 shadow-md space-y-6" id="section-3-programs-modules">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 text-slate-800">
+            <BookOpen className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-sm sm:text-base font-extrabold uppercase tracking-wide">
               {enrollmentProperties.section3.title}
             </h2>
           </div>
 
-          {/* A. Handwriting Scripts */}
-          <div>
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#0E3589] mb-3">
+          {/* Scripts required */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wide">
               {enrollmentProperties.section3.scriptsTitle}
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {enrollmentProperties.section3.scriptsOptions.map((script) => {
                 const isSelected = scriptsRequired.includes(script);
                 return (
                   <button
-                    key={script}
                     type="button"
+                    key={script}
                     onClick={() => toggleScript(script)}
-                    className={`p-3 rounded-2xl border text-left text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                    className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-blue-50 border-[#0E3589] text-[#0E3589] shadow-xs'
+                        ? 'bg-blue-50/80 border-[#0E3589] text-[#0E3589] font-bold shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <span>{script}</span>
-                    <span className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold ${
-                      isSelected ? 'bg-[#0E3589] text-white' : 'border border-slate-300'
-                    }`}>
-                      {isSelected ? '✓' : ''}
-                    </span>
+                    <span className="text-xs">{script}</span>
+                    {isSelected && <CheckCircle className="w-4 h-4 text-[#0E3589] shrink-0" />}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* B. Academic & Skill Modules */}
-          <div>
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#F46E20] mb-3">
+          {/* Academic modules */}
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wide">
               {enrollmentProperties.section3.modulesTitle}
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {enrollmentProperties.section3.modulesOptions.map((module) => {
                 const isSelected = academicModules.includes(module);
                 return (
                   <button
-                    key={module}
                     type="button"
+                    key={module}
                     onClick={() => toggleModule(module)}
-                    className={`p-3 rounded-2xl border text-left text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                    className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-orange-50 border-[#F46E20] text-[#F46E20] shadow-xs'
+                        ? 'bg-orange-50/80 border-[#F46E20] text-[#F46E20] font-bold shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <span>{module}</span>
-                    <span className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold ${
-                      isSelected ? 'bg-[#F46E20] text-white' : 'border border-slate-300'
-                    }`}>
-                      {isSelected ? '✓' : ''}
-                    </span>
+                    <span className="text-xs">{module}</span>
+                    {isSelected && <CheckCircle className="w-4 h-4 text-[#F46E20] shrink-0" />}
                   </button>
                 );
               })}
@@ -703,119 +993,84 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
         </div>
 
         {/* ========================================================================= */}
-        {/* SECTION 4: PREFERRED SCHEDULE (Swapped with Section 5)                     */}
+        {/* SECTION 4: PREFERRED SCHEDULE                                            */}
         {/* ========================================================================= */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200 shadow-md space-y-5" id="section-4-preferred-schedule">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 text-slate-800">
-            <div className="flex items-center gap-2.5">
-              <Clock className="w-5 h-5 text-[#0084F4]" />
-              <h2 className="text-sm sm:text-base font-extrabold uppercase tracking-wide">
-                {enrollmentProperties.section4.title}
-              </h2>
-            </div>
-            <span className="text-xs font-bold text-[#0E3589] bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-              Days: {selectedDays.length}/2 | Slot: {preferredSlot ? preferredSlot : 'None'}
-            </span>
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200 shadow-md space-y-6" id="section-4-preferred-schedule">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 text-slate-800">
+            <Clock className="w-5 h-5 text-teal-600" />
+            <h2 className="text-sm sm:text-base font-extrabold uppercase tracking-wide">
+              {enrollmentProperties.section4.title}
+            </h2>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Preferred Days - 7 Days selection (max 2 allowed) */}
-            <div className="lg:col-span-7 space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  {enrollmentProperties.section4.preferredDays} *
-                </label>
-                <p className="text-[11px] text-slate-500">
-                  {enrollmentProperties.section4.preferredDaysHint}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {enrollmentProperties.section4.preferredDaysOptions.map((day) => {
-                  const isSelected = selectedDays.includes(day);
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => toggleDay(day)}
-                      className={`p-3 rounded-2xl border text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#0E3589] text-white border-[#0E3589] shadow-md shadow-blue-900/10'
-                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
-                      }`}
-                    >
-                      <span>{day}</span>
-                      <span
-                        className={`w-4 h-4 rounded-md flex items-center justify-center border text-[10px] ${
-                          isSelected
-                            ? 'bg-white text-[#0E3589] border-white'
-                            : 'border-slate-300 bg-white'
-                        }`}
-                      >
-                        {isSelected ? '✓' : ''}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {selectedDays.length === 0 && (
-                <p className="text-[11px] text-amber-600 font-medium">
-                  ⚠️ Please choose 2 days of the week for classes.
-                </p>
-              )}
+          {/* Days Selection */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700">
+                {enrollmentProperties.section4.preferredDays} *
+              </label>
+              <span className="text-[11px] font-bold text-slate-500">
+                Selected: {selectedDays.length} / 2
+              </span>
             </div>
+            <p className="text-[11px] text-slate-500">
+              {enrollmentProperties.section4.preferredDaysHint}
+            </p>
 
-            {/* Preferred Time Slot - 4 to 5 PM with 30 min intervals up to 7 PM */}
-            <div className="lg:col-span-5 space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  {enrollmentProperties.section4.preferredSlot} *
-                </label>
-                <p className="text-[11px] text-slate-500">
-                  {enrollmentProperties.section4.preferredSlotHint}
-                </p>
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 pt-1">
+              {enrollmentProperties.section4.preferredDaysOptions.map((day) => {
+                const isSelected = selectedDays.includes(day);
+                return (
+                  <button
+                    type="button"
+                    key={day}
+                    onClick={() => toggleDay(day)}
+                    className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#0E3589] border-[#0E3589] text-white shadow-sm'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {day.slice(0, 3)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-              <div className="space-y-2">
-                {enrollmentProperties.section4.preferredSlotOptions.map((slot) => {
-                  const isSelected = preferredSlot === slot;
-                  return (
-                    <button
-                      key={slot}
-                      type="button"
-                      onClick={() => setPreferredSlot(slot)}
-                      className={`w-full p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#F46E20] text-white border-[#F46E20] shadow-md shadow-orange-500/20'
-                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-white' : 'bg-slate-400'}`} />
-                        {slot}
-                      </span>
-                      {isSelected && (
-                        <span className="text-[10px] uppercase tracking-wider font-extrabold bg-white/20 px-2 py-0.5 rounded">
-                          Selected
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {!preferredSlot && (
-                <p className="text-[11px] text-amber-600 font-medium">
-                  ⚠️ Please select 1 preferred time slot.
-                </p>
-              )}
+          {/* Slot Selection */}
+          <div className="space-y-2 pt-2">
+            <label className="block text-xs font-bold text-slate-700">
+              {enrollmentProperties.section4.preferredSlot} *
+            </label>
+            <p className="text-[11px] text-slate-500">
+              {enrollmentProperties.section4.preferredSlotHint}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              {enrollmentProperties.section4.preferredSlotOptions.map((slot) => {
+                const isSelected = preferredSlot === slot;
+                return (
+                  <button
+                    type="button"
+                    key={slot}
+                    onClick={() => setPreferredSlot(slot)}
+                    className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-teal-50 border-teal-600 text-teal-900 shadow-xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>{slot}</span>
+                    {isSelected && <CheckCircle className="w-3.5 h-3.5 text-teal-600" />}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* ========================================================================= */}
-        {/* SECTION 5: AREAS OF CONCERN (PARENT OBSERVATIONS)                         */}
+        {/* SECTION 5: AREAS OF CONCERN                                              */}
         {/* ========================================================================= */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-slate-200 shadow-md space-y-4" id="section-5-areas-of-concern">
           <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 text-slate-800">
@@ -905,12 +1160,15 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
             className="w-full sm:w-auto min-w-[320px] py-4 px-10 bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#f07b27] text-white font-black text-base rounded-2xl shadow-xl shadow-orange-500/25 hover:shadow-orange-500/35 transition-all transform hover:-translate-y-0.5 cursor-pointer disabled:opacity-50"
             id="btn-submit-enrollment"
           >
-            {isSubmitting ? enrollmentProperties.submittingText : enrollmentProperties.submitButton}
+            {isSubmitting 
+              ? (isEditMode ? (enrollmentProperties.editSubmittingText || "Saving Student Details...") : enrollmentProperties.submittingText)
+              : (isEditMode ? (enrollmentProperties.editSubmitButton || "Save Student Details") : (enrollmentProperties.submitButton || "Enroll New Student"))
+            }
           </button>
         </div>
       </form>
 
-      {/* Enrollment Success Modal */}
+      {/* Fallback Enrollment Success Modal (only if onSuccess not handled by parent) */}
       {successModalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm" id="enrollment-success-modal">
           <motion.div
@@ -955,7 +1213,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => onNavigate('studentDetail', successModalData.studentId)}
+                onClick={() => onNavigate && onNavigate('studentDetail', successModalData.studentId)}
                 className="py-3 px-4 bg-[#0E3589] hover:bg-[#08235f] text-white font-bold text-xs rounded-xl shadow transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                 id="btn-success-view-details"
               >
@@ -965,17 +1223,11 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
 
               <button
                 type="button"
-                onClick={() => {
-                  if (onBackToDemoBookings) {
-                    onBackToDemoBookings();
-                  } else {
-                    onNavigate('admin', undefined, 'alerts');
-                  }
-                }}
+                onClick={() => onNavigate && onNavigate('admin', undefined, 'roster')}
                 className="py-3 px-4 bg-[#F46E20] hover:bg-[#d6570e] text-white font-bold text-xs rounded-xl shadow transition-colors cursor-pointer"
                 id="btn-success-go-roster"
               >
-                {initialData?.fromDemoBookingId ? 'Back to Demo Inquiries' : enrollmentProperties.modalSuccess.goToAdminRosterBtn}
+                {enrollmentProperties.modalSuccess.goToAdminRosterBtn}
               </button>
             </div>
           </motion.div>

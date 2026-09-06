@@ -72,7 +72,8 @@ export const adminProperties = {
     recordProgress: "Progress Report",
     viewStudentDetails: "Student Dossier",
     viewFees: "View Fees",
-    progressReport: "Progress Report"
+    progressReport: "Progress Report",
+    addSibling: "Add a Sibling"
   },
 
   section1Roster: {

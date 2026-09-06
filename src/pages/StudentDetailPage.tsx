@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { 
+  CheckSquare,
+  Square,
+  X,
   ArrowLeft, 
   User, 
   Calendar, 
@@ -58,7 +62,20 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
   onNavigate,
 }) => {
   const [activeTab, setActiveTab] = useState<number>(initialSection);
+  const { user } = useAuth();
   const [student, setStudent] = useState<StudentProfile | null>(null);
+  const isAdmin = user?.role === 'admin';
+  const isAssignedCoach = user?.role === 'coach' && (
+    student?.coachId === user?.id || 
+    student?.coachId === user?.coachId || 
+    user?.authorizedStudentIds?.includes(student?.id)
+  );
+  const hasFullAccess = isAdmin || isAssignedCoach;
+
+  // Multi-select and delete states for student works
+  const [selectedWorkIds, setSelectedWorkIds] = useState<Set<string>>(new Set());
+  const [isDeletingWorks, setIsDeletingWorks] = useState(false);
+  const [isDeletingReport, setIsDeletingReport] = useState(false);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [fees, setFees] = useState<FeeRecord[]>([]);
   const [works, setWorks] = useState<StudentWorkImage[]>([]);
@@ -137,8 +154,8 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
     'Focus on uniform inter-word spacing during school class notes',
     'Apply the same relaxed grip technique during timed tests',
   ]);
-  const [reportBeforePhoto, setReportBeforePhoto] = useState('/student_works/sample_baseline_class1.png');
-  const [reportAfterPhoto, setReportAfterPhoto] = useState('/student_works/sample_milestone_class10.png');
+  const [reportBeforePhoto, setReportBeforePhoto] = useState<string | null>(null);
+  const [reportAfterPhoto, setReportAfterPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     loadAllStudentData();
@@ -225,7 +242,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
     imageData: string;
     captureDate: string;
     comments: string;
-    category?: 'Before' | 'After' | 'Practice' | 'Exam Sheet';
+    category?: string;
   }) => {
     try {
       await api.uploadStudentWork({
@@ -239,7 +256,93 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       setWorks(updatedWorks);
       showToast(studentDetailProperties.section4Camera.saveSuccess);
     } catch (err: any) {
-      alert(err.message || 'Failed to upload writing work');
+      console.error('Error saving camera work sample:', err);
+      showToast(err.message || 'Failed to upload writing work');
+      throw err; // Re-throw to prevent modal from closing silently
+    }
+  };
+
+  // Work Sample Selection and Deletion Handlers
+  const toggleSelectWork = (id: string) => {
+    setSelectedWorkIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllWorks = () => {
+    if (selectedWorkIds.size === works.length) {
+      setSelectedWorkIds(new Set());
+    } else {
+      setSelectedWorkIds(new Set(works.map(w => w.id)));
+    }
+  };
+
+  const handleDeleteSingleWork = async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!hasFullAccess) {
+      alert('Only administrators and the assigned coach can delete writing samples.');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this handwriting sample? This cannot be undone.')) return;
+    try {
+      await api.deleteStudentWork(id);
+      setWorks(prev => prev.filter(w => w.id !== id));
+      setSelectedWorkIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      if (selectedPhotoZoom && works.find(w => w.id === id)?.imageData === selectedPhotoZoom) {
+        setSelectedPhotoZoom(null);
+      }
+      showToast('Writing sample deleted successfully');
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete writing sample');
+    }
+  };
+
+  const handleBulkDeleteWorks = async () => {
+    if (!hasFullAccess) {
+      alert('Only administrators and the assigned coach can delete writing samples.');
+      return;
+    }
+    const count = selectedWorkIds.size;
+    if (count === 0) return;
+    if (!window.confirm(`Are you sure you want to permanently delete ${count} selected handwriting sample${count > 1 ? 's' : ''}? This action cannot be undone.`)) return;
+    setIsDeletingWorks(true);
+    try {
+      await api.bulkDeleteStudentWorks(Array.from(selectedWorkIds));
+      setWorks(prev => prev.filter(w => !selectedWorkIds.has(w.id)));
+      setSelectedWorkIds(new Set());
+      showToast(`Successfully deleted ${count} handwriting sample${count > 1 ? 's' : ''}`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete selected handwriting samples');
+    } finally {
+      setIsDeletingWorks(false);
+    }
+  };
+
+  // Section 5: Delete Progress Report Handler
+  const handleDeleteProgressReport = async (reportId: string) => {
+    if (!hasFullAccess) {
+      alert('Only administrators and the assigned coach can delete progress reports.');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this progress report? This action cannot be undone.')) return;
+    setIsDeletingReport(true);
+    try {
+      await api.deleteProgressReport(reportId);
+      const updatedReports = await api.getProgressReports(studentId);
+      setReports(updatedReports);
+      setViewingReport(updatedReports.length > 0 ? updatedReports[0] : null);
+      showToast('Progress report deleted successfully');
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete progress report');
+    } finally {
+      setIsDeletingReport(false);
     }
   };
 
@@ -259,8 +362,8 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
         overallRemark: reportOverallRemark,
         teacherFeedback: reportTeacherFeedback,
         nextSteps: reportNextSteps,
-        beforePhotoData: reportBeforePhoto,
-        afterPhotoData: reportAfterPhoto,
+        beforePhotoData: reportBeforePhoto || undefined,
+        afterPhotoData: reportAfterPhoto || undefined,
         savedToFolder: '/progress_reports/',
       };
 
@@ -753,57 +856,137 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
               </p>
             </div>
 
-            <button
-              onClick={() => setIsCameraModalOpen(true)}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#F46E20] to-[#FF8C38] text-white text-xs font-black shadow-md hover:shadow-lg transition-all flex items-center gap-2 self-start cursor-pointer"
-            >
-              <Camera className="w-4 h-4" />
-              <span>{studentDetailProperties.section4Camera.openCameraBtn}</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2.5 self-start">
+              <button
+                onClick={() => setIsCameraModalOpen(true)}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#f07b27] text-white text-xs font-black shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                id="btn-open-camera-modal"
+              >
+                <Camera className="w-4 h-4" />
+                <span>{studentDetailProperties.section4Camera.openCameraBtn}</span>
+              </button>
+            </div>
           </div>
 
-          {/* Archive Gallery Grid */}
+          {/* Archive Gallery Grid Header & Actions */}
           <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase text-slate-700 tracking-wider">
-              {studentDetailProperties.section4Camera.galleryTitle}
-            </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-black uppercase text-slate-700 tracking-wider">
+                  {studentDetailProperties.section4Camera.galleryTitle}
+                </h3>
+                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[11px] font-bold">
+                  {works.length} samples
+                </span>
+              </div>
+
+              {works.length > 0 && hasFullAccess && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllWorks}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    {selectedWorkIds.size === works.length ? (
+                      <>
+                        <CheckSquare className="w-3.5 h-3.5 text-[#0E3589]" />
+                        <span>Deselect All</span>
+                      </>
+                    ) : (
+                      <>
+                        <Square className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Select All</span>
+                      </>
+                    )}
+                  </button>
+
+                  {selectedWorkIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleBulkDeleteWorks}
+                      disabled={isDeletingWorks}
+                      className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                      id="btn-delete-selected-works"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{isDeletingWorks ? 'Deleting...' : `Delete Selected (${selectedWorkIds.size})`}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
 
             {works.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                {works.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-md transition-all group"
-                  >
+                {works.map((item) => {
+                  const isSelected = selectedWorkIds.has(item.id);
+                  return (
                     <div
-                      onClick={() => setSelectedPhotoZoom(item.imageData)}
-                      className="h-44 bg-slate-900 overflow-hidden flex items-center justify-center relative cursor-pointer"
+                      key={item.id}
+                      className={`bg-slate-50 rounded-2xl border transition-all group relative overflow-hidden shadow-xs hover:shadow-md ${
+                        isSelected ? 'border-[#F46E20] ring-2 ring-[#F46E20]/30' : 'border-slate-200'
+                      }`}
                     >
-                      <img
-                        src={item.imageData}
-                        alt={item.comments}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
-                        <Eye className="w-4 h-4" />
-                        <span>Zoom</span>
-                      </div>
-                    </div>
+                      {/* Top Action Overlay: Select Checkbox & Delete Button */}
+                      {hasFullAccess && (
+                        <div className="absolute top-2.5 left-2.5 right-2.5 z-10 flex items-center justify-between pointer-events-auto">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleSelectWork(item.id);
+                            }}
+                            className={`p-1.5 rounded-lg backdrop-blur-xs transition-all cursor-pointer shadow ${
+                              isSelected
+                                ? 'bg-[#F46E20] text-white'
+                                : 'bg-slate-900/60 hover:bg-slate-900 text-white'
+                            }`}
+                            title={isSelected ? 'Deselect image' : 'Select image'}
+                          >
+                            {isSelected ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+                          </button>
 
-                    <div className="p-3.5 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="px-2 py-0.5 bg-blue-100 text-[#0E3589] font-bold text-[10px] rounded">
-                          {item.category || 'Practice'}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono">{item.captureDate}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteSingleWork(item.id, e)}
+                            className="p-1.5 rounded-lg bg-slate-900/60 hover:bg-rose-600 text-white backdrop-blur-xs transition-colors cursor-pointer shadow"
+                            title="Delete this writing sample"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      <div
+                        onClick={() => setSelectedPhotoZoom(item.imageData)}
+                        className="h-44 bg-slate-900 overflow-hidden flex items-center justify-center relative cursor-pointer"
+                      >
+                        <img
+                          src={item.imageData}
+                          alt={item.comments}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
+                          <Eye className="w-4 h-4" />
+                          <span>Zoom</span>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-700 font-medium pt-1 line-clamp-2">
-                        {item.comments}
-                      </p>
+
+                      <div className="p-3.5 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="px-2 py-0.5 bg-blue-100 text-[#0E3589] font-bold text-[10px] rounded">
+                            {item.category || 'Practice'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">{item.captureDate}</span>
+                        </div>
+                        <p className="text-xs text-slate-700 font-medium pt-1 line-clamp-2">
+                          {item.comments}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="p-12 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-300">
@@ -903,6 +1086,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] text-slate-500 font-bold">Before:</span>
                             <StarRating
+                              value={skill.beforeStars}
                               rating={skill.beforeStars}
                               onChange={(val) => {
                                 const copy = [...reportSkills];
@@ -914,6 +1098,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] text-[#F46E20] font-bold">After:</span>
                             <StarRating
+                              value={skill.afterStars}
                               rating={skill.afterStars}
                               onChange={(val) => {
                                 const copy = [...reportSkills];
@@ -940,12 +1125,162 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                 </div>
               </div>
 
+              {/* Writing Transformation Samples (Before & After) Selection */}
+              <div className="space-y-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4 text-[#F46E20]" />
+                      <span>Attach Transformation Writing Samples (Before &amp; After)</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Select photos from this student's writing samples archive to showcase baseline vs transformed handwriting.
+                    </p>
+                  </div>
+                  {works.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCameraModalOpen(true)}
+                      className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#0E3589] font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer self-start"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Capture / Upload Photo</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Visual Before & After Slots */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Before Slot */}
+                  <div className="p-3.5 rounded-xl border-2 border-dashed border-rose-200 bg-rose-50/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-rose-600 flex items-center gap-1.5">
+                        <span>Baseline Sample (Before - Class 1)</span>
+                      </span>
+                      {reportBeforePhoto && (
+                        <button
+                          type="button"
+                          onClick={() => setReportBeforePhoto(null)}
+                          className="text-[11px] font-bold text-rose-600 hover:text-rose-800 cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+
+                    {reportBeforePhoto ? (
+                      <div className="relative rounded-lg overflow-hidden border border-rose-200 bg-white h-36 flex items-center justify-center">
+                        <img src={reportBeforePhoto} alt="Baseline Sample" className="max-h-36 max-w-full object-contain" />
+                      </div>
+                    ) : (
+                      <div className="h-36 flex flex-col items-center justify-center text-center p-3 text-slate-400">
+                        <ImageIcon className="w-8 h-8 text-rose-300 mb-1" />
+                        <p className="text-xs font-semibold text-slate-500">No baseline sample selected</p>
+                        <p className="text-[10px] text-slate-400">Click &quot;Set Before&quot; on any sample below</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* After Slot */}
+                  <div className="p-3.5 rounded-xl border-2 border-dashed border-emerald-200 bg-emerald-50/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-emerald-600 flex items-center gap-1.5">
+                        <span>Transformed Sample (After - Milestone)</span>
+                      </span>
+                      {reportAfterPhoto && (
+                        <button
+                          type="button"
+                          onClick={() => setReportAfterPhoto(null)}
+                          className="text-[11px] font-bold text-emerald-600 hover:text-emerald-800 cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+
+                    {reportAfterPhoto ? (
+                      <div className="relative rounded-lg overflow-hidden border border-emerald-200 bg-white h-36 flex items-center justify-center">
+                        <img src={reportAfterPhoto} alt="Transformed Sample" className="max-h-36 max-w-full object-contain" />
+                      </div>
+                    ) : (
+                      <div className="h-36 flex flex-col items-center justify-center text-center p-3 text-slate-400">
+                        <ImageIcon className="w-8 h-8 text-emerald-300 mb-1" />
+                        <p className="text-xs font-semibold text-slate-500">No transformed sample selected</p>
+                        <p className="text-[10px] text-slate-400">Click &quot;Set After&quot; on any sample below</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Student Works Archive Quick-Select Gallery */}
+                {works.length > 0 ? (
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <span className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider block">
+                      Choose from Camera Works Archive ({works.length} samples):
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-56 overflow-y-auto p-1">
+                      {works.map((item) => {
+                        const isBefore = reportBeforePhoto === item.imageData;
+                        const isAfter = reportAfterPhoto === item.imageData;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={`p-2 rounded-xl border transition-all text-left bg-slate-50 ${
+                              isBefore
+                                ? 'border-rose-400 ring-2 ring-rose-200 bg-rose-50/50'
+                                : isAfter
+                                ? 'border-emerald-400 ring-2 ring-emerald-200 bg-emerald-50/50'
+                                : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="h-20 bg-slate-900 rounded-lg overflow-hidden flex items-center justify-center mb-1.5">
+                              <img src={item.imageData} alt={item.comments} className="w-full h-full object-cover" />
+                            </div>
+                            <p className="text-[10px] font-bold text-slate-800 truncate">{item.category || 'Sample'}</p>
+                            <p className="text-[9px] text-slate-400 font-mono">{item.captureDate}</p>
+                            <div className="flex gap-1.5 mt-2">
+                              <button
+                                type="button"
+                                onClick={() => setReportBeforePhoto(item.imageData)}
+                                className={`flex-1 py-1 text-[10px] font-extrabold rounded-md cursor-pointer transition-colors ${
+                                  isBefore
+                                    ? 'bg-rose-600 text-white shadow-xs'
+                                    : 'bg-rose-100 hover:bg-rose-200 text-rose-700'
+                                }`}
+                              >
+                                {isBefore ? '✓ Before' : 'Set Before'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setReportAfterPhoto(item.imageData)}
+                                className={`flex-1 py-1 text-[10px] font-extrabold rounded-md cursor-pointer transition-colors ${
+                                  isAfter
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700'
+                                }`}
+                              >
+                                {isAfter ? '✓ After' : 'Set After'}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 rounded-xl text-center text-slate-500 text-xs">
+                    No handwriting samples have been captured yet for this student. You can generate the report without samples, or click &quot;Capture / Upload Photo&quot; above to add one.
+                  </div>
+                )}
+              </div>
+
               {/* Overall Progress & Teacher Feedback */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Overall Star Rating</label>
                   <div className="p-3 bg-white border border-slate-300 rounded-xl flex items-center gap-3">
-                    <StarRating rating={reportOverallStars} onChange={setReportOverallStars} />
+                    <StarRating value={reportOverallStars} rating={reportOverallStars} onChange={setReportOverallStars} />
                     <span className="text-xs font-bold text-amber-500">({reportOverallStars} / 5 Stars)</span>
                   </div>
                 </div>
@@ -1029,6 +1364,20 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                         <Send className="w-3.5 h-3.5" />
                         <span>{isSendingReportEmail ? 'Emailing...' : studentDetailProperties.section5Progress.emailReportBtn}</span>
                       </button>
+
+                      {hasFullAccess && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProgressReport(viewingReport.id)}
+                          disabled={isDeletingReport}
+                          className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold rounded-xl border border-rose-200 flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                          title="Delete this progress report"
+                          id="btn-delete-progress-report"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>{isDeletingReport ? 'Deleting...' : 'Delete Report'}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -1053,6 +1402,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
         isOpen={isCameraModalOpen}
         onClose={() => setIsCameraModalOpen(false)}
         onSave={handleSaveCameraWork}
+        studentName={student?.displayName || 'Student'}
       />
 
       {/* Full Photo Zoom Modal */}

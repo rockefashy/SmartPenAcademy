@@ -21,6 +21,7 @@ import {
   Sparkles,
   RefreshCw,
   Edit2,
+  Edit3,
   Bell,
   BellRing,
   MessageCircle,
@@ -47,6 +48,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { api } from '../services/api';
+import { EnrollmentPage } from './EnrollmentPage';
 import { StudentProfile, StudentStatus, DemoBooking, AdminAlert, CoachProfile } from '../types';
 import { adminProperties } from '../properties/admin.properties';
 import { commonProperties } from '../properties/common.properties';
@@ -55,19 +57,26 @@ import { formatGradeClass, formatDominantHand } from '../utils/formatters';
 
 interface AdminDashboardPageProps {
   onNavigate: (view: string, studentId?: string, defaultSection?: any, prefillData?: any) => void;
-  initialTab?: 'roster' | 'assignment' | 'coaches' | 'coachEnrollment' | 'alerts';
+  initialTab?: 'roster' | 'assignment' | 'coaches' | 'coachEnrollment' | 'studentEnrollment' | 'alerts';
+  initialPrefillData?: any;
 }
 
-export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNavigate, initialTab }) => {
+export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNavigate, initialTab, initialPrefillData }) => {
   const { user } = useAuth();
   const isCoach = user?.role === 'coach';
-  const [activeTab, setActiveTab] = useState<'roster' | 'assignment' | 'coaches' | 'coachEnrollment' | 'alerts'>(initialTab || 'roster');
+  const [activeTab, setActiveTab] = useState<'roster' | 'assignment' | 'coaches' | 'coachEnrollment' | 'studentEnrollment' | 'alerts'>(initialTab || 'roster');
+  const [editingStudent, setEditingStudent] = useState<StudentProfile | null>(null);
+  const [enrollmentPrefillData, setEnrollmentPrefillData] = useState<any | null>(initialPrefillData || null);
 
   useEffect(() => {
     if (initialTab) {
       setActiveTab(initialTab);
+      if (initialTab === 'studentEnrollment' && initialPrefillData) {
+        setEnrollmentPrefillData(initialPrefillData);
+        setEditingStudent(null);
+      }
     }
-  }, [initialTab]);
+  }, [initialTab, initialPrefillData]);
   const [enrolledCoachSuccessModal, setEnrolledCoachSuccessModal] = useState<{
     name: string;
     designation: string;
@@ -318,6 +327,22 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     }
   };
 
+  const handleAddSibling = (student: StudentProfile) => {
+    setEditingStudent(null);
+    setEnrollmentPrefillData({
+      isSiblingEnrollment: true,
+      siblingOfStudentId: student.id,
+      siblingOfStudentName: student.displayName,
+      parentName: student.parentName,
+      contactNumber: student.whatsappMobile || student.emergencyContactPhone || (student as any).phone || '',
+      email: student.email || '',
+      emergencyContactName: student.emergencyContactName || '',
+      emergencyContactPhone: student.emergencyContactPhone || (student as any).emergencyPhone || '',
+      residentialArea: student.residentialArea || '',
+    });
+    setActiveTab('studentEnrollment');
+  };
+
   const handleOpenQuickFee = (student: StudentProfile, defaultCycle?: string) => {
     const currentMonthYear = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
     const cycleLabel = defaultCycle || currentMonthYear;
@@ -558,21 +583,71 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     }
   };
 
-  const handleDeleteCoach = async (coachId: string, coachName: string) => {
-    if (!confirm(`Are you sure you want to remove coach "${coachName}"? Any assigned students will be unassigned.`)) {
-      return;
+  const handleToggleStudentStatus = async (student: StudentProfile) => {
+    if (isCoach) return;
+    const isCurrentlyActive = student.status === 'Active';
+    if (isCurrentlyActive) {
+      const today = new Date().toISOString().split('T')[0];
+      if (!confirm(`Deactivate student "${student.displayName}"?\n\n• Status will be set to Inactive\n• Date of Leaving will be recorded as today (${today})\n• Student will not be able to login\n• Coaches will no longer manage this student\n• All historical records (attendance, fees, works) will be permanently preserved.`)) {
+        return;
+      }
+      try {
+        await api.updateStudent(student.id, { status: 'Inactive', dateOfLeaving: today });
+        setNotificationBanner(`Student ${student.displayName} has been deactivated (soft delete). Historical records preserved.`);
+        loadStudents();
+        setTimeout(() => setNotificationBanner(null), 4000);
+      } catch (err: any) {
+        alert(err.message || 'Failed to deactivate student');
+      }
+    } else {
+      if (!confirm(`Reactivate student "${student.displayName}"?\n\n• Status will be restored to Active\n• Date of Leaving will be cleared\n• Student login access will be restored.`)) {
+        return;
+      }
+      try {
+        await api.updateStudent(student.id, { status: 'Active', dateOfLeaving: null as any });
+        setNotificationBanner(`Student ${student.displayName} has been reactivated to Active status.`);
+        loadStudents();
+        setTimeout(() => setNotificationBanner(null), 4000);
+      } catch (err: any) {
+        alert(err.message || 'Failed to reactivate student');
+      }
     }
-    setDeletingCoachId(coachId);
-    try {
-      await api.deleteCoach(coachId);
-      setNotificationBanner(`Coach ${coachName} has been removed.`);
-      loadCoaches();
-      loadStudents();
-      setTimeout(() => setNotificationBanner(null), 4000);
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete coach');
-    } finally {
-      setDeletingCoachId(null);
+  };
+
+  const handleToggleCoachStatus = async (coach: CoachProfile) => {
+    const isCurrentlyActive = coach.status === 'Active';
+    if (isCurrentlyActive) {
+      const today = new Date().toISOString().split('T')[0];
+      if (!confirm(`Deactivate coach "${coach.displayName}"?\n\n• Status will be set to Inactive\n• Date of Leaving will be recorded as today (${today})\n• Coach will not be able to login\n• Any assigned students will be unassigned\n• All historical attendance and records are permanently preserved.`)) {
+        return;
+      }
+      setDeletingCoachId(coach.id);
+      try {
+        await api.deleteCoach(coach.id); // Soft deactivates on backend
+        setNotificationBanner(`Coach ${coach.displayName} has been deactivated (soft delete). Historical records are preserved.`);
+        loadCoaches();
+        loadStudents();
+        setTimeout(() => setNotificationBanner(null), 4000);
+      } catch (err: any) {
+        alert(err.message || 'Failed to deactivate coach');
+      } finally {
+        setDeletingCoachId(null);
+      }
+    } else {
+      if (!confirm(`Reactivate coach "${coach.displayName}"?\n\n• Status will be set to Active\n• Date of Leaving will be cleared\n• Coach login access will be restored.`)) {
+        return;
+      }
+      setDeletingCoachId(coach.id);
+      try {
+        await api.updateCoach(coach.id, { status: 'Active', dateOfLeaving: null as any });
+        setNotificationBanner(`Coach ${coach.displayName} has been reactivated to Active status.`);
+        loadCoaches();
+        setTimeout(() => setNotificationBanner(null), 4000);
+      } catch (err: any) {
+        alert(err.message || 'Failed to reactivate coach');
+      } finally {
+        setDeletingCoachId(null);
+      }
     }
   };
 
@@ -756,8 +831,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               <span>{adminProperties.header.newCoachEnrollBtn || '+ Enroll Coach'}</span>
             </button>
             <button
-              onClick={() => onNavigate('enroll')}
-              className="px-4 sm:px-5 py-2.5 bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#f07b27] text-white font-extrabold text-xs rounded-xl shadow-md shadow-orange-500/20 flex items-center gap-2 cursor-pointer transition-all"
+              onClick={() => {
+                setEditingStudent(null);
+                setEnrollmentPrefillData(null);
+                setActiveTab('studentEnrollment');
+              }}
+              className={`px-4 sm:px-5 py-2.5 font-extrabold text-xs rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all ${
+                activeTab === 'studentEnrollment' && !editingStudent
+                  ? 'bg-[#c9520e] text-white ring-2 ring-orange-300'
+                  : 'bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#f07b27] text-white shadow-orange-500/20'
+              }`}
               id="btn-admin-enroll"
             >
               <UserPlus className="w-4 h-4" />
@@ -1179,22 +1262,36 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                             </div>
                           </td>
 
-                          {/* Status */}
+                          {/* Status & Date of Leaving */}
                           <td className="py-3.5 px-4">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                                student.status === 'Active'
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-slate-100 text-slate-600 border border-slate-200'
-                              }`}
-                            >
-                              {student.status === 'Active' ? (
-                                <CheckCircle className="w-3 h-3 text-emerald-600" />
-                              ) : (
-                                <XCircle className="w-3 h-3 text-slate-400" />
+                            <div className="flex flex-col items-start gap-1">
+                              <button
+                                type="button"
+                                disabled={isCoach}
+                                onClick={() => !isCoach && handleToggleStudentStatus(student)}
+                                title={!isCoach ? (student.status === 'Active' ? 'Click to deactivate student' : 'Click to reactivate student') : 'Student Status'}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
+                                  isCoach ? 'cursor-default' : 'cursor-pointer hover:shadow-xs hover:scale-105 active:scale-95'
+                                } ${
+                                  student.status === 'Active'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                                    : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                                }`}
+                                id={`badge-student-status-${student.id}`}
+                              >
+                                {student.status === 'Active' ? (
+                                  <CheckCircle className="w-3 h-3 text-emerald-600" />
+                                ) : (
+                                  <XCircle className="w-3 h-3 text-slate-400" />
+                                )}
+                                <span>{student.status}</span>
+                              </button>
+                              {student.dateOfLeaving && (
+                                <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap pl-1" title="Date of Leaving">
+                                  Left: {student.dateOfLeaving}
+                                </span>
                               )}
-                              {student.status}
-                            </span>
+                            </div>
                           </td>
 
                           {/* Quick Actions */}
@@ -1202,23 +1299,31 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                             <div className="flex items-center justify-center gap-1.5">
                               {/* 1. Mark Attendance */}
                               <button
-                                onClick={() => setQuickAttendanceStudent(student)}
-                                title={adminProperties.actions.markAttendance}
-                                className="p-1.5 bg-blue-50 hover:bg-blue-100 text-[#0E3589] rounded-lg transition-colors cursor-pointer"
+                                disabled={student.status === 'Inactive'}
+                                onClick={() => student.status !== 'Inactive' && setQuickAttendanceStudent(student)}
+                                title={student.status === 'Inactive' ? 'Attendance disabled: Student is Inactive (Read-Only Archive)' : adminProperties.actions.markAttendance}
+                                className={`p-1.5 rounded-lg transition-colors ${
+                                  student.status === 'Inactive'
+                                    ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                    : 'bg-blue-50 hover:bg-blue-100 text-[#0E3589] cursor-pointer'
+                                }`}
                               >
                                 <Calendar className="w-4 h-4" />
                               </button>
 
                               {/* 2. Mark Fee Paid (8-Class Cycle) */}
                               <button
-                                onClick={() => handleOpenQuickFee(student)}
-                                title={hasPendingFeeAlert ? '8 Classes Completed • Fee Receipt Due (₹1,600)' : adminProperties.actions.markFeePaid}
-                                className={`p-1.5 rounded-lg transition-colors cursor-pointer relative ${
-                                  hasPendingFeeAlert
-                                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                                disabled={student.status === 'Inactive'}
+                                onClick={() => student.status !== 'Inactive' && handleOpenQuickFee(student)}
+                                title={student.status === 'Inactive' ? 'Fee payment disabled: Student is Inactive (Read-Only Archive)' : (hasPendingFeeAlert ? '8 Classes Completed • Fee Receipt Due (₹1,600)' : adminProperties.actions.markFeePaid)}
+                                className={`p-1.5 rounded-lg transition-colors relative ${
+                                  student.status === 'Inactive'
+                                    ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                    : hasPendingFeeAlert
+                                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 cursor-pointer'
                                     : paidCyclesCount > 0
-                                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
-                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 cursor-pointer'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer'
                                 }`}
                               >
                                 <DollarSign className="w-4 h-4" />
@@ -1226,6 +1331,34 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" />
                                 )}
                               </button>
+
+                              {/* Edit Student Details */}
+                              {!isCoach && (
+                                <button
+                                  onClick={() => {
+                                    setEditingStudent(student);
+                                    setEnrollmentPrefillData(null);
+                                    setActiveTab('studentEnrollment');
+                                  }}
+                                  title={`Edit Student Details for ${student.displayName}`}
+                                  className="p-1.5 bg-blue-50 hover:bg-blue-100 text-[#0E3589] border border-blue-200/80 rounded-lg transition-colors cursor-pointer"
+                                  id={`btn-edit-student-${student.id}`}
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                              )}
+
+                              {/* Add a Sibling Quick Action */}
+                              {!isCoach && (
+                                <button
+                                  onClick={() => handleAddSibling(student)}
+                                  title={`${adminProperties.actions.addSibling} for ${student.displayName}`}
+                                  className="p-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/80 rounded-lg transition-colors cursor-pointer"
+                                  id={`btn-add-sibling-${student.id}`}
+                                >
+                                  <UserPlus className="w-4 h-4" />
+                                </button>
+                              )}
 
                               {/* 3. View Student Details */}
                               <button
@@ -1475,6 +1608,47 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               </div>
             )}
           </div>
+        </div>
+      )}
+
+
+      {/* ========================================================================= */}
+      {/* SCREEN: EMBEDDED STUDENT ENROLLMENT & EDIT SCREEN (ADMIN COMMAND CENTER)  */}
+      {/* ========================================================================= */}
+      {activeTab === 'studentEnrollment' && !isCoach && (
+        <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in duration-200">
+          <EnrollmentPage
+            mode={editingStudent ? 'edit' : 'enroll'}
+            studentToEdit={editingStudent}
+            initialData={enrollmentPrefillData}
+            onSuccess={(student, isEdit) => {
+              loadStudents();
+              setNotificationBanner(
+                isEdit
+                  ? `✅ Student profile for ${student?.displayName || 'student'} has been successfully saved! Update notification dispatched to parent & admin.`
+                  : `🎉 Student ${student?.displayName || 'student'} has been successfully enrolled! Access credentials dispatched to parent & admin.`
+              );
+              setEditingStudent(null);
+              setEnrollmentPrefillData(null);
+              setActiveTab('roster');
+            }}
+            onCancel={() => {
+              setEditingStudent(null);
+              setEnrollmentPrefillData(null);
+              setActiveTab('roster');
+            }}
+            onNavigate={(view, studentId, defaultSection) => {
+              if (view === 'studentDetail' && studentId) {
+                onNavigate('studentDetail', studentId, defaultSection);
+              } else if (view === 'parentPortal' && studentId) {
+                onNavigate('parentPortal', studentId);
+              } else {
+                setEditingStudent(null);
+                setEnrollmentPrefillData(null);
+                setActiveTab('roster');
+              }
+            }}
+          />
         </div>
       )}
 
@@ -2044,14 +2218,27 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                             </button>
                             <button
                               disabled={deletingCoachId === coach.id}
-                              onClick={() => handleDeleteCoach(coach.id, coach.displayName)}
-                              title="Delete Coach"
-                              className="p-1.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                              onClick={() => handleToggleCoachStatus(coach)}
+                              title={coach.status === 'Active' ? 'Deactivate Coach (Soft Delete)' : 'Reactivate Coach'}
+                              className={`p-1.5 border rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
+                                coach.status === 'Active'
+                                  ? 'bg-white hover:bg-amber-50 text-amber-700 border-amber-200'
+                                  : 'bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-200'
+                              }`}
+                              id={`btn-toggle-coach-${coach.id}`}
                             >
                               {deletingCoachId === coach.id ? (
                                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              ) : coach.status === 'Active' ? (
+                                <>
+                                  <UserX className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">Deactivate</span>
+                                </>
                               ) : (
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <>
+                                  <UserCheck className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">Reactivate</span>
+                                </>
                               )}
                             </button>
                           </div>
@@ -3143,8 +3330,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     </label>
                     <select
                       value={editCoachForm.status}
-                      onChange={(e) => setEditCoachForm({ ...editCoachForm, status: e.target.value as 'Active' | 'Inactive' })}
+                      onChange={(e) => {
+                        const newStatus = e.target.value as 'Active' | 'Inactive';
+                        setEditCoachForm({
+                          ...editCoachForm,
+                          status: newStatus,
+                          dateOfLeaving: newStatus === 'Inactive' && !editCoachForm.dateOfLeaving
+                            ? new Date().toISOString().split('T')[0]
+                            : newStatus === 'Active'
+                            ? ''
+                            : editCoachForm.dateOfLeaving
+                        });
+                      }}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                      id="select-edit-coach-status"
                     >
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>

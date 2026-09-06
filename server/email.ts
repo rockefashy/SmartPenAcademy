@@ -129,9 +129,13 @@ export async function sendEnrollmentEmails(student: {
   scriptsRequired?: string[];
   academicModules?: string[];
   diagnosticObservations?: string[];
+  isSiblingEnrollment?: boolean;
+  siblingOfStudentName?: string;
 }) {
   const loginEmail = student.email;
-  const loginPassword = student.password ? student.password : 'Registered Account Password';
+  const loginPassword = student.isSiblingEnrollment
+    ? 'Your Existing Family Account Password'
+    : (student.password ? student.password : 'Registered Account Password');
 
   // Fetch admin user from users table for dynamic sender & contact details
   const adminUser = await db.getAdminUser();
@@ -181,6 +185,16 @@ export async function sendEnrollmentEmails(student: {
           <span class="label">Password:</span>
           <span class="value" style="color: #F46E20;">${loginPassword}</span>
         </div>
+        ${student.isSiblingEnrollment ? `
+        <div style="margin-top: 14px; padding: 12px; background: #ffffff; border-radius: 8px; border: 1px solid #bfdbfe;">
+          <p style="margin: 0; font-size: 13px; color: #1e40af; font-weight: 700;">
+            👨‍👩‍👧‍👦 Family &amp; Sibling Access Note
+          </p>
+          <p style="margin: 6px 0 0 0; font-size: 12px; color: #334155; line-height: 1.5;">
+            You can use the <strong>exact same password</strong> you already use for ${student.siblingOfStudentName ? `<strong>${student.siblingOfStudentName}</strong>` : 'your other enrolled child'}.
+            When signing into the portal, you will be prompted to select which student profile to view, or you can switch between siblings anytime using the profile switcher in the top navigation bar!
+          </p>
+        </div>` : ''}
       </div>
 
       <div class="box">
@@ -247,9 +261,13 @@ export async function sendEnrollmentEmails(student: {
 `;
 
   // Dispatch to Parent
+  const parentSubject = student.isSiblingEnrollment
+    ? `✨ SmartPen Academy - Sibling Enrollment Confirmed for ${student.displayName}`
+    : `✨ Welcome to SmartPen Academy - Enrollment Confirmed for ${student.displayName}`;
+
   const parentPromise = sendEmail({
     to: student.email,
-    subject: `✨ Welcome to SmartPen Academy - Enrollment Confirmed for ${student.displayName}`,
+    subject: parentSubject,
     html: parentHtml
   }).then(res => {
     if (res.success) {
@@ -262,9 +280,13 @@ export async function sendEnrollmentEmails(student: {
 
   // Dispatch to Admin (email dynamically fetched from users table)
   const adminEmail = await getAdminNotificationEmail();
+  const adminSubject = student.isSiblingEnrollment
+    ? `👨‍👩‍👧‍👦 [Sibling Enrollment] ${student.displayName} (Sibling of ${student.siblingOfStudentName || student.parentName})`
+    : `🔔 [New Enrollment] ${student.displayName} (${student.parentName})`;
+
   const adminPromise = adminEmail ? sendEmail({
     to: adminEmail,
-    subject: `🔔 [New Enrollment] ${student.displayName} (${student.parentName})`,
+    subject: adminSubject,
     html: adminHtml
   }).then(res => {
     if (res.success) {
@@ -492,4 +514,169 @@ export async function sendFeeReminderEmail(params: {
     subject: `✍️ SmartPen Academy - Fee Payment Details for ${params.studentName}`,
     html
   });
+}
+
+
+// 6. Student Profile Updated Notification Email (Parent & Admin)
+export async function sendStudentUpdatedEmails(student: {
+  id?: string;
+  displayName: string;
+  parentName?: string;
+  email?: string;
+  whatsappMobile?: string;
+  age?: number | string;
+  gender?: string;
+  dominantHand?: string;
+  gradeClass?: string;
+  schoolName?: string;
+  modeOfLearning?: string;
+  preferredDays?: string;
+  preferredSlot?: string;
+  scriptsRequired?: string[];
+  academicModules?: string[];
+  diagnosticObservations?: string[];
+}, updatedFields?: any) {
+  const adminUser = await db.getAdminUser();
+  const adminContactEmail = adminUser?.email || await getAdminNotificationEmail() || "";
+  const adminContactPhone = adminUser?.phoneNumber || "";
+  const adminDisplayName = adminUser?.displayName || "SmartPen Academy";
+
+  const parentEmail = student.email;
+
+  const parentHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }
+    .card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+    .header { background: linear-gradient(135deg, #0E3589 0%, #0084F4 100%); color: #ffffff; padding: 26px 24px; text-align: center; }
+    .header h1 { margin: 0; font-size: 20px; font-weight: 800; }
+    .header p { margin: 6px 0 0 0; font-size: 13px; opacity: 0.95; }
+    .content { padding: 28px 24px; }
+    .box { background: #f8fafc; border-radius: 12px; padding: 18px; margin: 18px 0; border: 1px solid #e2e8f0; }
+    .item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+    .label { color: #64748b; font-weight: 500; }
+    .value { color: #0f172a; font-weight: 700; }
+    .pill { display: inline-block; background: #0E3589; color: white; padding: 3px 8px; border-radius: 6px; font-size: 11px; margin: 2px; }
+    .footer { text-align: center; font-size: 12px; color: #94a3b8; padding: 16px 24px 24px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>SmartPen Academy</h1>
+      <p>Student Profile &amp; Enrollment Details Updated</p>
+    </div>
+    <div class="content">
+      <p>Dear <strong>${student.parentName || "Parent"}</strong>,</p>
+      <p>This is a confirmation that the profile and enrollment details for <strong>${student.displayName}</strong> have been successfully updated in our academy records.</p>
+      
+      <div class="box">
+        <h4 style="margin: 0 0 12px 0; color: #0E3589; font-size: 14px;">📋 Updated Student Profile Summary</h4>
+        <div class="item"><span class="label">Student Name:</span><span class="value">${student.displayName}</span></div>
+        ${student.age ? `<div class="item"><span class="label">Age:</span><span class="value">${student.age} years</span></div>` : ""}
+        ${student.gender ? `<div class="item"><span class="label">Gender:</span><span class="value">${student.gender}</span></div>` : ""}
+        ${student.modeOfLearning ? `<div class="item"><span class="label">Mode of Learning:</span><span class="value">${student.modeOfLearning}</span></div>` : ""}
+        ${student.dominantHand ? `<div class="item"><span class="label">Dominant Hand:</span><span class="value">${student.dominantHand} Handed</span></div>` : ""}
+        ${student.gradeClass ? `<div class="item"><span class="label">Grade/Class:</span><span class="value">${student.gradeClass}</span></div>` : ""}
+        ${student.schoolName ? `<div class="item"><span class="label">School:</span><span class="value">${student.schoolName}</span></div>` : ""}
+        ${student.preferredDays ? `<div class="item"><span class="label">Schedule Days:</span><span class="value">${student.preferredDays}</span></div>` : ""}
+        ${student.preferredSlot ? `<div class="item"><span class="label">Time Slot:</span><span class="value">${student.preferredSlot}</span></div>` : ""}
+        ${student.whatsappMobile ? `<div class="item"><span class="label">WhatsApp Contact:</span><span class="value">${student.whatsappMobile}</span></div>` : ""}
+      </div>
+
+      ${student.scriptsRequired && student.scriptsRequired.length > 0 ? `
+      <div style="margin-top: 12px;">
+        <span class="label" style="display: block; margin-bottom: 4px; font-size: 12px;">Scripts:</span>
+        <div>${student.scriptsRequired.map(s => `<span class="pill">${s}</span>`).join(" ")}</div>
+      </div>` : ""}
+
+      ${student.academicModules && student.academicModules.length > 0 ? `
+      <div style="margin-top: 12px;">
+        <span class="label" style="display: block; margin-bottom: 4px; font-size: 12px;">Modules:</span>
+        <div>${student.academicModules.map(m => `<span class="pill" style="background:#F46E20;">${m}</span>`).join(" ")}</div>
+      </div>` : ""}
+
+      <p style="margin-top: 24px; font-size: 13px; color: #475569;">
+        If you have any questions or require modifications, please contact our academy support.
+      </p>
+    </div>
+    <div class="footer">
+      <p>SmartPen Academy • ${adminDisplayName}</p>
+      ${adminContactEmail ? `<p>Need assistance? Contact us at ${adminContactEmail}${adminContactPhone ? " or " + adminContactPhone : ""}</p>` : ""}
+    </div>
+  </div>
+</body>
+</html>
+`;
+
+  const adminHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: sans-serif; padding: 20px; color: #1e293b;">
+  <div style="max-width: 600px; margin: 0 auto; border: 2px solid #0E3589; border-radius: 12px; padding: 20px; background: #fff;">
+    <h2 style="color: #0E3589; margin-top: 0;">📝 Student Profile Updated</h2>
+    <p>Student profile details have been updated on the SmartPen Academy portal:</p>
+    <ul>
+      <li><strong>Student:</strong> ${student.displayName} (${student.age || "N/A"} yrs, ${student.gender || "N/A"}, ${student.dominantHand || "N/A"} handed)</li>
+      <li><strong>Parent:</strong> ${student.parentName || "N/A"}</li>
+      <li><strong>Mode of Learning:</strong> ${student.modeOfLearning || "N/A"}</li>
+      <li><strong>WhatsApp / Phone:</strong> ${student.whatsappMobile || "N/A"}</li>
+      <li><strong>Contact Email:</strong> ${student.email || "N/A"}</li>
+      <li><strong>Grade/Class:</strong> ${student.gradeClass || "N/A"}</li>
+      <li><strong>School:</strong> ${student.schoolName || "N/A"}</li>
+      <li><strong>Schedule Days:</strong> ${student.preferredDays || "N/A"}</li>
+      <li><strong>Preferred Slot:</strong> ${student.preferredSlot || "N/A"}</li>
+      <li><strong>Scripts:</strong> ${(student.scriptsRequired || []).join(", ") || "N/A"}</li>
+      <li><strong>Modules:</strong> ${(student.academicModules || []).join(", ") || "N/A"}</li>
+    </ul>
+    <p style="font-size: 12px; color: #64748b;">Dispatched automatically via SmartPen Academy email service.</p>
+  </div>
+</body>
+</html>
+`;
+
+  const dispatches: Promise<any>[] = [];
+
+  // Dispatch to Parent (if email present)
+  if (parentEmail) {
+    dispatches.push(
+      sendEmail({
+        to: parentEmail,
+        subject: `📝 Student Details Updated - ${student.displayName} | SmartPen Academy`,
+        html: parentHtml
+      }).then(res => {
+        if (res.success) {
+          console.log(`[Student Update Email] Delivered to parent: ${parentEmail} (ID: ${res.id})`);
+        } else {
+          console.warn(`[Student Update Email] Notice delivering to parent: ${parentEmail} - ${res.error}`);
+        }
+        return res;
+      })
+    );
+  }
+
+  // Dispatch to Admin
+  const adminEmail = await getAdminNotificationEmail();
+  if (adminEmail) {
+    dispatches.push(
+      sendEmail({
+        to: adminEmail,
+        subject: `🔔 [Student Updated] ${student.displayName} (${student.parentName || "Parent"})`,
+        html: adminHtml
+      }).then(res => {
+        if (res.success) {
+          console.log(`[Student Update Email] Delivered to admin: ${adminEmail} (ID: ${res.id})`);
+        } else {
+          console.warn(`[Student Update Email] Notice delivering to admin: ${adminEmail} - ${res.error}`);
+        }
+        return res;
+      })
+    );
+  }
+
+  return Promise.allSettled(dispatches);
 }

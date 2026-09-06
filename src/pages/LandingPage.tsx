@@ -163,7 +163,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </button>
 
               <button
-                onClick={() => onNavigate('syllabus')}
+                onClick={() => {
+                  const el = document.getElementById('syllabus-section');
+                  if (el) {
+                    el.scrollIntoView({ behavior: 'smooth' });
+                  } else {
+                    onNavigate('landing');
+                  }
+                }}
                 className="px-5 sm:px-6 py-3.5 bg-white hover:bg-slate-50 text-[#0E3589] font-bold text-sm sm:text-base rounded-2xl border-2 border-[#0E3589]/30 hover:border-[#0E3589] transition-all shadow-sm flex items-center gap-2 cursor-pointer"
                 id="btn-hero-explore-curriculum"
               >
@@ -487,7 +494,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         {/* Share testimony prompt for enrolled parents */}
         <div className="mt-8 text-center">
           <button
-            onClick={() => onNavigate('portal')}
+            onClick={() => {
+              if (currentUser && currentUser.role === 'student') {
+                onNavigate('parentPortal', currentUser.studentId, 'testimony' as any);
+              } else {
+                onNavigate('parentPortal', undefined, 'testimony' as any);
+                onOpenLogin();
+              }
+            }}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[#F46E20] font-bold text-xs rounded-full transition-all cursor-pointer shadow-2xs"
             id="btn-landing-add-testimony"
           >

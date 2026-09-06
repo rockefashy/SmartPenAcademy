@@ -41,7 +41,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onLoginSuccess,
   initialResetToken,
 }) => {
-  const { login } = useAuth();
+  const { login, logout, user } = useAuth();
   const [currentView, setCurrentView] = useState<AuthView>('login');
 
   // Sign In State
@@ -75,6 +75,28 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [changeConfirmPassword, setChangeConfirmPassword] = useState('');
   const [changeSuccessMessage, setChangeSuccessMessage] = useState<string | null>(null);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [passwordScope, setPasswordScope] = useState<'all' | 'single'>('all');
+  const [targetStudentId, setTargetStudentId] = useState<string>('');
+  const [familyStudents, setFamilyStudents] = useState<Array<{ id: string; studentId: string; displayName: string; age?: number }>>([]);
+  const [isCheckingFamily, setIsCheckingFamily] = useState(false);
+
+  const checkFamilyMembers = async (emailToCheck: string) => {
+    if (!emailToCheck || !emailToCheck.includes('@')) return;
+    try {
+      setIsCheckingFamily(true);
+      const res = await api.getFamilyStudents(emailToCheck.trim());
+      if (res.students && res.students.length > 1) {
+        setFamilyStudents(res.students);
+        setTargetStudentId(res.students[0].id);
+      } else {
+        setFamilyStudents([]);
+      }
+    } catch {
+      setFamilyStudents([]);
+    } finally {
+      setIsCheckingFamily(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -82,6 +104,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       setForgotSuccessMessage(null);
       setResetSuccessMessage(null);
       setChangeSuccessMessage(null);
+      if (user?.email) {
+        setChangeEmail(user.email);
+        checkFamilyMembers(user.email);
+      }
       if (initialResetToken) {
         setResetToken(initialResetToken);
         setCurrentView('reset-token');
@@ -89,7 +115,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         setCurrentView('login');
       }
     }
-  }, [isOpen, initialResetToken]);
+  }, [isOpen, initialResetToken, user]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -282,11 +308,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         email: changeEmail.trim(),
         currentPassword: changeCurrentPassword.trim() || undefined,
         newPassword: changeNewPassword.trim(),
+        applyToAll: passwordScope === 'all',
+        targetStudentId: passwordScope === 'single' ? targetStudentId : undefined,
       });
+
+      if (res.loggedOut) {
+        logout();
+      }
 
       setChangeSuccessMessage(res.message || authProperties.changePasswordModal.successMessage);
       setIdentifier(changeEmail.trim());
-      setPassword(changeNewPassword.trim());
+      setPassword('');
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to update password. Please check your credentials.');
     } finally {
@@ -824,13 +856,73 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             type="email"
                             required
                             value={changeEmail}
-                            onChange={(e) => setChangeEmail(e.target.value)}
+                            onChange={(e) => {
+                              setChangeEmail(e.target.value);
+                              if (e.target.value.includes('@')) {
+                                checkFamilyMembers(e.target.value);
+                              }
+                            }}
+                            onBlur={() => checkFamilyMembers(changeEmail)}
                             placeholder={authProperties.changePasswordModal.emailPlaceholder}
                             className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589] transition-all"
                             id="input-change-email"
                           />
                         </div>
                       </div>
+
+                      {familyStudents.length > 1 && (
+                        <div className="bg-orange-50/80 border border-orange-200 rounded-xl p-3 space-y-2" id="box-sibling-password-scope">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-[#F46E20]">
+                            <Users className="w-4 h-4" />
+                            <span>Family Account Detected ({familyStudents.length} Students)</span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 leading-tight">
+                            Choose whether to update credentials for the entire family or grant individual access to a specific student:
+                          </p>
+                          <div className="space-y-1.5 pt-1">
+                            <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="passwordScope"
+                                value="all"
+                                checked={passwordScope === 'all'}
+                                onChange={() => setPasswordScope('all')}
+                                className="text-[#0E3589] focus:ring-[#0E3589]"
+                                id="radio-scope-all"
+                              />
+                              <span>Change password for all students (Default)</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="passwordScope"
+                                value="single"
+                                checked={passwordScope === 'single'}
+                                onChange={() => setPasswordScope('single')}
+                                className="text-[#0E3589] focus:ring-[#0E3589]"
+                                id="radio-scope-single"
+                              />
+                              <span>Change password for a specific student:</span>
+                            </label>
+                            {passwordScope === 'single' && (
+                              <div className="pl-5 pt-1">
+                                <select
+                                  value={targetStudentId}
+                                  onChange={(e) => setTargetStudentId(e.target.value)}
+                                  className="w-full py-1.5 px-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                                  id="select-target-student-password"
+                                >
+                                  {familyStudents.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                      {s.displayName} {s.age ? `(Age ${s.age})` : ''}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1">

@@ -36,8 +36,9 @@ function MainApp() {
   const [currentView, setCurrentView] = useState<string>('landing');
   const [selectedStudentId, setSelectedStudentId] = useState<string | undefined>(undefined);
   const [studentDetailSection, setStudentDetailSection] = useState<number>(1);
-  const [adminInitialTab, setAdminInitialTab] = useState<'roster' | 'assignment' | 'coaches' | 'coachEnrollment' | 'alerts'>('roster');
+  const [adminInitialTab, setAdminInitialTab] = useState<'roster' | 'assignment' | 'coaches' | 'coachEnrollment' | 'studentEnrollment' | 'alerts'>('roster');
   const [enrollmentInitialData, setEnrollmentInitialData] = useState<any | null>(null);
+  const [parentPortalInitialTab, setParentPortalInitialTab] = useState<'overview' | 'progress' | 'works' | 'attendance' | 'fees' | 'testimony'>('overview');
   
   // Free Demo Class Booking Modal State
   const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(false);
@@ -54,17 +55,34 @@ function MainApp() {
 
   // Sync route on hash change if user uses browser back/forward or deep link
   const handleNavigate = (view: string, extraId?: string, defaultSection?: any, prefillData?: any) => {
+    if (view === 'enroll') {
+      setCurrentView('admin');
+      setAdminInitialTab('studentEnrollment');
+      setEnrollmentInitialData(prefillData || null);
+      if (extraId) setSelectedStudentId(extraId);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (view === 'portal' || view === 'parentPortal') {
+      setCurrentView('parentPortal');
+      if (extraId) setSelectedStudentId(extraId);
+      if (typeof defaultSection === 'string' && ['overview', 'progress', 'works', 'attendance', 'fees', 'testimony'].includes(defaultSection)) {
+        setParentPortalInitialTab(defaultSection as any);
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setCurrentView(view);
     if (extraId) {
       setSelectedStudentId(extraId);
     }
     if (typeof defaultSection === 'number') {
       setStudentDetailSection(defaultSection);
-    } else if (typeof defaultSection === 'string' && ['roster', 'assignment', 'coaches', 'coachEnrollment', 'alerts'].includes(defaultSection)) {
+    } else if (typeof defaultSection === 'string' && ['roster', 'assignment', 'coaches', 'coachEnrollment', 'studentEnrollment', 'alerts'].includes(defaultSection)) {
       setAdminInitialTab(defaultSection as any);
     }
-    if (view === 'enroll') {
-      setEnrollmentInitialData(prefillData || null);
+    if (prefillData) {
+      setEnrollmentInitialData(prefillData);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -331,6 +349,7 @@ function MainApp() {
         return (
           <ParentPortalPage
             studentId={user?.role === 'admin' ? selectedStudentId : (user?.studentId || selectedStudentId)}
+            initialTab={parentPortalInitialTab}
             onNavigate={handleNavigate}
             onOpenLogin={openLoginModal}
           />
@@ -342,6 +361,9 @@ function MainApp() {
             onNavigate={handleNavigate}
             onOpenLogin={openLoginModal}
             onOpenDemoBooking={() => setIsDemoModalOpen(true)}
+            currentUser={user}
+            messages={chatMessages}
+            setMessages={setChatMessages}
           />
         );
     }
@@ -406,7 +428,7 @@ function MainApp() {
           if (loggedInUser.role === 'admin' || loggedInUser.role === 'coach') {
             handleNavigate('admin');
           } else {
-            handleNavigate('parentPortal', loggedInUser.studentId);
+            handleNavigate('parentPortal', loggedInUser.studentId, parentPortalInitialTab);
           }
         }}
       />

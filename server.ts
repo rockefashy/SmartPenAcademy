@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -10,6 +11,7 @@ import { handleAIAgentChat } from './server/aiAgent.ts';
 import {
   sendEmail,
   sendEnrollmentEmails,
+  sendStudentUpdatedEmails,
   sendForgotPasswordEmail,
   sendPasswordResetLinkEmail,
   sendPasswordChangedEmail,
@@ -44,67 +46,50 @@ const testimonialsDir = path.join(publicDir, 'testimonials');
 // Serve public static assets
 app.use(express.static(publicDir));
 
-// ================= RATE LIMITING MIDDLEWARE =================
-interface RateLimitBucket {
-  count: number;
-  resetTime: number;
-}
-const rateLimitStore = new Map<string, RateLimitBucket>();
-
-// Clean up expired buckets periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, bucket] of rateLimitStore.entries()) {
-    if (bucket.resetTime < now) {
-      rateLimitStore.delete(key);
-    }
-  }
-}, 60000);
-
+// ================= RATE LIMITING MIDDLEWARE (SUPABASE-BACKED ATOMIC RPC) =================
 export function createRateLimiter(options: { windowMs: number; max: number; message?: string }) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    // Check for user identity from JWT (via req.user or cookie/header decode)
-    let userKey: string | null = null;
-    if ((req as any).user?.id) {
-      userKey = `user:${(req as any).user.id}`;
-    } else {
-      const token = req.cookies?.smartpen_token || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : null);
-      if (token) {
-        try {
-          const decoded = jwt.verify(token, JWT_SECRET) as any;
-          if (decoded?.id) {
-            userKey = `user:${decoded.id}`;
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      // Check for user identity from JWT (via req.user or cookie/header decode)
+      let userKey: string | null = null;
+      if ((req as any).user?.id) {
+        userKey = `user:${(req as any).user.id}`;
+      } else {
+        const token = req.cookies?.smartpen_token || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : null);
+        if (token) {
+          try {
+            const decoded = jwt.verify(token, JWT_SECRET) as any;
+            if (decoded?.id) {
+              userKey = `user:${decoded.id}`;
+            }
+          } catch {
+            // Fall back to IP
           }
-        } catch {
-          // Fall back to IP
         }
       }
+
+      const ip = req.ip || req.socket.remoteAddress || 'unknown';
+      const identifier = userKey || `ip:${ip}`;
+      const routePath = req.baseUrl || req.path || 'global';
+      const key = `api:${routePath}:${identifier}`;
+      const windowSeconds = Math.max(1, Math.ceil(options.windowMs / 1000));
+
+      const rateCheck = await db.checkRateLimit(key, options.max, windowSeconds);
+
+      if (!rateCheck.allowed) {
+        res.set('Retry-After', String(rateCheck.retryAfter));
+        res.status(429).json({
+          error: options.message || 'Too many requests. Please slow down and try again shortly.',
+          retryAfter: rateCheck.retryAfter
+        });
+        return;
+      }
+
+      next();
+    } catch (err) {
+      console.warn('[RateLimiter] Error evaluating rate limit, proceeding:', err);
+      next();
     }
-
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const identifier = userKey || `ip:${ip}`;
-    const key = `${req.baseUrl || req.path}:${identifier}`;
-    const now = Date.now();
-
-    let bucket = rateLimitStore.get(key);
-    if (!bucket || bucket.resetTime < now) {
-      bucket = { count: 1, resetTime: now + options.windowMs };
-      rateLimitStore.set(key, bucket);
-      return next();
-    }
-
-    bucket.count += 1;
-    if (bucket.count > options.max) {
-      const retryAfterSeconds = Math.ceil((bucket.resetTime - now) / 1000);
-      res.set('Retry-After', String(retryAfterSeconds));
-      res.status(429).json({
-        error: options.message || 'Too many requests. Please slow down and try again shortly.',
-        retryAfter: retryAfterSeconds
-      });
-      return;
-    }
-
-    next();
   };
 }
 
@@ -474,11 +459,34 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid password. Please verify your password.' });
     }
 
+    // Check active status helper for coach
+    const isCoachActive = async (userObj: any) => {
+      if (userObj.isActive === false) return false;
+      const coachProfile = await db.getCoachById(userObj.coachId || userObj.id);
+      return coachProfile ? coachProfile.status === 'Active' : true;
+    };
+
     // If a specific role was requested and matches exactly one user
     if (role) {
       const roleMatched = validPasswordUsers.filter(u => u.role === role);
       if (roleMatched.length === 1) {
         const loggedUser = roleMatched[0];
+
+        // Active status check during login for coaches (inactive coaches are strictly blocked)
+        if (loggedUser.role === 'coach') {
+          const active = await isCoachActive(loggedUser);
+          if (!active) {
+            recordAudit({
+              actorId: loggedUser.id,
+              action: 'auth_login_rejected_inactive_coach',
+              summary: `Login rejected: Coach account ${loggedUser.email} is inactive`,
+              arguments: { identifier: loginIdentifier },
+              status: 'failed'
+            });
+            return res.status(403).json({ error: 'Your coach account is currently inactive. Please contact administration.' });
+          }
+        }
+
         recordAudit({
           actorId: loggedUser.id,
           actorUsername: loggedUser.username,
@@ -497,51 +505,43 @@ app.post('/api/auth/login', async (req, res) => {
     // Sibling resolution for student/family accounts (Identity-First 1:N schema)
     const studentAccounts = validPasswordUsers.filter(u => u.role === 'student');
     if (studentAccounts.length > 0) {
-      const primaryUser = (role === 'student' ? studentAccounts[0] : null) || studentAccounts[0];
-      const siblings = await db.getSiblingStudentsForUser(primaryUser);
-
-      // If user specifically provided or matched a direct student ID (e.g. loginIdentifier was std-...)
-      if (primaryUser.studentId && siblings.some(s => s.id === primaryUser.studentId)) {
-        const activeSibling = siblings.find(s => s.id === primaryUser.studentId)!;
-        primaryUser.displayName = activeSibling.displayName || `${activeSibling.firstName || ''} ${activeSibling.lastName || ''}`.trim() || primaryUser.displayName;
-
-        recordAudit({
-          actorId: primaryUser.id,
-          actorUsername: primaryUser.username,
-          actorRole: 'student',
-          actorStudentId: primaryUser.studentId,
-          action: 'auth_login',
-          summary: `Student ${primaryUser.displayName} logged in directly via Student ID ${primaryUser.studentId}`,
-          arguments: { identifier: loginIdentifier, studentId: primaryUser.studentId },
-          result: { userId: primaryUser.id, studentId: primaryUser.studentId },
-          status: 'success'
-        });
-        return await issueUserSession(primaryUser, res, primaryUser.studentId);
-      }
-
-      // If multiple siblings are linked to this family account and no specific student ID was targeted:
-      if (siblings.length > 1) {
+      // 1-to-N Scenario: More than one student user record matched this password
+      if (studentAccounts.length > 1) {
+        const candidateUserIds = studentAccounts.map(u => u.id);
         const selectionToken = jwt.sign(
-          { type: 'STUDENT_SELECTION', userId: primaryUser.id, candidateUserIds: [primaryUser.id] },
+          { type: 'STUDENT_SELECTION', userId: studentAccounts[0].id, candidateUserIds },
           JWT_SECRET,
           { expiresIn: '5m' }
         );
-        const studentDetails = siblings.map(s => ({
-          id: s.id,
-          studentId: s.id,
-          displayName: s.displayName || `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Student',
-          age: s.age,
-          gradeClass: s.gradeClass,
-          schoolName: s.schoolName
-        }));
+
+        const studentDetails = await Promise.all(
+          studentAccounts.map(async (u) => {
+            let s = u.studentId ? await db.getStudentById(u.studentId) : null;
+            if (!s) {
+              const sibs = await db.getSiblingStudentsForUser(u);
+              s = sibs.find(sib => sib.userId === u.id) || sibs[0];
+            }
+            return {
+              id: s?.id || u.studentId || u.id,
+              studentId: s?.id || u.studentId || u.id,
+              userId: u.id,
+              displayName: s?.displayName || `${s?.firstName || u.firstName || ''} ${s?.lastName || u.lastName || ''}`.trim() || u.displayName || 'Student',
+              status: s?.status || 'Active',
+              dateOfLeaving: s?.dateOfLeaving,
+              age: s?.age,
+              gradeClass: s?.gradeClass,
+              schoolName: s?.schoolName
+            };
+          })
+        );
 
         recordAudit({
-          actorId: primaryUser.id,
-          actorUsername: primaryUser.username,
+          actorId: studentAccounts[0].id,
+          actorUsername: studentAccounts[0].username,
           actorRole: 'student',
           action: 'auth_login_sibling_prompt',
-          summary: `Sibling account family detected for ${loginIdentifier}. Prompting selection from ${siblings.length} student profiles.`,
-          arguments: { identifier: loginIdentifier, studentCount: siblings.length },
+          summary: `Sibling account family detected for ${loginIdentifier}. Prompting selection from ${studentAccounts.length} student profiles.`,
+          arguments: { identifier: loginIdentifier, studentCount: studentAccounts.length },
           status: 'success'
         });
 
@@ -549,32 +549,55 @@ app.post('/api/auth/login', async (req, res) => {
           requiresStudentSelection: true,
           selectionToken,
           availableStudents: studentDetails,
-          message: 'Multiple student profiles registered under this family account. Please select which student to access:'
+          message: 'Multiple student profiles registered under this family account share this password. Please select which student to access:'
         });
       }
 
-      // Exactly 1 student profile found for this user account
-      if (siblings.length === 1) {
-        primaryUser.studentId = siblings[0].id;
-        primaryUser.displayName = siblings[0].displayName || `${siblings[0].firstName || ''} ${siblings[0].lastName || ''}`.trim() || primaryUser.displayName;
+      // 1-to-1 Scenario: Exactly 1 student user record matched this password -> Direct landing!
+      const primaryUser = studentAccounts[0];
+      let targetStudentId = primaryUser.studentId;
+      if (!targetStudentId) {
+        const sibs = await db.getSiblingStudentsForUser(primaryUser);
+        const matched = sibs.find(s => s.userId === primaryUser.id) || sibs[0];
+        if (matched) {
+          targetStudentId = matched.id;
+          primaryUser.studentId = matched.id;
+          primaryUser.displayName = matched.displayName || `${matched.firstName || ''} ${matched.lastName || ''}`.trim() || primaryUser.displayName;
+        }
       }
 
       recordAudit({
         actorId: primaryUser.id,
         actorUsername: primaryUser.username,
-        actorRole: primaryUser.role,
+        actorRole: 'student',
         actorStudentId: primaryUser.studentId,
         action: 'auth_login',
-        summary: `User ${primaryUser.displayName} (${primaryUser.username || primaryUser.email}) logged in successfully as student`,
-        arguments: { identifier: loginIdentifier, role: primaryUser.role },
-        result: { userId: primaryUser.id, role: primaryUser.role, displayName: primaryUser.displayName },
+        summary: `Student/Parent ${primaryUser.displayName} logged in directly (read-only archive enabled if inactive)`,
+        arguments: { identifier: loginIdentifier, role: primaryUser.role, studentId: primaryUser.studentId },
+        result: { userId: primaryUser.id, role: primaryUser.role, displayName: primaryUser.displayName, studentId: primaryUser.studentId },
         status: 'success'
       });
       return await issueUserSession(primaryUser, res, primaryUser.studentId);
     }
 
-    // Default: Exactly 1 valid matching account
+    // Default: Coach or Admin matched account
     const matchedUser = validPasswordUsers[0];
+
+    // Check active status for coach
+    if (matchedUser.role === 'coach') {
+      const active = await isCoachActive(matchedUser);
+      if (!active) {
+        recordAudit({
+          actorId: matchedUser.id,
+          action: 'auth_login_rejected_inactive_coach',
+          summary: `Login rejected: Coach account ${matchedUser.email} is inactive`,
+          arguments: { identifier: loginIdentifier },
+          status: 'failed'
+        });
+        return res.status(403).json({ error: 'Your coach account is currently inactive. Please contact administration.' });
+      }
+    }
+
     recordAudit({
       actorId: matchedUser.id,
       actorUsername: matchedUser.username,
@@ -668,11 +691,18 @@ app.post('/api/auth/select-student', async (req, res) => {
       return res.status(403).json({ error: 'Selected student profile is not authorized for this account.' });
     }
 
-    const activeDisplayName = chosenStudent.displayName || `${chosenStudent.firstName || ''} ${chosenStudent.lastName || ''}`.trim() || parentUser.displayName;
+    // Resolve the user record belonging to this student
+    let effectiveUser = parentUser;
+    if (chosenStudent.userId && chosenStudent.userId !== parentUser.id) {
+      const studentUser = await db.findUserById(chosenStudent.userId);
+      if (studentUser) effectiveUser = studentUser;
+    }
+
+    const activeDisplayName = chosenStudent.displayName || `${chosenStudent.firstName || ''} ${chosenStudent.lastName || ''}`.trim() || effectiveUser.displayName;
 
     recordAudit({
-      actorId: parentUser.id,
-      actorUsername: parentUser.username,
+      actorId: effectiveUser.id,
+      actorUsername: effectiveUser.username,
       actorRole: 'student',
       actorStudentId: chosenStudent.id,
       action: 'auth_select_student',
@@ -681,7 +711,7 @@ app.post('/api/auth/select-student', async (req, res) => {
       result: { studentId: chosenStudent.id }
     });
 
-    return await issueUserSession(parentUser, res, chosenStudent.id);
+    return await issueUserSession(effectiveUser, res, chosenStudent.id);
   } catch (err: any) {
     return res.status(401).json({ error: 'Selection session expired. Please sign in again.' });
   }
@@ -708,6 +738,8 @@ app.post('/api/auth/switch-student', authenticateJwt, async (req: AuthRequest, r
   if (!targetSibling) {
     return res.status(403).json({ error: 'Selected student profile is not linked to your family account.' });
   }
+
+
 
   const targetDisplayName = targetSibling.displayName || `${targetSibling.firstName || ''} ${targetSibling.lastName || ''}`.trim() || currentStoredUser.displayName;
 
@@ -982,21 +1014,21 @@ app.put('/api/coaches/:id', authenticateJwt, requireAdmin, async (req: AuthReque
 app.delete('/api/coaches/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const coachId = req.params.id;
-    await db.deleteCoach(coachId);
+    await db.deleteCoach(coachId); // Soft deactivation: No physical delete
 
     recordAudit({
       actorId: req.user?.id,
       actorUsername: req.user?.username,
       actorRole: req.user?.role,
-      action: 'coach_delete',
-      summary: `Administrator ${req.user?.displayName || req.user?.username} deleted Coach: ${coachId}`,
+      action: 'coach_deactivate',
+      summary: `Administrator ${req.user?.displayName || req.user?.username} deactivated Coach (soft delete): ${coachId}`,
       arguments: { coachId },
-      result: { success: true }
+      result: { success: true, softDelete: true }
     });
 
-    return res.json({ success: true, message: 'Coach removed successfully.' });
+    return res.json({ success: true, message: 'Coach has been deactivated. Historical records have been preserved.' });
   } catch (err: any) {
-    return res.status(400).json({ error: err.message || 'Failed to delete coach.' });
+    return res.status(400).json({ error: err.message || 'Failed to deactivate coach.' });
   }
 });
 
@@ -1027,7 +1059,7 @@ app.patch('/api/students/:id/assign-coach', authenticateJwt, requireAdmin, async
 
 app.post('/api/auth/change-password', async (req, res) => {
   try {
-    const { email, currentPassword, newPassword } = req.body;
+    const { email, currentPassword, newPassword, targetStudentId, targetUserId, applyToAll } = req.body;
     if (!email || !newPassword) {
       return res.status(400).json({ error: 'Email and new password are required.' });
     }
@@ -1035,13 +1067,18 @@ app.post('/api/auth/change-password', async (req, res) => {
       return res.status(400).json({ error: 'New password must be at least 8 characters long.' });
     }
 
-    const result = await db.changeUserPassword(email, currentPassword, newPassword);
+    const result = await db.changeUserPassword(email, currentPassword, newPassword, {
+      targetStudentId,
+      targetUserId,
+      applyToAll: applyToAll !== undefined ? Boolean(applyToAll) : true
+    });
+
     if (!result.success) {
       recordAudit({
         actorId: 'system',
         action: 'auth_change_password_failed',
         summary: `Password change failed for ${email}: ${result.error}`,
-        arguments: { email },
+        arguments: { email, targetStudentId },
         status: 'failed'
       });
       return res.status(400).json({ error: result.error || 'Failed to update password.' });
@@ -1052,23 +1089,56 @@ app.post('/api/auth/change-password', async (req, res) => {
       console.warn('[Resend Background Notice] Password changed email dispatch:', err.message || err);
     });
 
-    console.log(`[PASSWORD CHANGED] Password successfully updated for account: ${email}`);
+    // Clear session cookie to enforce automatic logout
+    res.clearCookie('smartpen_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict'
+    });
+
+    console.log(`[PASSWORD CHANGED] Password updated for ${email} (targetStudentId: ${targetStudentId || 'all'}). User logged out.`);
     recordAudit({
       actorId: user?.id || 'system',
       actorUsername: user?.username || email,
       actorRole: user?.role || 'student',
       action: 'auth_change_password',
-      summary: `Password updated successfully for account ${email}`,
-      arguments: { email },
-      result: { success: true }
+      summary: `Password updated successfully for account ${email}. Target: ${targetStudentId || 'all'}. User logged out.`,
+      arguments: { email, targetStudentId, applyToAll },
+      result: { success: true, updatedCount: result.updatedCount }
     });
 
     return res.json({
       success: true,
-      message: 'Password updated successfully! You can now log in with your new password.'
+      message: 'Password updated successfully! You have been logged out. Please sign in with your new password.',
+      loggedOut: true
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to change password.' });
+  }
+});
+
+// Family students discovery for password change and account management
+app.post('/api/auth/family-students', async (req, res) => {
+  try {
+    const { email, identifier } = req.body;
+    const target = (email || identifier || '').trim();
+    if (!target) {
+      return res.status(400).json({ error: 'Email or identifier is required.' });
+    }
+    const siblings = await db.getFamilyStudentsByEmailOrPhone(target);
+    return res.json({
+      students: siblings.map(s => ({
+        id: s.id,
+        studentId: s.id,
+        userId: s.userId,
+        displayName: s.displayName || `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Student',
+        age: s.age,
+        gradeClass: s.gradeClass,
+        schoolName: s.schoolName
+      }))
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to retrieve family students.' });
   }
 });
 
@@ -1312,17 +1382,52 @@ app.get('/api/students', authenticateJwt, async (req: AuthRequest, res) => {
   try {
     if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
 
+    const page = req.query.page ? Math.max(1, Number(req.query.page)) : undefined;
+    const limit = req.query.limit ? Math.max(1, Number(req.query.limit)) : undefined;
+    const paginationOptions = (page && limit) ? { page, limit } : undefined;
+
     if (req.user.role === 'admin') {
-      const students = await db.getAllStudents();
+      const students = await db.getAllStudents(paginationOptions);
+      if (page && limit) {
+        const total = await db.getStudentsCount();
+        return res.json({
+          data: students,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit) || 1
+          }
+        });
+      }
       return res.json(students);
     } else if (req.user.role === 'coach') {
       const coachKey = req.user.coachId || req.user.id;
       const coachAlt = req.user.coachId ? req.user.id : undefined;
-      const students = await db.getStudentsByCoachId(coachKey, coachAlt);
+      const students = await db.getStudentsByCoachId(coachKey, coachAlt, paginationOptions);
+      if (page && limit) {
+        const total = await db.getStudentsCountByCoachId(coachKey, coachAlt);
+        return res.json({
+          data: students,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit) || 1
+          }
+        });
+      }
       return res.json(students);
     } else if (req.user.role === 'student' && req.user.studentId) {
       const student = await db.getStudentById(req.user.studentId);
-      return res.json(student ? [student] : []);
+      const result = student ? [student] : [];
+      if (page && limit) {
+        return res.json({
+          data: result,
+          pagination: { page, limit, total: result.length, totalPages: 1 }
+        });
+      }
+      return res.json(result);
     }
 
     return res.status(403).json({ error: 'Unauthorized access to student directory.' });
@@ -1368,8 +1473,27 @@ app.post('/api/students/enroll', async (req, res) => {
   if (!phoneNumber || phoneNumber.replace(/\D/g, '').length < 10) {
     return res.status(400).json({ error: 'A valid 10-digit WhatsApp/Mobile number is required.' });
   }
-  if (!data.password || data.password.trim().length < 8) {
+  let inheritedPasswordHash: string | undefined = undefined;
+  const isSiblingEnrollment = Boolean(data.isSiblingEnrollment);
+
+  if (isSiblingEnrollment) {
+    // Sibling flow: strictly forbid admin from issuing a new password
+    // Password must be inherited from the existing family account. If parents want a new password, they manage it.
+    const cleanEmail = (data.email || '').trim().toLowerCase();
+    const existingUsers = await db.findUsersByIdentifier(cleanEmail);
+    const parentUser = existingUsers.find(u => u.passwordHash);
+    if (!parentUser?.passwordHash) {
+      return res.status(400).json({ 
+        error: 'Existing family account could not be located to inherit credentials for this sibling.' 
+      });
+    }
+    inheritedPasswordHash = parentUser.passwordHash;
+    // Disallow custom password in sibling flow
+    delete (data as any).password;
+  } else if (!data.password || data.password.trim().length === 0) {
     return res.status(400).json({ error: 'Account password is required and must be at least 8 characters long.' });
+  } else if (data.password.trim().length < 8) {
+    return res.status(400).json({ error: 'Account password must be at least 8 characters long.' });
   }
 
   try {
@@ -1398,7 +1522,7 @@ app.post('/api/students/enroll', async (req, res) => {
 
     const newId = `std-${Date.now()}`;
     const username = data.username || data.email.toLowerCase().trim();
-    const password = data.password.trim();
+    const password = data.password ? data.password.trim() : undefined;
 
     const newStudent = {
       ...data,
@@ -1411,6 +1535,9 @@ app.post('/api/students/enroll', async (req, res) => {
       id: newId,
       username,
       password,
+      passwordHash: inheritedPasswordHash,
+      isSiblingEnrollment: Boolean(isSiblingEnrollment || inheritedPasswordHash),
+      siblingOfStudentName: data.siblingOfStudentName,
       age,
       whatsappMobile: phoneNumber,
       status: data.status || 'Active',
@@ -1439,7 +1566,11 @@ app.post('/api/students/enroll', async (req, res) => {
     });
 
     // Real-time Resend Email Dispatch to Parent and Admin
-    sendEnrollmentEmails(newStudent).catch(err => {
+    sendEnrollmentEmails({
+      ...newStudent,
+      isSiblingEnrollment: Boolean(isSiblingEnrollment || inheritedPasswordHash),
+      siblingOfStudentName: data.siblingOfStudentName
+    }).catch(err => {
       console.warn('[Resend Background Notice] Student registration notification dispatch:', err.message || err);
     });
 
@@ -1472,7 +1603,14 @@ app.put('/api/students/:id', authenticateJwt, async (req: AuthRequest, res) => {
         return res.status(403).json({ error: 'Access denied: Coaches can only edit details of students assigned to them.' });
       }
 
-      // Coaches manage student learning and contact details, but cannot reassign coaches
+      const targetStudent = await db.getStudentById(req.params.id);
+      if (targetStudent?.status === 'Inactive') {
+        return res.status(403).json({ error: 'Inactive students are read-only for coaches.' });
+      }
+
+      // Only admin have the access to make a student active or inactive, or set date of leaving
+      delete req.body.status;
+      delete req.body.dateOfLeaving;
       delete req.body.coachId;
       delete req.body.coachName;
     }
@@ -1491,6 +1629,11 @@ app.put('/api/students/:id', authenticateJwt, async (req: AuthRequest, res) => {
       result: { studentId: req.params.id, displayName: updated.displayName }
     });
 
+    // Real-time Resend Email Dispatch to Parent and Admin on Edit
+    sendStudentUpdatedEmails(updated, req.body).catch(err => {
+      console.warn('[Resend Background Notice] Student update notification dispatch:', err.message || err);
+    });
+
     return res.json(updated);
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to update student.' });
@@ -1500,35 +1643,74 @@ app.put('/api/students/:id', authenticateJwt, async (req: AuthRequest, res) => {
 app.delete('/api/students/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
   try {
     const student = await db.getStudentById(req.params.id);
-    const deleted = await db.deleteStudent(req.params.id);
-    if (!deleted) return res.status(404).json({ error: 'Student not found' });
+    const deactivated = await db.deleteStudent(req.params.id); // Soft deactivation: No physical delete
+    if (!deactivated) return res.status(404).json({ error: 'Student not found' });
 
     recordAudit({
       actorId: req.user?.id,
       actorUsername: req.user?.username,
       actorRole: req.user?.role,
       actorStudentId: req.params.id,
-      action: 'student_delete',
-      summary: `Administrator ${req.user?.displayName || req.user?.username} deleted student profile: ${student?.displayName || req.params.id}`,
+      action: 'student_deactivate',
+      summary: `Administrator ${req.user?.displayName || req.user?.username} deactivated student profile (soft delete): ${student?.displayName || req.params.id}`,
       arguments: { studentId: req.params.id, studentName: student?.displayName },
-      result: { success: true }
+      result: { success: true, softDelete: true }
     });
 
-    return res.json({ success: true, message: 'Student profile deleted successfully' });
+    return res.json({ success: true, message: 'Student profile has been deactivated. Historical records have been preserved.' });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message || 'Failed to delete student.' });
+    return res.status(500).json({ error: err.message || 'Failed to deactivate student.' });
   }
 });
 
 // 3. Attendance API (Protected by JWT)
 app.get('/api/attendance/month/:yearMonth', authenticateJwt, requireCoachOrAdmin, async (req: AuthRequest, res) => {
   try {
-    let records = await db.getAttendanceByMonth(req.params.yearMonth);
+    const page = req.query.page ? Math.max(1, Number(req.query.page)) : undefined;
+    const limit = req.query.limit ? Math.max(1, Number(req.query.limit)) : undefined;
+
+    let targetStudentIds: string[] | undefined = undefined;
+
+    // Database-level isolation for coach role:
     if (req.user?.role === 'coach') {
-      const coachStudents = await db.getStudentsByCoachId(req.user.id);
-      const coachStudentIds = new Set(coachStudents.map(s => s.id));
-      records = records.filter(r => coachStudentIds.has(r.studentId));
+      const coachKey = req.user.coachId || req.user.id;
+      const coachAlt = req.user.coachId ? req.user.id : undefined;
+      const coachStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
+      targetStudentIds = coachStudents.map(s => s.id);
+
+      // If coach has no assigned students, short-circuit immediately without querying attendance
+      if (targetStudentIds.length === 0) {
+        if (page && limit) {
+          return res.json({
+            data: [],
+            pagination: { page, limit, total: 0, totalPages: 1 }
+          });
+        }
+        return res.json([]);
+      }
     }
+
+    const queryOptions = {
+      ...(page && limit ? { page, limit } : {}),
+      ...(targetStudentIds ? { studentIds: targetStudentIds } : {})
+    };
+
+    // Query is scoped directly at the Postgres level; 0..4999 ceiling applies only to coach's assigned rows
+    const records = await db.getAttendanceByMonth(req.params.yearMonth, queryOptions);
+
+    if (page && limit) {
+      const total = await db.getAttendanceCountByMonth(req.params.yearMonth, targetStudentIds);
+      return res.json({
+        data: records,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit) || 1
+        }
+      });
+    }
+
     return res.json(records);
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to fetch attendance.' });
@@ -1541,7 +1723,25 @@ app.get('/api/attendance/student/:id', authenticateJwt, async (req: AuthRequest,
     if (!await canAccessStudent(req.user, req.params.id)) {
       return res.status(403).json({ error: 'Access denied. You can only view attendance for authorized students.' });
     }
-    const records = await db.getAttendanceByStudent(req.params.id);
+    const page = req.query.page ? Math.max(1, Number(req.query.page)) : undefined;
+    const limit = req.query.limit ? Math.max(1, Number(req.query.limit)) : undefined;
+    const paginationOptions = (page && limit) ? { page, limit } : undefined;
+
+    const records = await db.getAttendanceByStudent(req.params.id, paginationOptions);
+
+    if (page && limit) {
+      const total = await db.getAttendanceCountByStudent(req.params.id);
+      return res.json({
+        data: records,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit) || 1
+        }
+      });
+    }
+
     return res.json(records);
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to fetch attendance for student.' });
@@ -1562,6 +1762,12 @@ app.post('/api/attendance/batch', authenticateJwt, requireCoachOrAdmin, attendan
       const unauthorized = records.filter(r => !coachStudentIds.has(r.studentId));
       if (unauthorized.length > 0) {
         return res.status(403).json({ error: 'Coaches can only update attendance for their assigned students.' });
+      }
+
+      const inactiveIds = new Set(coachStudents.filter(s => s.status === 'Inactive').map(s => s.id));
+      const containsInactive = records.some(r => inactiveIds.has(r.studentId));
+      if (containsInactive) {
+        return res.status(400).json({ error: 'Cannot mark attendance for inactive students (read-only archive).' });
       }
     }
 
@@ -1642,7 +1848,25 @@ app.delete('/api/attendance/:studentId/:date', authenticateJwt, requireAdmin, as
 // 4. Fees API (Protected by JWT)
 app.get('/api/fees/month/:yearMonth', authenticateJwt, requireAdmin, async (req, res) => {
   try {
-    const records = await db.getFeesByMonth(req.params.yearMonth);
+    const page = req.query.page ? Math.max(1, Number(req.query.page)) : undefined;
+    const limit = req.query.limit ? Math.max(1, Number(req.query.limit)) : undefined;
+    const paginationOptions = (page && limit) ? { page, limit } : undefined;
+
+    const records = await db.getFeesByMonth(req.params.yearMonth, paginationOptions);
+
+    if (page && limit) {
+      const total = await db.getFeesCountByMonth(req.params.yearMonth);
+      return res.json({
+        data: records,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit) || 1
+        }
+      });
+    }
+
     return res.json(records);
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to fetch fees.' });
@@ -1651,25 +1875,56 @@ app.get('/api/fees/month/:yearMonth', authenticateJwt, requireAdmin, async (req,
 
 app.get('/api/fees/student/:id', authenticateJwt, async (req: AuthRequest, res) => {
   try {
-    // Ownership scoping check (Admin or the student themselves)
+    // Ownership scoping check (Admin, the student themselves, or assigned coach)
     if (req.user?.role === 'student' && req.user.studentId !== req.params.id) {
       return res.status(403).json({ error: 'Access denied. You can only view your own fee receipts.' });
     }
     if (req.user?.role === 'coach') {
-      return res.status(403).json({ error: 'Access denied. Financial fee records are restricted to administrators.' });
+      const hasAccess = await canAccessStudent(req.user, req.params.id);
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'Access denied: Coaches can only view fee records of students assigned to them.' });
+      }
     }
-    const records = await db.getFeesByStudent(req.params.id);
+
+    const page = req.query.page ? Math.max(1, Number(req.query.page)) : undefined;
+    const limit = req.query.limit ? Math.max(1, Number(req.query.limit)) : undefined;
+    const paginationOptions = (page && limit) ? { page, limit } : undefined;
+
+    const records = await db.getFeesByStudent(req.params.id, paginationOptions);
+
+    if (page && limit) {
+      const total = await db.getFeesCountByStudent(req.params.id);
+      return res.json({
+        data: records,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit) || 1
+        }
+      });
+    }
+
     return res.json(records);
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to fetch student fees.' });
   }
 });
 
-app.post('/api/fees', authenticateJwt, requireAdmin, paymentRateLimiter, async (req: AuthRequest, res) => {
+app.post('/api/fees', authenticateJwt, paymentRateLimiter, async (req: AuthRequest, res) => {
   try {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'coach') {
+      return res.status(403).json({ error: 'Access denied. Only administrators and assigned coaches can record fees.' });
+    }
     const fee = req.body;
     if (!fee.studentId) {
       return res.status(400).json({ error: 'studentId is required' });
+    }
+    if (req.user?.role === 'coach') {
+      const hasAccess = await canAccessStudent(req.user, fee.studentId);
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'Access denied: Coaches can only record fees for students assigned to them.' });
+      }
     }
     const saved = await db.saveFeeRecord(fee);
 
@@ -1679,7 +1934,7 @@ app.post('/api/fees', authenticateJwt, requireAdmin, paymentRateLimiter, async (
       actorRole: req.user?.role,
       actorStudentId: fee.studentId,
       action: 'fee_record_create',
-      summary: `Administrator recorded fee of ₹${fee.amount || 0} (${fee.status || 'Pending'}) for student ID: ${fee.studentId} - Ref: ${fee.receiptNumber || 'N/A'}`,
+      summary: `${req.user?.role === 'coach' ? 'Coach' : 'Administrator'} recorded fee of ₹${fee.amount || 0} (${fee.status || 'Pending'}) for student ID: ${fee.studentId} - Ref: ${fee.receiptNumber || 'N/A'}`,
       arguments: { studentId: fee.studentId, amount: fee.amount, status: fee.status, receiptNumber: fee.receiptNumber, milestone: fee.milestone },
       result: { feeId: saved.id, amount: saved.amount, status: saved.status }
     });
@@ -1844,11 +2099,16 @@ app.post('/api/student-works/upload', authenticateJwt, async (req: AuthRequest, 
     // If imageData is a base64 string, write to /public/student_works/
     if (imageData.startsWith('data:image/')) {
       try {
-        const match = imageData.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
-        if (match) {
-          const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-          const base64Data = match[2];
-          const fileName = `work_${studentId}_${Date.now()}.${ext}`;
+        const commaIdx = imageData.indexOf(',');
+        if (commaIdx !== -1) {
+          const metaPart = imageData.substring(0, commaIdx);
+          const base64Data = imageData.substring(commaIdx + 1).replace(/\s/g, '');
+          const extMatch = metaPart.match(/data:image\/([a-zA-Z0-9+.-]+);/);
+          let rawExt = extMatch ? extMatch[1].toLowerCase() : 'jpg';
+          if (rawExt === 'jpeg') rawExt = 'jpg';
+          if (rawExt === 'svg+xml') rawExt = 'svg';
+
+          const fileName = `work_${studentId}_${Date.now()}.${rawExt}`;
           const filePath = path.join(studentWorksDir, fileName);
           fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
           finalImagePath = `/student_works/${fileName}`;
@@ -1858,12 +2118,16 @@ app.post('/api/student-works/upload', authenticateJwt, async (req: AuthRequest, 
       }
     }
 
+    const effectiveDate = captureDate || new Date().toISOString().split('T')[0];
+    const effectiveCategory = category || 'Practice Sheet';
+    const effectiveTitle = (comments && comments.trim().length > 0) ? comments.trim() : `${effectiveCategory} - ${effectiveDate}`;
+
     const saved = await db.saveStudentWork({
       studentId,
       imageData: finalImagePath,
-      captureDate: captureDate || new Date().toISOString().split('T')[0],
-      comments: comments || '',
-      category: category || 'Practice Sheet'
+      captureDate: effectiveDate,
+      comments: effectiveTitle,
+      category: effectiveCategory
     });
 
     recordAudit({
@@ -1883,13 +2147,27 @@ app.post('/api/student-works/upload', authenticateJwt, async (req: AuthRequest, 
   }
 });
 
-app.delete('/api/student-works/:id', authenticateJwt, async (req: AuthRequest, res) => {
+app.delete('/api/student-works/:id', authenticateJwt, requireCoachOrAdmin, async (req: AuthRequest, res) => {
   try {
     const work = await db.findStudentWorkById(req.params.id);
     if (!work) return res.status(404).json({ error: 'Student work not found' });
     if (!await canAccessStudent(req.user, work.studentId)) {
-      return res.status(403).json({ error: 'Access denied: You do not have permission to delete this work sample.' });
+      return res.status(403).json({ error: 'Access denied: Only the assigned coach or administrator can delete this work sample.' });
     }
+
+    // Delete underlying file from disk if stored in /student_works/
+    if (work.imageData && work.imageData.startsWith('/student_works/')) {
+      try {
+        const baseName = path.basename(work.imageData);
+        const diskPath = path.join(studentWorksDir, baseName);
+        if (fs.existsSync(diskPath)) {
+          fs.unlinkSync(diskPath);
+        }
+      } catch (fileErr) {
+        console.warn(`[StudentWorks] Warning unlinking file:`, fileErr);
+      }
+    }
+
     await db.deleteStudentWork(req.params.id);
 
     recordAudit({
@@ -1906,6 +2184,51 @@ app.delete('/api/student-works/:id', authenticateJwt, async (req: AuthRequest, r
     return res.json({ success: true, message: 'Student work deleted successfully.' });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to delete student work.' });
+  }
+});
+
+app.post('/api/student-works/bulk-delete', authenticateJwt, requireCoachOrAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids array required' });
+    }
+
+    let deletedCount = 0;
+    for (const id of ids) {
+      try {
+        const work = await db.findStudentWorkById(id);
+        if (work && await canAccessStudent(req.user, work.studentId)) {
+          if (work.imageData && work.imageData.startsWith('/student_works/')) {
+            try {
+              const baseName = path.basename(work.imageData);
+              const diskPath = path.join(studentWorksDir, baseName);
+              if (fs.existsSync(diskPath)) {
+                fs.unlinkSync(diskPath);
+              }
+            } catch (e) {}
+          }
+          await db.deleteStudentWork(id);
+          deletedCount++;
+        }
+      } catch (itemErr) {
+        console.warn(`Failed to delete student work ${id}:`, itemErr);
+      }
+    }
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'student_works_bulk_delete',
+      summary: `${req.user?.displayName || req.user?.username} bulk deleted ${deletedCount} work samples`,
+      arguments: { requestedCount: ids.length, deletedCount },
+      result: { success: true, count: deletedCount }
+    });
+
+    return res.json({ success: true, count: deletedCount });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to bulk delete student works.' });
   }
 });
 
@@ -1954,21 +2277,31 @@ app.post('/api/reports/generate', authenticateJwt, requireCoachOrAdmin, async (r
   }
 });
 
-app.delete('/api/reports/:id', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+app.delete('/api/reports/:id', authenticateJwt, requireCoachOrAdmin, async (req: AuthRequest, res) => {
   try {
+    const report = await db.findProgressReportById(req.params.id);
+    if (!report) {
+      return res.status(404).json({ error: 'Progress report not found' });
+    }
+
+    if (!await canAccessStudent(req.user, report.studentId)) {
+      return res.status(403).json({ error: 'Access denied: Only the assigned coach or administrator can delete this progress report.' });
+    }
+
     await db.deleteProgressReport(req.params.id);
 
     recordAudit({
       actorId: req.user?.id,
       actorUsername: req.user?.username,
       actorRole: req.user?.role,
+      actorStudentId: report.studentId,
       action: 'progress_report_delete',
-      summary: `Administrator removed progress report #${req.params.id}`,
-      arguments: { reportId: req.params.id },
+      summary: `${req.user?.displayName || req.user?.username} removed progress report #${req.params.id} for student ${report.studentId}`,
+      arguments: { reportId: req.params.id, studentId: report.studentId },
       result: { success: true }
     });
 
-    return res.json({ success: true });
+    return res.json({ success: true, message: 'Progress report deleted successfully.' });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to delete progress report.' });
   }
@@ -2051,11 +2384,20 @@ app.post('/api/reminders/whatsapp', authenticateJwt, requireAdmin, async (req: A
   }
 });
 
-app.post('/api/reminders/send', authenticateJwt, requireAdmin, async (req: AuthRequest, res) => {
+app.post('/api/reminders/send', authenticateJwt, async (req: AuthRequest, res) => {
   try {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'coach') {
+      return res.status(403).json({ error: 'Access denied. Only administrators and assigned coaches can dispatch fee reminders.' });
+    }
     const { studentId, parentEmail, parentName, studentName, amount, month, gpayLink } = req.body;
     if (!studentId || !amount) {
       return res.status(400).json({ error: 'studentId and amount required' });
+    }
+    if (req.user?.role === 'coach') {
+      const hasAccess = await canAccessStudent(req.user, studentId);
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'Access denied: Coaches can only dispatch reminders to students assigned to them.' });
+      }
     }
 
     // Resolve target email from student / users table if parentEmail was not explicitly provided
@@ -2216,8 +2558,23 @@ app.delete('/api/demo-bookings/:id', authenticateJwt, requireCoachOrAdmin, async
 // Tool Audit Logs API (Admin Only)
 app.get('/api/ai/audit-logs', authenticateJwt, requireAdmin, async (req, res) => {
   try {
-    const limit = req.query.limit ? Number(req.query.limit) : 50;
-    const logs = await db.getToolAuditLogs(limit);
+    const page = req.query.page ? Math.max(1, Number(req.query.page)) : undefined;
+    const limit = req.query.limit ? Math.max(1, Number(req.query.limit)) : 50;
+    const logs = await db.getToolAuditLogs(page ? { page, limit } : limit);
+
+    if (page) {
+      const total = await db.getToolAuditLogsCount();
+      return res.json({
+        data: logs,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit) || 1
+        }
+      });
+    }
+
     return res.json(logs);
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to fetch audit logs.' });
@@ -2456,12 +2813,8 @@ app.post('/api/ai/agent-chat', async (req: Request, res: Response) => {
       }
     }
 
-    if (!userContext) {
-      return res.status(401).json({
-        error: 'Authentication required. Please sign in to converse with the SmartPen AI Assistant.',
-        requireLogin: true
-      });
-    }
+    // If no valid session token, userContext remains null (Guest / Public Visitor)
+    // Guest visitors have full access to public portal information (curriculum, demo booking, about us, testimonials)
 
     const result = await handleAIAgentChat({
       messages: messages || [],

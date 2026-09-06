@@ -17,6 +17,11 @@ import {
 } from '../src/types';
 import { serverSupabase, isServerSupabaseConfigured } from './supabase.ts';
 
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+}
+
 export interface StoredUser extends User {
   passwordHash?: string;
   phoneNumber?: string;
@@ -125,6 +130,7 @@ function mapStudentRow(row: any, userRow?: any, resolvedCoachName?: string | nul
   let scriptsRequired: string[] = [];
   let academicModules: string[] = [];
   let studentNotes: string | undefined = row.notes || undefined;
+  let dateOfLeaving: string | undefined = row.date_of_leaving || undefined;
 
   if (row.notes) {
     try {
@@ -135,6 +141,7 @@ function mapStudentRow(row: any, userRow?: any, resolvedCoachName?: string | nul
         if (parsed.relationship) relationship = parsed.relationship;
         if (Array.isArray(parsed.scriptsRequired)) scriptsRequired = parsed.scriptsRequired;
         if (Array.isArray(parsed.academicModules)) academicModules = parsed.academicModules;
+        if (parsed.dateOfLeaving && !dateOfLeaving) dateOfLeaving = parsed.dateOfLeaving;
         studentNotes = parsed.customNotes || parsed.notes || undefined;
       }
     } catch {
@@ -166,6 +173,7 @@ function mapStudentRow(row: any, userRow?: any, resolvedCoachName?: string | nul
     emergencyPhone: row.emergency_contact_phone || row.emergency_phone || userRow?.phone || undefined,
     enrollmentDate: row.enrollment_date || row.created_at?.split('T')[0] || undefined,
     status: row.status || 'Active',
+    dateOfLeaving: dateOfLeaving || undefined,
     userId: row.user_id || userRow?.id || undefined,
     coachId: row.coach_id || undefined,
     coachName: resolvedCoachName || row.coach_name || undefined,
@@ -444,58 +452,60 @@ export class SupabaseDatabase {
     const phoneDigits = loginIdentifier.replace(/\D/g, '');
 
     // 1. Primary privileged pre-authentication RPC path (bypasses RLS via hardened SECURITY DEFINER)
+    let userCandidates: any[] = [];
     try {
       const { data: rpcData, error: rpcError } = await supabase
         .rpc('get_auth_user_by_identifier', { p_identifier: clean });
       if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
-        return rpcData.map((u: any) => mapUserRow(u, null));
+        userCandidates = rpcData;
       }
     } catch {
       // Fall through to explicit column projection
     }
 
-    // 2. Direct targeted query with explicit column projections (Identity-First: no student_id / coach_id on users)
+    // 2. Direct targeted query fallback if RPC didn't return matches
     let resolvedUserIds: string[] = [];
     let directMatchedStudentId: string | null = null;
-    try {
-      const { data: stdRecord } = await supabase
-        .from('students')
-        .select('id, user_id')
-        .or(`id.eq.${clean},id.ilike.${clean}`)
-        .maybeSingle();
-      if (stdRecord?.user_id) {
-        resolvedUserIds.push(stdRecord.user_id);
-        directMatchedStudentId = stdRecord.id;
+    if (userCandidates.length === 0) {
+      try {
+        const { data: stdRecord } = await supabase
+          .from('students')
+          .select('id, user_id')
+          .or(`id.eq.${clean},id.ilike.${clean}`)
+          .maybeSingle();
+        if (stdRecord?.user_id) {
+          resolvedUserIds.push(stdRecord.user_id);
+          directMatchedStudentId = stdRecord.id;
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
 
-    const filterConditions = [
-      `email.ilike.${clean}`,
-      `phone.eq.${phoneDigits || clean}`,
-      `id.eq.${clean}`
-    ];
-    if (resolvedUserIds.length > 0) {
-      filterConditions.push(`id.in.(${resolvedUserIds.join(',')})`);
-    }
+      const filterConditions = [
+        `email.ilike.${clean}`,
+        `phone.eq.${phoneDigits || clean}`,
+        `id.eq.${clean}`
+      ];
+      if (resolvedUserIds.length > 0) {
+        filterConditions.push(`id.in.(${resolvedUserIds.join(',')})`);
+      }
 
-    const { data, error } = await supabase
-      .from('users')
-      .select('id, email, first_name, last_name, phone, role, avatar_url, is_active, password_hash, token_version')
-      .or(filterConditions.join(','));
-
-    let userCandidates: any[] = [];
-    if (!error && Array.isArray(data) && data.length > 0) {
-      userCandidates = data;
-    } else {
-      // If username prefix or exact email search is required
-      const { data: emailData } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('id, email, first_name, last_name, phone, role, avatar_url, is_active, password_hash, token_version')
-        .ilike('email', clean.includes('@') ? clean : `${clean}@%`);
-      if (emailData && emailData.length > 0) {
-        userCandidates = emailData;
+        .or(filterConditions.join(','));
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        userCandidates = data;
+      } else {
+        // If username prefix or exact email search is required
+        const { data: emailData } = await supabase
+          .from('users')
+          .select('id, email, first_name, last_name, phone, role, avatar_url, is_active, password_hash, token_version')
+          .ilike('email', clean.includes('@') ? clean : `${clean}@%`);
+        if (emailData && emailData.length > 0) {
+          userCandidates = emailData;
+        }
       }
     }
 
@@ -644,6 +654,7 @@ export class SupabaseDatabase {
     if (!user.id && !user.phoneNumber && !user.email) return [];
     const supabase = getSupabase();
     const phoneClean = (user.phoneNumber || '').replace(/\D/g, '');
+    const cleanEmail = (user.email || '').trim().toLowerCase();
 
     const orConditions: string[] = [];
     if (user.id) {
@@ -654,6 +665,20 @@ export class SupabaseDatabase {
     }
     if (phoneClean && phoneClean.length >= 7) {
       orConditions.push(`emergency_contact_phone.ilike.%${phoneClean.slice(-10)}%`);
+    }
+
+    // Also link by all user accounts sharing the same email
+    if (cleanEmail) {
+      const { data: siblingUsers } = await supabase
+        .from('users')
+        .select('id')
+        .ilike('email', cleanEmail);
+      if (siblingUsers && siblingUsers.length > 0) {
+        const siblingUserIds = siblingUsers.map((u: any) => u.id).filter(Boolean);
+        if (siblingUserIds.length > 0) {
+          orConditions.push(`user_id.in.(${siblingUserIds.join(',')})`);
+        }
+      }
     }
 
     let query = supabase
@@ -681,40 +706,126 @@ export class SupabaseDatabase {
     return siblings.map((s: any) => mapStudentRow(s));
   }
 
-  async changeUserPassword(email: string, currentPassword?: string, newPassword?: string): Promise<{ success: boolean; error?: string }> {
+  async getFamilyStudentsByEmailOrPhone(identifier: string): Promise<StudentProfile[]> {
+    if (!identifier) return [];
+    const supabase = getSupabase();
+    const clean = identifier.trim().toLowerCase();
+    const phoneDigits = identifier.replace(/\D/g, '');
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, email, phone')
+      .or(`email.ilike.${clean},phone.eq.${phoneDigits || clean}`);
+
+    const userIds = (users || []).map((u: any) => u.id);
+    const orConditions: string[] = [];
+    if (userIds.length > 0) {
+      orConditions.push(`user_id.in.(${userIds.join(',')})`);
+    }
+    if (phoneDigits && phoneDigits.length >= 7) {
+      orConditions.push(`emergency_contact_phone.ilike.%${phoneDigits.slice(-10)}%`);
+    }
+
+    if (orConditions.length === 0) return [];
+
+    const { data: students, error } = await supabase
+      .from('students')
+      .select('id, user_id, coach_id, first_name, last_name, age, grade, school_name, parent_name, mode_of_learning, emergency_contact_name, emergency_contact_phone, status, preferred_slot, total_classes, attended_classes, notes, avatar_url, diagnostic_observations, created_at, updated_at')
+      .or(orConditions.join(','));
+
+    if (error || !students) return [];
+
+    const seenIds = new Set<string>();
+    const uniqueStudents: any[] = [];
+    for (const s of students) {
+      if (!seenIds.has(s.id)) {
+        seenIds.add(s.id);
+        uniqueStudents.push(s);
+      }
+    }
+
+    return uniqueStudents.map((s: any) => mapStudentRow(s));
+  }
+
+  async changeUserPassword(
+    email: string,
+    currentPassword?: string,
+    newPassword?: string,
+    options?: { targetStudentId?: string; targetUserId?: string; applyToAll?: boolean }
+  ): Promise<{ success: boolean; error?: string; updatedCount?: number }> {
     if (!newPassword || newPassword.length < 8) {
       return { success: false, error: 'Password must be at least 8 characters long.' };
     }
 
     const supabase = getSupabase();
-    const { data: user, error: findError } = await supabase
-      .from('users')
-      .select('*')
-      .ilike('email', email.trim())
-      .maybeSingle();
+    const cleanEmail = email.trim().toLowerCase();
 
-    if (findError || !user) {
+    // Query all users matching this email
+    const { data: users, error: findError } = await supabase
+      .from('users')
+      .select('id, email, first_name, last_name, password_hash, token_version')
+      .ilike('email', cleanEmail);
+
+    if (findError || !users || users.length === 0) {
       return { success: false, error: 'User account not found.' };
     }
 
-    if (currentPassword && user.password_hash) {
-      const isMatch = bcrypt.compareSync(currentPassword, user.password_hash);
-      if (!isMatch) {
-        return { success: false, error: 'Incorrect current password.' };
+    // Determine target users to update
+    let targetUsers = users;
+
+    if (options?.targetUserId) {
+      targetUsers = users.filter((u: any) => u.id === options.targetUserId);
+      if (targetUsers.length === 0) {
+        return { success: false, error: 'Target user profile not found.' };
+      }
+    } else if (options?.targetStudentId) {
+      // Find user linked to targetStudentId
+      const { data: studentRecord } = await supabase
+        .from('students')
+        .select('id, user_id')
+        .eq('id', options.targetStudentId)
+        .maybeSingle();
+
+      if (studentRecord?.user_id) {
+        targetUsers = users.filter((u: any) => u.id === studentRecord.user_id);
+      }
+      if (targetUsers.length === 0) {
+        return { success: false, error: 'Target student account not found.' };
       }
     }
 
+    // If currentPassword was provided, verify it
+    if (currentPassword) {
+      const passwordMatchingUsers = targetUsers.filter((u: any) => 
+        u.password_hash && bcrypt.compareSync(currentPassword, u.password_hash)
+      );
+
+      if (passwordMatchingUsers.length === 0) {
+        return { success: false, error: 'Incorrect current password.' };
+      }
+
+      // If applyToAll is true (or default when not targeting a specific student),
+      // update all matching users whose current password matched
+      targetUsers = passwordMatchingUsers;
+    }
+
     const newHash = bcrypt.hashSync(newPassword, 8);
+    const targetIds = targetUsers.map((u: any) => u.id);
+
+    // Update password_hash and increment token_version to invalidate existing tokens
     const { error: updateError } = await supabase
       .from('users')
-      .update({ password_hash: newHash })
-      .eq('id', user.id);
+      .update({ 
+        password_hash: newHash,
+        token_version: ((targetUsers[0] as any)?.token_version || 1) + 1 
+      })
+      .in('id', targetIds);
 
     if (updateError) {
       return { success: false, error: `Failed to update password: ${updateError.message}` };
     }
 
-    return { success: true };
+    return { success: true, updatedCount: targetIds.length };
   }
 
   async createPasswordResetToken(email: string): Promise<{ token: string } | { error: string }> {
@@ -821,11 +932,22 @@ export class SupabaseDatabase {
   }
 
   // ================= STUDENTS =================
-  async getAllStudents(): Promise<StudentProfile[]> {
+  async getAllStudents(options?: PaginationParams): Promise<StudentProfile[]> {
     const supabase = getSupabase();
-    const { data: students, error } = await supabase
-      .from('students')
-      .select('*');
+    let query = supabase.from('students').select('*');
+
+    if (options?.page && options?.limit) {
+      const page = Math.max(1, options.page);
+      const limit = Math.min(Math.max(1, options.limit), 5000);
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+      query = query.range(from, to);
+    } else {
+      // Explicit ceiling: 0..4999 to eliminate PostgREST default 1000 row clamp
+      query = query.range(0, 4999);
+    }
+
+    const { data: students, error } = await query;
 
     if (error) {
       throw new Error(`Failed to fetch students from database: ${error.message}`);
@@ -833,7 +955,8 @@ export class SupabaseDatabase {
 
     const { data: users } = await supabase
       .from('users')
-      .select('*');
+      .select('*')
+      .range(0, 4999);
 
     const userMap = new Map();
     (users || []).forEach((u: any) => {
@@ -843,7 +966,8 @@ export class SupabaseDatabase {
     // Build coach map to dynamically pick coach name from coach/user table
     const { data: coaches } = await supabase
       .from('coaches')
-      .select('id, first_name, last_name, user_id');
+      .select('id, first_name, last_name, user_id')
+      .range(0, 4999);
 
     const coachMap = new Map<string, string>();
     (coaches || []).forEach((c: any) => {
@@ -858,10 +982,111 @@ export class SupabaseDatabase {
     });
   }
 
-  async getStudentsByCoachId(coachId: string, alternateId?: string): Promise<StudentProfile[]> {
-    const allStudents = await this.getAllStudents();
-    const ids = new Set([coachId, alternateId].filter(Boolean));
-    return allStudents.filter(s => s.coachId && ids.has(s.coachId));
+  async getStudentsCount(): Promise<number> {
+    const supabase = getSupabase();
+    const { count, error } = await supabase
+      .from('students')
+      .select('*', { count: 'exact', head: true });
+    if (error) return 0;
+    return count || 0;
+  }
+
+  async getStudentsByCoachId(coachId: string, alternateId?: string, options?: PaginationParams): Promise<StudentProfile[]> {
+    const supabase = getSupabase();
+    const rawIds = [coachId, alternateId].filter(Boolean) as string[];
+    if (rawIds.length === 0) return [];
+
+    const { data: coachRows } = await supabase
+      .from('coaches')
+      .select('id, user_id')
+      .or(`id.in.(${rawIds.join(',')}),user_id.in.(${rawIds.join(',')})`);
+
+    const allCoachIds = new Set<string>(rawIds);
+    (coachRows || []).forEach((c: any) => {
+      if (c.id) allCoachIds.add(c.id);
+      if (c.user_id) allCoachIds.add(c.user_id);
+    });
+
+    const targetIds = Array.from(allCoachIds);
+
+    let query = supabase.from('students').select('*');
+    if (targetIds.length === 1) {
+      query = query.eq('coach_id', targetIds[0]);
+    } else {
+      query = query.in('coach_id', targetIds);
+    }
+
+    if (options?.page && options?.limit) {
+      const page = Math.max(1, options.page);
+      const limit = Math.min(Math.max(1, options.limit), 5000);
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+      query = query.range(from, to);
+    } else {
+      // Explicit ceiling: 0..4999 to eliminate PostgREST default 1000 row clamp
+      query = query.range(0, 4999);
+    }
+
+    const { data: students, error } = await query;
+    if (error) {
+      throw new Error(`Failed to fetch coach students: ${error.message}`);
+    }
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('*')
+      .range(0, 4999);
+
+    const userMap = new Map();
+    (users || []).forEach((u: any) => {
+      if (u.id) userMap.set(u.id, u);
+    });
+
+    const { data: coaches } = await supabase
+      .from('coaches')
+      .select('id, first_name, last_name, user_id')
+      .range(0, 4999);
+
+    const coachMap = new Map<string, string>();
+    (coaches || []).forEach((c: any) => {
+      const name = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+      if (name) coachMap.set(c.id, name);
+    });
+
+    return (students || []).map((s: any) => {
+      const user = (s.user_id && userMap.get(s.user_id)) || userMap.get(s.id);
+      const coachName = s.coach_id ? (coachMap.get(s.coach_id) || null) : null;
+      return mapStudentRow(s, user, coachName);
+    });
+  }
+
+  async getStudentsCountByCoachId(coachId: string, alternateId?: string): Promise<number> {
+    const supabase = getSupabase();
+    const rawIds = [coachId, alternateId].filter(Boolean) as string[];
+    if (rawIds.length === 0) return 0;
+
+    const { data: coachRows } = await supabase
+      .from('coaches')
+      .select('id, user_id')
+      .or(`id.in.(${rawIds.join(',')}),user_id.in.(${rawIds.join(',')})`);
+
+    const allCoachIds = new Set<string>(rawIds);
+    (coachRows || []).forEach((c: any) => {
+      if (c.id) allCoachIds.add(c.id);
+      if (c.user_id) allCoachIds.add(c.user_id);
+    });
+
+    const targetIds = Array.from(allCoachIds);
+
+    let query = supabase.from('students').select('*', { count: 'exact', head: true });
+    if (targetIds.length === 1) {
+      query = query.eq('coach_id', targetIds[0]);
+    } else {
+      query = query.in('coach_id', targetIds);
+    }
+    const { count, error } = await query;
+    if (error) return 0;
+    return count || 0;
   }
 
   async getStudentById(id: string): Promise<StudentProfile | null> {
@@ -1050,12 +1275,14 @@ export class SupabaseDatabase {
     let createdUser: any = null;
     let assignedUserId: string = student.userId || '';
 
-    // Check if an existing user account already exists for this email (e.g. enrolling a sibling under the same family account)
+    // Check if an existing user account already exists with the EXACT SAME first name, last name, and email
     if (!assignedUserId && email) {
       const { data: existingUser } = await supabase
         .from('users')
         .select('*')
-        .eq('email', email)
+        .ilike('email', email)
+        .ilike('first_name', userFirstName)
+        .ilike('last_name', userLastName)
         .maybeSingle();
 
       if (existingUser) {
@@ -1064,11 +1291,14 @@ export class SupabaseDatabase {
       }
     }
 
-    if (!assignedUserId && (email || student.password)) {
-      if (!student.password || !student.password.trim()) {
+    if (!assignedUserId && (email || student.password || student.passwordHash)) {
+      let passwordHash = student.passwordHash;
+      if (!passwordHash && student.password && student.password.trim()) {
+        passwordHash = bcrypt.hashSync(student.password.trim(), 8);
+      }
+      if (!passwordHash) {
         throw new Error("A valid password is required to create a student user account.");
       }
-      const passwordHash = bcrypt.hashSync(student.password.trim(), 8);
       assignedUserId = `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
       const { data: uData, error: uError } = await supabase
@@ -1099,6 +1329,7 @@ export class SupabaseDatabase {
       relationship: student.relationship || undefined,
       scriptsRequired: Array.isArray(student.scriptsRequired) ? student.scriptsRequired : [],
       academicModules: Array.isArray(student.academicModules) ? student.academicModules : [],
+      dateOfLeaving: student.dateOfLeaving?.trim() || undefined,
       customNotes: student.notes || undefined
     };
 
@@ -1202,10 +1433,10 @@ export class SupabaseDatabase {
     if (updates.totalClasses !== undefined) updateData.total_classes = Number(updates.totalClasses);
     if (updates.attendedClasses !== undefined) updateData.attended_classes = Number(updates.attendedClasses);
     
-    if (updates.dominantHand !== undefined || updates.preferredDays !== undefined || updates.relationship !== undefined || updates.notes !== undefined) {
+    if (updates.dominantHand !== undefined || updates.preferredDays !== undefined || updates.relationship !== undefined || updates.notes !== undefined || updates.scriptsRequired !== undefined || updates.academicModules !== undefined || updates.dateOfLeaving !== undefined || updates.status !== undefined) {
       const { data: currentStudent } = await supabase
         .from('students')
-        .select('notes')
+        .select('notes, user_id')
         .eq('id', id)
         .maybeSingle();
 
@@ -1222,6 +1453,21 @@ export class SupabaseDatabase {
       if (updates.preferredDays !== undefined) existingMeta.preferredDays = updates.preferredDays;
       if (updates.relationship !== undefined) existingMeta.relationship = updates.relationship;
       if (updates.notes !== undefined) existingMeta.customNotes = updates.notes;
+      if (updates.scriptsRequired !== undefined) existingMeta.scriptsRequired = updates.scriptsRequired;
+      if (updates.academicModules !== undefined) existingMeta.academicModules = updates.academicModules;
+
+      if (updates.dateOfLeaving !== undefined) {
+        existingMeta.dateOfLeaving = updates.dateOfLeaving?.trim() || null;
+      }
+      if (updates.status !== undefined) {
+        if (updates.status === 'Inactive') {
+          if (!updates.dateOfLeaving && !existingMeta.dateOfLeaving) {
+            existingMeta.dateOfLeaving = new Date().toISOString().split('T')[0];
+          }
+        } else if (updates.status === 'Active') {
+          existingMeta.dateOfLeaving = null;
+        }
+      }
 
       updateData.notes = JSON.stringify(existingMeta);
     }
@@ -1242,8 +1488,8 @@ export class SupabaseDatabase {
     }
     updatedStudent = data;
 
-    // Also update public.users if contact info or name is updated
-    if (updates.email !== undefined || updates.whatsappMobile !== undefined || updates.displayName !== undefined || updates.firstName !== undefined || updates.lastName !== undefined) {
+    // Also update public.users if contact info, name, or password is updated
+    if (updates.email !== undefined || updates.whatsappMobile !== undefined || updates.displayName !== undefined || updates.firstName !== undefined || updates.lastName !== undefined || (updates.password && updates.password.trim().length >= 8)) {
       const userUpdates: any = {
         updated_at: new Date().toISOString()
       };
@@ -1256,12 +1502,30 @@ export class SupabaseDatabase {
         userUpdates.first_name = parts[0] || '';
         userUpdates.last_name = parts.slice(1).join(' ') || '';
       }
+      if (updates.password && updates.password.trim().length >= 8) {
+        userUpdates.password_hash = bcrypt.hashSync(updates.password.trim(), 8);
+      }
 
       if (updatedStudent?.user_id) {
         await supabase
           .from('users')
           .update(userUpdates)
           .eq('id', updatedStudent.user_id);
+      }
+    }
+
+    // Synchronize user account active status when student status changes
+    if (updates.status !== undefined && updatedStudent?.user_id) {
+      try {
+        await supabase
+          .from('users')
+          .update({
+            is_active: updates.status === 'Active',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', updatedStudent.user_id);
+      } catch (userStatusErr: any) {
+        console.warn(`[SupabaseDatabase] Warning syncing user is_active for student ${id}:`, userStatusErr.message);
       }
     }
 
@@ -1292,45 +1556,13 @@ export class SupabaseDatabase {
   }
 
   async deleteStudent(id: string): Promise<boolean> {
-    const supabase = getSupabase();
-    
-    // Look up student first to find user_id
-    const { data: std } = await supabase
-      .from('students')
-      .select('id, user_id')
-      .eq('id', id)
-      .maybeSingle();
-
-    // Delete student record
-    const { error } = await supabase
-      .from('students')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      throw new Error(`Failed to delete student ${id}: ${error.message}`);
-    }
-
-    // Delete corresponding user record if no other siblings share this user account
-    try {
-      if (std?.user_id) {
-        const { data: remainingSiblings } = await supabase
-          .from('students')
-          .select('id')
-          .eq('user_id', std.user_id);
-
-        if (!remainingSiblings || remainingSiblings.length === 0) {
-          await supabase
-            .from('users')
-            .delete()
-            .eq('id', std.user_id);
-        }
-      }
-    } catch (e: any) {
-      console.warn(`[SupabaseDatabase] User delete notice: ${e.message}`);
-    }
-
-    return true;
+    // Soft Deactivation: No physical deletion of student records
+    const today = new Date().toISOString().split('T')[0];
+    const updated = await this.updateStudent(id, {
+      status: 'Inactive',
+      dateOfLeaving: today
+    });
+    return Boolean(updated);
   }
 
   // ================= COACHES =================
@@ -1341,7 +1573,8 @@ export class SupabaseDatabase {
     const { data: coachesData, error: coachError } = await supabase
       .from('coaches')
       .select('id, user_id, first_name, last_name, email, phone, address, date_of_joining, status, date_of_leaving, educational_qualification, designation, specializations, emergency_contact_name, emergency_contact_phone, notes, created_at, updated_at')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(0, 4999);
 
     if (coachError) {
       console.warn(`[SupabaseDatabase] Warning fetching from coaches table: ${coachError.message}`);
@@ -1351,7 +1584,8 @@ export class SupabaseDatabase {
     const { data: coachUsers } = await supabase
       .from('users')
       .select('id, email, first_name, last_name, phone, role, is_active, created_at')
-      .eq('role', 'coach');
+      .eq('role', 'coach')
+      .range(0, 4999);
 
     const { data: students } = await supabase
       .from('students')
@@ -1832,8 +2066,9 @@ export class SupabaseDatabase {
 
   async deleteCoach(id: string): Promise<boolean> {
     const supabase = getSupabase();
+    const today = new Date().toISOString().split('T')[0];
 
-    // 1. Unassign any assigned students
+    // 1. Unassign coach from any students so active students are not stranded
     try {
       await supabase
         .from('students')
@@ -1843,32 +2078,38 @@ export class SupabaseDatabase {
       console.warn(`[SupabaseDatabase] Notice unassigning coach ${id} from students: ${e.message}`);
     }
 
-    // Look up coach first to find user_id
-    const { data: coachRecord } = await supabase
+    // 2. Soft Deactivation in coaches table: Set Inactive & date_of_leaving
+    const { error: coachError } = await supabase
       .from('coaches')
-      .select('id, user_id')
-      .eq('id', id)
-      .maybeSingle();
+      .update({
+        status: 'Inactive',
+        date_of_leaving: today,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
 
-    // 2. Delete linked user account
+    if (coachError) {
+      throw new Error(`Failed to deactivate coach: ${coachError.message}`);
+    }
+
+    // 3. Deactivate linked user account in users table
     try {
+      const { data: coachRecord } = await supabase
+        .from('coaches')
+        .select('id, user_id')
+        .eq('id', id)
+        .maybeSingle();
+
       const targetUserId = coachRecord?.user_id || id;
       await supabase
         .from('users')
-        .delete()
+        .update({
+          is_active: false,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', targetUserId);
     } catch (e: any) {
-      console.warn(`[SupabaseDatabase] Notice deleting user for coach ${id}: ${e.message}`);
-    }
-
-    // 3. Delete coach record
-    const { error } = await supabase
-      .from('coaches')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      throw new Error(`Failed to delete coach: ${error.message}`);
+      console.warn(`[SupabaseDatabase] Notice setting coach user inactive for ${id}: ${e.message}`);
     }
 
     return true;
@@ -1919,8 +2160,15 @@ export class SupabaseDatabase {
   }
 
   // ================= ATTENDANCE =================
-  async getAttendanceByMonth(yearMonth: string): Promise<AttendanceRecord[]> {
+  async getAttendanceByMonth(
+    yearMonth: string,
+    options?: PaginationParams & { studentIds?: string[] }
+  ): Promise<AttendanceRecord[]> {
     const supabase = getSupabase();
+    if (options?.studentIds && options.studentIds.length === 0) {
+      return [];
+    }
+
     // In PostgreSQL, 'date' is of type DATE so ilike fails. Calculate month range:
     const [year, month] = yearMonth.split('-').map(Number);
     const startDate = `${yearMonth}-01`;
@@ -1928,12 +2176,32 @@ export class SupabaseDatabase {
     const nextYear = month === 12 ? year + 1 : year;
     const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('attendance')
       .select('*')
       .gte('date', startDate)
       .lt('date', endDate)
       .order('date', { ascending: true });
+
+    // Database-level scoping for coach assigned students
+    if (options?.studentIds && options.studentIds.length > 0) {
+      if (options.studentIds.length === 1) {
+        query = query.eq('student_id', options.studentIds[0]);
+      } else {
+        query = query.in('student_id', options.studentIds);
+      }
+    }
+
+    if (options?.page && options?.limit) {
+      const page = Math.max(1, options.page);
+      const limit = Math.min(Math.max(1, options.limit), 5000);
+      query = query.range((page - 1) * limit, page * limit - 1);
+    } else {
+      // Explicit ceiling: 0..4999 to eliminate PostgREST default 1000 row clamp
+      query = query.range(0, 4999);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw new Error(`Failed to fetch attendance for ${yearMonth}: ${error.message}`);
@@ -1941,13 +2209,24 @@ export class SupabaseDatabase {
     return (data || []).map(mapAttendanceRow);
   }
 
-  async getAttendanceByStudent(studentId: string): Promise<AttendanceRecord[]> {
+  async getAttendanceByStudent(studentId: string, options?: PaginationParams): Promise<AttendanceRecord[]> {
     const supabase = getSupabase();
-    const { data, error } = await supabase
+    let query = supabase
       .from('attendance')
       .select('*')
       .eq('student_id', studentId)
       .order('date', { ascending: true });
+
+    if (options?.page && options?.limit) {
+      const page = Math.max(1, options.page);
+      const limit = Math.min(Math.max(1, options.limit), 5000);
+      query = query.range((page - 1) * limit, page * limit - 1);
+    } else {
+      // Explicit ceiling: 0..4999 to eliminate PostgREST default 1000 row clamp
+      query = query.range(0, 4999);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw new Error(`Failed to fetch attendance for student ${studentId}: ${error.message}`);
@@ -2018,13 +2297,23 @@ export class SupabaseDatabase {
   }
 
   // ================= FEES =================
-  async getFeesByMonth(yearMonth: string): Promise<FeeRecord[]> {
+  async getFeesByMonth(yearMonth: string, options?: PaginationParams): Promise<FeeRecord[]> {
     const supabase = getSupabase();
-    // 'fees' table has both 'year_month' (text e.g. '2026-09') and 'paid_date' (date or timestamp)
-    const { data, error } = await supabase
+    let query = supabase
       .from('fees')
       .select('*')
       .or(`year_month.eq.${yearMonth},date.gte.${yearMonth}-01,paid_date.gte.${yearMonth}-01`);
+
+    if (options?.page && options?.limit) {
+      const page = Math.max(1, options.page);
+      const limit = Math.min(Math.max(1, options.limit), 5000);
+      query = query.range((page - 1) * limit, page * limit - 1);
+    } else {
+      // Explicit ceiling: 0..4999 to eliminate PostgREST default 1000 row clamp
+      query = query.range(0, 4999);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw new Error(`Failed to fetch fees for ${yearMonth}: ${error.message}`);
@@ -2032,13 +2321,24 @@ export class SupabaseDatabase {
     return (data || []).map(mapFeeRow);
   }
 
-  async getFeesByStudent(studentId: string): Promise<FeeRecord[]> {
+  async getFeesByStudent(studentId: string, options?: PaginationParams): Promise<FeeRecord[]> {
     const supabase = getSupabase();
-    const { data, error } = await supabase
+    let query = supabase
       .from('fees')
       .select('*')
       .eq('student_id', studentId)
       .order('paid_date', { ascending: false });
+
+    if (options?.page && options?.limit) {
+      const page = Math.max(1, options.page);
+      const limit = Math.min(Math.max(1, options.limit), 5000);
+      query = query.range((page - 1) * limit, page * limit - 1);
+    } else {
+      // Explicit ceiling: 0..4999 to eliminate PostgREST default 1000 row clamp
+      query = query.range(0, 4999);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw new Error(`Failed to fetch fees for student ${studentId}: ${error.message}`);
@@ -2253,14 +2553,19 @@ export class SupabaseDatabase {
   async saveStudentWork(work: Partial<StudentWorkImage>): Promise<StudentWorkImage> {
     const supabase = getSupabase();
     const id = work.id || `work-${Date.now()}`;
+    const captureDate = work.captureDate || new Date().toISOString().split('T')[0];
+    const category = work.category || 'Practice Sheet';
+    const defaultTitle = `${category} - ${captureDate}`;
+    const title = (work.comments && work.comments.trim().length > 0) ? work.comments.trim() : defaultTitle;
+
     const row = {
       id,
       student_id: work.studentId,
-      title: work.comments || null,
-      work_type: work.category || null,
-      file_url: work.imageData || null,
-      submitted_date: work.captureDate || new Date().toISOString().split('T')[0],
-      status: (work as any).status || null,
+      title,
+      work_type: category,
+      file_url: work.imageData || '',
+      submitted_date: captureDate,
+      status: (work as any).status || 'Completed',
       created_at: new Date().toISOString()
     };
 
@@ -2391,6 +2696,25 @@ export class SupabaseDatabase {
     return buildProgressReportFromTrackerRow(data, studentData);
   }
 
+    async findProgressReportById(id: string): Promise<ProgressReport | null> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('progress_trackers')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    const { data: studentData } = await supabase
+      .from('students')
+      .select('*')
+      .eq('id', data.student_id)
+      .maybeSingle();
+
+    return buildProgressReportFromTrackerRow(data, studentData);
+  }
+
   async deleteProgressReport(id: string): Promise<void> {
     const supabase = getSupabase();
     const { error } = await supabase
@@ -2416,8 +2740,7 @@ export class SupabaseDatabase {
       amount_due: reminder.amount !== undefined && reminder.amount !== null ? Number(reminder.amount) : null,
       due_date: reminder.month || null,
       status: reminder.status || null,
-      sent_at: reminder.sentDate || (reminder as any).sentAt || new Date().toISOString(),
-      created_at: new Date().toISOString()
+      sent_at: reminder.sentDate || (reminder as any).sentAt || new Date().toISOString()
     };
 
     const { data, error } = await supabase
@@ -2439,7 +2762,8 @@ export class SupabaseDatabase {
     const { data, error } = await supabase
       .from('demo_bookings')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(0, 4999);
 
     if (error) {
       throw new Error(`Failed to fetch demo bookings: ${error.message}`);
@@ -2581,7 +2905,8 @@ export class SupabaseDatabase {
     const { data, error } = await supabase
       .from('alerts')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(0, 4999);
 
     if (error) {
       throw new Error(`Failed to fetch alerts: ${error.message}`);
@@ -2640,7 +2965,7 @@ export class SupabaseDatabase {
       query = query.eq('status', status);
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query.order('created_at', { ascending: false }).range(0, 4999);
     if (error) {
       throw new Error(`Failed to fetch testimonials: ${error.message}`);
     }
@@ -2753,18 +3078,177 @@ export class SupabaseDatabase {
     return mapToolAuditLogRow(data);
   }
 
-  async getToolAuditLogs(limit = 50): Promise<ToolAuditLog[]> {
+  async getToolAuditLogs(options?: { page?: number; limit?: number } | number): Promise<ToolAuditLog[]> {
     const supabase = getSupabase();
-    const { data, error } = await supabase
+    let query = supabase
       .from('tool_audit_logs')
       .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
+      .order('created_at', { ascending: false });
+
+    if (typeof options === 'object' && options !== null && options.page && options.limit) {
+      const page = Math.max(1, options.page);
+      const limit = Math.min(Math.max(1, options.limit), 5000);
+      query = query.range((page - 1) * limit, page * limit - 1);
+    } else {
+      const limit = typeof options === 'number' ? Math.min(options, 5000) : (options?.limit ? Math.min(options.limit, 5000) : 50);
+      // Explicit ceiling: up to 5000 rows
+      query = query.range(0, Math.min(limit - 1, 4999));
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw new Error(`Failed to fetch audit logs: ${error.message}`);
     }
     return (data || []).map(mapToolAuditLogRow);
+  }
+
+  async getAttendanceCountByMonth(yearMonth: string, studentIds?: string[]): Promise<number> {
+    if (studentIds && studentIds.length === 0) return 0;
+    const supabase = getSupabase();
+    const [year, month] = yearMonth.split('-').map(Number);
+    const startDate = `${yearMonth}-01`;
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
+    let query = supabase
+      .from('attendance')
+      .select('*', { count: 'exact', head: true })
+      .gte('date', startDate)
+      .lt('date', endDate);
+
+    if (studentIds && studentIds.length > 0) {
+      if (studentIds.length === 1) {
+        query = query.eq('student_id', studentIds[0]);
+      } else {
+        query = query.in('student_id', studentIds);
+      }
+    }
+
+    const { count, error } = await query;
+    if (error) return 0;
+    return count || 0;
+  }
+
+  async getAttendanceCountByStudent(studentId: string): Promise<number> {
+    const supabase = getSupabase();
+    const { count, error } = await supabase
+      .from('attendance')
+      .select('*', { count: 'exact', head: true })
+      .eq('student_id', studentId);
+    if (error) return 0;
+    return count || 0;
+  }
+
+  async getFeesCountByMonth(yearMonth: string): Promise<number> {
+    const supabase = getSupabase();
+    const { count, error } = await supabase
+      .from('fees')
+      .select('*', { count: 'exact', head: true })
+      .or(`year_month.eq.${yearMonth},date.gte.${yearMonth}-01,paid_date.gte.${yearMonth}-01`);
+    if (error) return 0;
+    return count || 0;
+  }
+
+  async getFeesCountByStudent(studentId: string): Promise<number> {
+    const supabase = getSupabase();
+    const { count, error } = await supabase
+      .from('fees')
+      .select('*', { count: 'exact', head: true })
+      .eq('student_id', studentId);
+    if (error) return 0;
+    return count || 0;
+  }
+
+  async getToolAuditLogsCount(): Promise<number> {
+    const supabase = getSupabase();
+    const { count, error } = await supabase
+      .from('tool_audit_logs')
+      .select('*', { count: 'exact', head: true });
+    if (error) return 0;
+    return count || 0;
+  }
+
+  // ================= RATE LIMITING (SUPABASE-BACKED ATOMIC RPC) =================
+  async checkRateLimit(
+    key: string,
+    maxCalls: number,
+    windowSeconds: number
+  ): Promise<{ allowed: boolean; retryAfter: number }> {
+    const supabase = getSupabase();
+    
+    // 1. Primary path: Invoke atomic SECURITY DEFINER Postgres function
+    try {
+      const { data, error } = await supabase.rpc('check_and_increment_rate_limit', {
+        p_key: key,
+        p_max_calls: maxCalls,
+        p_window_seconds: windowSeconds,
+      });
+
+      if (!error && data) {
+        return {
+          allowed: Boolean(data.allowed),
+          retryAfter: Number(data.retry_after || 0),
+        };
+      }
+
+      if (error) {
+        console.warn(`[SupabaseDatabase] RPC check_and_increment_rate_limit notice: ${error.message}`);
+      }
+    } catch (rpcErr: any) {
+      console.warn(`[SupabaseDatabase] RPC check_and_increment_rate_limit exception: ${rpcErr.message}`);
+    }
+
+    // 2. Direct table fallback against public.rate_limits
+    try {
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const resetAt = new Date(now.getTime() + windowSeconds * 1000).toISOString();
+
+      const { data: existing, error: selectErr } = await supabase
+        .from('rate_limits')
+        .select('key, count, reset_at')
+        .eq('key', key)
+        .maybeSingle();
+
+      if (!selectErr && existing) {
+        const isExpired = new Date(existing.reset_at) < now;
+        if (isExpired) {
+          await supabase
+            .from('rate_limits')
+            .update({ count: 1, reset_at: resetAt })
+            .eq('key', key);
+          return { allowed: true, retryAfter: 0 };
+        }
+
+        if (existing.count >= maxCalls) {
+          const retryAfter = Math.max(1, Math.ceil((new Date(existing.reset_at).getTime() - now.getTime()) / 1000));
+          return { allowed: false, retryAfter };
+        }
+
+        await supabase
+          .from('rate_limits')
+          .update({ count: existing.count + 1 })
+          .eq('key', key);
+        return { allowed: true, retryAfter: 0 };
+      }
+
+      // No record yet or initial insert
+      await supabase
+        .from('rate_limits')
+        .upsert({
+          key,
+          count: 1,
+          reset_at: resetAt,
+          created_at: nowIso,
+        }, { onConflict: 'key' });
+
+      return { allowed: true, retryAfter: 0 };
+    } catch (tableErr: any) {
+      console.warn(`[SupabaseDatabase] Direct rate_limits table fallback notice: ${tableErr.message}`);
+      return { allowed: true, retryAfter: 0 };
+    }
   }
 }
 

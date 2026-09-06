@@ -107,6 +107,7 @@ export interface StudentProfile {
   password?: string;
   status: StudentStatus;
   enrollmentDate: string;
+  dateOfLeaving?: string;
   totalClasses?: number;
   attendedClasses?: number;
   notes?: string;

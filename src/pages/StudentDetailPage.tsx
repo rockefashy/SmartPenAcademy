@@ -1,4 +1,4 @@
-import { Modal } from '../components/ui/Modal';
+import { Modal, Button, Input, Select, Textarea } from '../components/ui';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -408,12 +408,13 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-4 font-sans">
         <h2 className="text-xl font-bold text-slate-800">Student Record Not Found</h2>
-        <button
+        <Button
           onClick={onBack}
-          className="px-4 py-2 bg-[#0E3589] text-white rounded-xl text-xs font-bold"
+          variant="primary"
+          size="sm"
         >
           Return to Admin Roster
-        </button>
+        </Button>
       </div>
     );
   }
@@ -433,12 +434,15 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       {/* Top Header & Navigation Breadcrumb */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div className="flex items-center gap-4">
-          <button
+          <Button
             onClick={onBack}
-            className="p-2.5 rounded-2xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-[#0E3589] transition-all shadow-xs cursor-pointer"
+            variant="ghost"
+            size="icon"
+            className="rounded-2xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-[#0E3589] shadow-xs"
+            aria-label="Back to roster"
           >
             <ArrowLeft className="w-5 h-5" />
-          </button>
+          </Button>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900">
@@ -463,20 +467,23 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <button
+          <Button
             onClick={() => onNavigate('parentPortal', student.id)}
-            className="px-4 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#0E3589] text-xs font-bold border border-blue-200 flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+            variant="outline"
+            size="sm"
+            className="bg-blue-50 hover:bg-blue-100 text-[#0E3589] border-blue-200 shadow-xs"
           >
             <Eye className="w-3.5 h-3.5" />
             <span>View Parent Portal Preview</span>
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* 5-Section Navigational Tab Pills */}
       <div className="bg-white p-2 rounded-3xl border border-slate-200 shadow-xs flex flex-wrap gap-2">
-        <button
+        <Button
           onClick={() => setActiveTab(1)}
+          variant="ghost"
           className={`flex-1 min-w-[140px] py-3 px-4 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 1
               ? 'bg-[#0E3589] text-white shadow-md'
@@ -485,10 +492,11 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
         >
           <User className="w-4 h-4" />
           <span>{studentDetailProperties.header.tabs.section1}</span>
-        </button>
+        </Button>
 
-        <button
+        <Button
           onClick={() => setActiveTab(2)}
+          variant="ghost"
           className={`flex-1 min-w-[140px] py-3 px-4 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 2
               ? 'bg-[#0E3589] text-white shadow-md'
@@ -497,10 +505,11 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
         >
           <Calendar className="w-4 h-4" />
           <span>{studentDetailProperties.header.tabs.section2}</span>
-        </button>
+        </Button>
 
-        <button
+        <Button
           onClick={() => setActiveTab(3)}
+          variant="ghost"
           className={`flex-1 min-w-[140px] py-3 px-4 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 3
               ? 'bg-[#0E3589] text-white shadow-md'
@@ -509,10 +518,11 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
         >
           <DollarSign className="w-4 h-4" />
           <span>{studentDetailProperties.header.tabs.section3}</span>
-        </button>
+        </Button>
 
-        <button
+        <Button
           onClick={() => setActiveTab(4)}
+          variant="ghost"
           className={`flex-1 min-w-[140px] py-3 px-4 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 4
               ? 'bg-[#0E3589] text-white shadow-md'
@@ -521,10 +531,11 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
         >
           <Camera className="w-4 h-4" />
           <span>{studentDetailProperties.header.tabs.section4}</span>
-        </button>
+        </Button>
 
-        <button
+        <Button
           onClick={() => setActiveTab(5)}
+          variant="ghost"
           className={`flex-1 min-w-[140px] py-3 px-4 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 5
               ? 'bg-[#F46E20] text-white shadow-md'
@@ -533,7 +544,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
         >
           <TrendingUp className="w-4 h-4" />
           <span>{studentDetailProperties.header.tabs.section5}</span>
-        </button>
+        </Button>
       </div>
 
       {/* ========================================================================= */}
@@ -551,13 +562,15 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
               </p>
             </div>
 
-            <button
+            <Button
               onClick={() => setIsEditingProfile(!isEditingProfile)}
-              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all self-start cursor-pointer"
+              variant="secondary"
+              size="sm"
+              className="self-start"
             >
               <Edit3 className="w-3.5 h-3.5" />
               <span>{isEditingProfile ? studentDetailProperties.section1.cancelBtn : studentDetailProperties.section1.editBtn}</span>
-            </button>
+            </Button>
           </div>
 
           {isEditingProfile ? (
@@ -565,7 +578,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">First Name</label>
-                  <input
+                  <Input
                     type="text"
                     value={profileForm.firstName || ''}
                     onChange={(e) => {
@@ -577,13 +590,12 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                         displayName: `${val} ${lastName}`.trim()
                       });
                     }}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Last Name</label>
-                  <input
+                  <Input
                     type="text"
                     value={profileForm.lastName || ''}
                     onChange={(e) => {
@@ -595,136 +607,126 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                         displayName: `${firstName} ${val}`.trim()
                       });
                     }}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Display Name</label>
-                  <input
+                  <Input
                     type="text"
                     value={profileForm.displayName || ''}
                     onChange={(e) => setProfileForm({ ...profileForm, displayName: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Mode of Learning</label>
-                  <select
+                  <Select
                     value={profileForm.modeOfLearning || 'In-person'}
                     onChange={(e) => setProfileForm({ ...profileForm, modeOfLearning: e.target.value as 'In-person' | 'Online' })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                   >
                     <option value="In-person">In-person</option>
                     <option value="Online">Online</option>
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Status</label>
-                  <select
+                  <Select
                     value={profileForm.status || 'Active'}
                     onChange={(e) => setProfileForm({ ...profileForm, status: e.target.value as StudentStatus })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                   >
                     <option value="Active">{studentDetailProperties.section1.activeOption}</option>
                     <option value="Inactive">{studentDetailProperties.section1.inactiveOption}</option>
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Grade / Class</label>
-                  <input
+                  <Input
                     type="text"
                     value={profileForm.gradeClass || ''}
                     onChange={(e) => setProfileForm({ ...profileForm, gradeClass: e.target.value })}
                     placeholder="e.g. 5 or Grade 5"
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Dominant Hand</label>
-                  <select
+                  <Select
                     value={profileForm.dominantHand || 'Right'}
                     onChange={(e) => setProfileForm({ ...profileForm, dominantHand: e.target.value as DominantHand })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                   >
                     <option value="Right">Right-handed</option>
                     <option value="Left">Left-handed</option>
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Parent Name</label>
-                  <input
+                  <Input
                     type="text"
                     value={profileForm.parentName || ''}
                     onChange={(e) => setProfileForm({ ...profileForm, parentName: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">WhatsApp Mobile</label>
-                  <input
+                  <Input
                     type="tel"
                     value={profileForm.whatsappMobile || ''}
                     onChange={(e) => setProfileForm({ ...profileForm, whatsappMobile: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Parent Email</label>
-                  <input
+                  <Input
                     type="email"
                     value={profileForm.email || ''}
                     onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">School Name</label>
-                  <input
+                  <Input
                     type="text"
                     value={profileForm.schoolName || ''}
                     onChange={(e) => setProfileForm({ ...profileForm, schoolName: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Preferred Days</label>
-                  <input
+                  <Input
                     type="text"
                     value={profileForm.preferredDays || ''}
                     onChange={(e) => setProfileForm({ ...profileForm, preferredDays: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Preferred Time Slot</label>
-                  <input
+                  <Input
                     type="text"
                     value={profileForm.preferredSlot || ''}
                     onChange={(e) => setProfileForm({ ...profileForm, preferredSlot: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                   />
                 </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setIsEditingProfile(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="px-6 py-2 rounded-xl bg-[#0E3589] hover:bg-[#09225a] text-white text-xs font-bold shadow-md cursor-pointer"
+                  variant="primary"
+                  size="sm"
                 >
                   {studentDetailProperties.section1.saveBtn}
-                </button>
+                </Button>
               </div>
             </form>
           ) : (
@@ -804,13 +806,15 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                   {student.displayName} has completed 8 classes (Classes {(Math.floor(attendedCount / 8) - 1) * 8 + 1} - {Math.floor(attendedCount / 8) * 8}). ₹1,600 fee receipt is pending.
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="primary"
+                size="sm"
                 onClick={() => setActiveTab(3)}
-                className="px-4 py-2 bg-[#0E3589] hover:bg-[#08225e] text-white text-xs font-bold rounded-xl shrink-0 cursor-pointer shadow-xs transition-all"
+                className="shrink-0"
               >
                 Record Receipt (₹1,600)
-              </button>
+              </Button>
             </div>
           )}
 
@@ -858,14 +862,14 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5 self-start">
-              <button
+              <Button
                 onClick={() => setIsCameraModalOpen(true)}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#f07b27] text-white text-xs font-black shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                variant="accent"
                 id="btn-open-camera-modal"
               >
                 <Camera className="w-4 h-4" />
                 <span>{studentDetailProperties.section4Camera.openCameraBtn}</span>
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -883,10 +887,11 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
 
               {works.length > 0 && hasFullAccess && (
                 <div className="flex items-center gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={toggleSelectAllWorks}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
                   >
                     {selectedWorkIds.size === works.length ? (
                       <>
@@ -899,19 +904,21 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                         <span>Select All</span>
                       </>
                     )}
-                  </button>
+                  </Button>
 
                   {selectedWorkIds.size > 0 && (
-                    <button
+                    <Button
                       type="button"
+                      variant="danger"
+                      size="sm"
                       onClick={handleBulkDeleteWorks}
                       disabled={isDeletingWorks}
-                      className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                      isLoading={isDeletingWorks}
                       id="btn-delete-selected-works"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>{isDeletingWorks ? 'Deleting...' : `Delete Selected (${selectedWorkIds.size})`}</span>
-                    </button>
+                    </Button>
                   )}
                 </div>
               )}
@@ -931,13 +938,15 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                       {/* Top Action Overlay: Select Checkbox & Delete Button */}
                       {hasFullAccess && (
                         <div className="absolute top-2.5 left-2.5 right-2.5 z-10 flex items-center justify-between pointer-events-auto">
-                          <button
+                          <Button
                             type="button"
+                            size="icon"
+                            variant="ghost"
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleSelectWork(item.id);
                             }}
-                            className={`p-1.5 rounded-lg backdrop-blur-xs transition-all cursor-pointer shadow ${
+                            className={`rounded-lg backdrop-blur-xs transition-all shadow ${
                               isSelected
                                 ? 'bg-[#F46E20] text-white'
                                 : 'bg-slate-900/60 hover:bg-slate-900 text-white'
@@ -945,16 +954,18 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                             title={isSelected ? 'Deselect image' : 'Select image'}
                           >
                             {isSelected ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
-                          </button>
+                          </Button>
 
-                          <button
+                          <Button
                             type="button"
+                            size="icon"
+                            variant="ghost"
                             onClick={(e) => handleDeleteSingleWork(item.id, e)}
-                            className="p-1.5 rounded-lg bg-slate-900/60 hover:bg-rose-600 text-white backdrop-blur-xs transition-colors cursor-pointer shadow"
+                            className="rounded-lg bg-slate-900/60 hover:bg-rose-600 text-white backdrop-blur-xs transition-colors shadow"
                             title="Delete this writing sample"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          </Button>
                         </div>
                       )}
 
@@ -1016,13 +1027,13 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <button
+              <Button
                 onClick={() => setIsCreatingReport(!isCreatingReport)}
-                className="px-4 py-2.5 rounded-xl bg-[#0E3589] hover:bg-[#09225a] text-white text-xs font-black shadow-md flex items-center gap-2 cursor-pointer"
+                variant="primary"
               >
                 <Plus className="w-4 h-4" />
                 <span>{isCreatingReport ? 'Cancel Report Generator' : studentDetailProperties.section5Progress.createReportBtn}</span>
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -1035,41 +1046,37 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Milestone Title</label>
-                  <input
+                  <Input
                     type="text"
                     value={reportMilestone}
                     onChange={(e) => setReportMilestone(e.target.value)}
-                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-[#0E3589]"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Evaluation Date</label>
-                  <input
+                  <Input
                     type="date"
                     value={reportDate}
                     onChange={(e) => setReportDate(e.target.value)}
-                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-[#0E3589]"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Completed Classes</label>
-                  <input
+                  <Input
                     type="number"
                     value={reportCompletedClasses}
                     onChange={(e) => setReportCompletedClasses(Number(e.target.value))}
-                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-[#0E3589]"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Total Classes</label>
-                  <input
+                  <Input
                     type="number"
                     value={reportTotalClasses}
                     onChange={(e) => setReportTotalClasses(Number(e.target.value))}
-                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-[#0E3589]"
                     required
                   />
                 </div>
@@ -1110,7 +1117,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                           </div>
                         </div>
                       </div>
-                      <input
+                      <Input
                         type="text"
                         value={skill.progressNote}
                         onChange={(e) => {
@@ -1119,7 +1126,6 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                           setReportSkills(copy);
                         }}
                         placeholder="Progress Note..."
-                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none"
                       />
                     </div>
                   ))}
@@ -1139,14 +1145,16 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                     </p>
                   </div>
                   {works.length === 0 && (
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => setIsCameraModalOpen(true)}
-                      className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#0E3589] font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer self-start"
+                      className="bg-blue-50 hover:bg-blue-100 text-[#0E3589] border-blue-200 self-start"
                     >
                       <Camera className="w-3.5 h-3.5" />
                       <span>Capture / Upload Photo</span>
-                    </button>
+                    </Button>
                   )}
                 </div>
 
@@ -1159,13 +1167,15 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                         <span>Baseline Sample (Before - Class 1)</span>
                       </span>
                       {reportBeforePhoto && (
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setReportBeforePhoto(null)}
-                          className="text-[11px] font-bold text-rose-600 hover:text-rose-800 cursor-pointer"
+                          className="text-[11px] font-bold text-rose-600 hover:text-rose-800 h-auto p-1"
                         >
                           Clear
-                        </button>
+                        </Button>
                       )}
                     </div>
 
@@ -1189,13 +1199,15 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                         <span>Transformed Sample (After - Milestone)</span>
                       </span>
                       {reportAfterPhoto && (
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setReportAfterPhoto(null)}
-                          className="text-[11px] font-bold text-emerald-600 hover:text-emerald-800 cursor-pointer"
+                          className="text-[11px] font-bold text-emerald-600 hover:text-emerald-800 h-auto p-1"
                         >
                           Clear
-                        </button>
+                        </Button>
                       )}
                     </div>
 
@@ -1241,28 +1253,32 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                             <p className="text-[10px] font-bold text-slate-800 truncate">{item.category || 'Sample'}</p>
                             <p className="text-[9px] text-slate-400 font-mono">{item.captureDate}</p>
                             <div className="flex gap-1.5 mt-2">
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setReportBeforePhoto(item.imageData)}
-                                className={`flex-1 py-1 text-[10px] font-extrabold rounded-md cursor-pointer transition-colors ${
+                                className={`flex-1 py-1 text-[10px] font-extrabold rounded-md transition-colors h-auto ${
                                   isBefore
                                     ? 'bg-rose-600 text-white shadow-xs'
                                     : 'bg-rose-100 hover:bg-rose-200 text-rose-700'
                                 }`}
                               >
                                 {isBefore ? '✓ Before' : 'Set Before'}
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setReportAfterPhoto(item.imageData)}
-                                className={`flex-1 py-1 text-[10px] font-extrabold rounded-md cursor-pointer transition-colors ${
+                                className={`flex-1 py-1 text-[10px] font-extrabold rounded-md transition-colors h-auto ${
                                   isAfter
                                     ? 'bg-emerald-600 text-white shadow-xs'
                                     : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700'
                                 }`}
                               >
                                 {isAfter ? '✓ After' : 'Set After'}
-                              </button>
+                              </Button>
                             </div>
                           </div>
                         );
@@ -1287,11 +1303,10 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Overall Progress Title</label>
-                  <input
+                  <Input
                     type="text"
                     value={reportOverallRemark}
                     onChange={(e) => setReportOverallRemark(e.target.value)}
-                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium outline-none"
                     required
                   />
                 </div>
@@ -1299,29 +1314,29 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Teacher's Feedback &amp; Encouragement</label>
-                <textarea
+                <Textarea
                   rows={3}
                   value={reportTeacherFeedback}
                   onChange={(e) => setReportTeacherFeedback(e.target.value)}
-                  className="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs font-medium outline-none"
                   required
                 />
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setIsCreatingReport(false)}
-                  className="px-4 py-2 bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="px-6 py-2.5 bg-[#F46E20] hover:bg-[#d95d13] text-white text-xs font-black rounded-xl shadow-md cursor-pointer"
+                  variant="accent"
                 >
                   Generate &amp; Save Official Progress Report
-                </button>
+                </Button>
               </div>
             </form>
           ) : (
@@ -1331,8 +1346,10 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-100">
                   <span className="text-xs font-bold text-slate-400 shrink-0">Milestones:</span>
                   {reports.map((r) => (
-                    <button
+                    <Button
                       key={r.id}
+                      size="sm"
+                      variant="ghost"
                       onClick={() => setViewingReport(r)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                         viewingReport?.id === r.id
@@ -1341,7 +1358,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                       }`}
                     >
                       {r.milestoneTitle} ({r.reportDate})
-                    </button>
+                    </Button>
                   ))}
                 </div>
               )}
@@ -1357,27 +1374,32 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button
+                      <Button
                         onClick={() => handleEmailProgressReport(viewingReport.id)}
                         disabled={isSendingReportEmail}
-                        className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#0E3589] text-xs font-bold rounded-xl border border-blue-200 flex items-center gap-1.5 cursor-pointer"
+                        isLoading={isSendingReportEmail}
+                        variant="outline"
+                        size="sm"
+                        className="bg-blue-50 hover:bg-blue-100 text-[#0E3589] border-blue-200"
                       >
                         <Send className="w-3.5 h-3.5" />
                         <span>{isSendingReportEmail ? 'Emailing...' : studentDetailProperties.section5Progress.emailReportBtn}</span>
-                      </button>
+                      </Button>
 
                       {hasFullAccess && (
-                        <button
+                        <Button
                           type="button"
                           onClick={() => handleDeleteProgressReport(viewingReport.id)}
                           disabled={isDeletingReport}
-                          className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold rounded-xl border border-rose-200 flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                          isLoading={isDeletingReport}
+                          variant="danger"
+                          size="sm"
                           title="Delete this progress report"
                           id="btn-delete-progress-report"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>{isDeletingReport ? 'Deleting...' : 'Delete Report'}</span>
-                        </button>
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -1423,13 +1445,14 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
             />
           </div>
           <div className="flex justify-end">
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => setSelectedPhotoZoom(null)}
-              className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl cursor-pointer"
             >
               Close
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>

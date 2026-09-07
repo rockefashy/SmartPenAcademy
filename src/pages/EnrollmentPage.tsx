@@ -888,11 +888,12 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
               {enrollmentProperties.section3.scriptsOptions.map((script) => {
                 const isSelected = scriptsRequired.includes(script);
                 return (
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     key={script}
                     onClick={() => toggleScript(script)}
-                    className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                    className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all h-auto min-h-[44px] ${
                       isSelected
                         ? 'bg-blue-50/80 border-[#0E3589] text-[#0E3589] font-bold shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -900,7 +901,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                   >
                     <span className="text-xs">{script}</span>
                     {isSelected && <CheckCircle className="w-4 h-4 text-[#0E3589] shrink-0" />}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -915,11 +916,12 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
               {enrollmentProperties.section3.modulesOptions.map((module) => {
                 const isSelected = academicModules.includes(module);
                 return (
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     key={module}
                     onClick={() => toggleModule(module)}
-                    className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                    className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all h-auto min-h-[44px] ${
                       isSelected
                         ? 'bg-orange-50/80 border-[#F46E20] text-[#F46E20] font-bold shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -927,7 +929,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                   >
                     <span className="text-xs">{module}</span>
                     {isSelected && <CheckCircle className="w-4 h-4 text-[#F46E20] shrink-0" />}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -963,18 +965,19 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
               {enrollmentProperties.section4.preferredDaysOptions.map((day) => {
                 const isSelected = selectedDays.includes(day);
                 return (
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     key={day}
                     onClick={() => toggleDay(day)}
-                    className={`min-h-[44px] flex items-center justify-center py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                    className={`min-h-[44px] flex items-center justify-center py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
                       isSelected
                         ? 'bg-[#0E3589] border-[#0E3589] text-white shadow-sm'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
                     {day.slice(0, 3)}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -992,11 +995,12 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
               {enrollmentProperties.section4.preferredSlotOptions.map((slot) => {
                 const isSelected = preferredSlot === slot;
                 return (
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     key={slot}
                     onClick={() => setPreferredSlot(slot)}
-                    className={`min-h-[44px] p-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
+                    className={`min-h-[44px] p-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all ${
                       isSelected
                         ? 'bg-teal-50 border-teal-600 text-teal-900 shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -1004,7 +1008,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                   >
                     <span>{slot}</span>
                     {isSelected && <CheckCircle className="w-3.5 h-3.5 text-teal-600" />}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -1060,34 +1064,34 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
           </div>
 
           <div className="space-y-2.5 text-xs text-slate-700 font-sans font-medium">
-            <label className="flex items-start gap-2.5 cursor-pointer">
+            <label className="flex items-center gap-2.5 cursor-pointer min-h-[44px] py-1">
               <input
                 type="checkbox"
                 required
                 checked={practiceCommitment}
                 onChange={(e) => setPracticeCommitment(e.target.checked)}
-                className="mt-0.5 text-[#0E3589] rounded"
+                className="w-4 h-4 text-[#0E3589] rounded"
               />
               <span>{enrollmentProperties.section6.practiceCommitment}</span>
             </label>
 
-            <label className="flex items-start gap-2.5 cursor-pointer">
+            <label className="flex items-center gap-2.5 cursor-pointer min-h-[44px] py-1">
               <input
                 type="checkbox"
                 required
                 checked={feePolicyAccepted}
                 onChange={(e) => setFeePolicyAccepted(e.target.checked)}
-                className="mt-0.5 text-[#0E3589] rounded"
+                className="w-4 h-4 text-[#0E3589] rounded"
               />
               <span>{enrollmentProperties.section6.feePolicy}</span>
             </label>
 
-            <label className="flex items-start gap-2.5 cursor-pointer">
+            <label className="flex items-center gap-2.5 cursor-pointer min-h-[44px] py-1">
               <input
                 type="checkbox"
                 checked={mediaConsent}
                 onChange={(e) => setMediaConsent(e.target.checked)}
-                className="mt-0.5 text-[#0E3589] rounded"
+                className="w-4 h-4 text-[#0E3589] rounded"
               />
               <span>{enrollmentProperties.section6.mediaConsent}</span>
             </label>

@@ -1,4 +1,7 @@
 import { Modal } from './ui/Modal';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Textarea } from './ui/Textarea';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
@@ -258,13 +261,16 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
     >
           {/* Header Ribbon (Always pinned & visible at top) */}
           <div className="shrink-0 bg-gradient-to-r from-[#0E3589] via-[#0084F4] to-[#F46E20] px-5 sm:px-6 py-4 sm:py-5 text-white relative shadow-sm">
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={handleResetAndClose}
-              className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 p-2 bg-white/20 hover:bg-white/30 text-white rounded-full transition-colors cursor-pointer z-10"
+              className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 bg-white/20 hover:bg-white/30 text-white rounded-full z-10"
               aria-label="Close modal"
             >
               <X className="w-5 h-5" />
-            </button>
+            </Button>
 
             <div className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-white/20 rounded-full text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider mb-1.5">
               <Sparkles className="w-3 h-3 text-amber-300" />
@@ -344,12 +350,15 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
                   <span>Connect on WhatsApp with Mrs. Deepthy Rock (8861751000)</span>
                 </a>
 
-                <button
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  fullWidth
                   onClick={handleResetAndClose}
-                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
                 >
                   Done &amp; Close
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
@@ -362,73 +371,47 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
 
               {/* Student Name & Parent Name in 2 Cols */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1">
-                    {landingProperties.demoModal.studentNameLabel} <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      value={studentName}
-                      onChange={(e) => setStudentName(e.target.value)}
-                      placeholder={landingProperties.demoModal.studentNamePlaceholder}
-                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
-                    />
-                  </div>
-                </div>
+                <Input
+                  label={landingProperties.demoModal.studentNameLabel}
+                  required
+                  type="text"
+                  value={studentName}
+                  onChange={(e) => setStudentName(e.target.value)}
+                  placeholder={landingProperties.demoModal.studentNamePlaceholder}
+                  leftIcon={<User className="w-4 h-4 text-slate-400" />}
+                />
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1">
-                    {landingProperties.demoModal.parentNameLabel} <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      value={parentName}
-                      onChange={(e) => setParentName(e.target.value)}
-                      placeholder={landingProperties.demoModal.parentNamePlaceholder}
-                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
-                    />
-                  </div>
-                </div>
+                <Input
+                  label={landingProperties.demoModal.parentNameLabel}
+                  required
+                  type="text"
+                  value={parentName}
+                  onChange={(e) => setParentName(e.target.value)}
+                  placeholder={landingProperties.demoModal.parentNamePlaceholder}
+                  leftIcon={<User className="w-4 h-4 text-slate-400" />}
+                />
               </div>
 
               {/* Age / Grade & Contact Number in 2 Cols */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1">
-                    {landingProperties.demoModal.ageLabel} <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                    placeholder={landingProperties.demoModal.agePlaceholder}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
-                  />
-                </div>
+                <Input
+                  label={landingProperties.demoModal.ageLabel}
+                  required
+                  type="text"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  placeholder={landingProperties.demoModal.agePlaceholder}
+                />
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1">
-                    {landingProperties.demoModal.contactLabel} <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="tel"
-                      required
-                      value={contactNumber}
-                      onChange={(e) => setContactNumber(e.target.value)}
-                      placeholder={landingProperties.demoModal.contactPlaceholder}
-                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
-                    />
-                  </div>
-                </div>
+                <Input
+                  label={landingProperties.demoModal.contactLabel}
+                  required
+                  type="tel"
+                  value={contactNumber}
+                  onChange={(e) => setContactNumber(e.target.value)}
+                  placeholder={landingProperties.demoModal.contactPlaceholder}
+                  leftIcon={<Phone className="w-4 h-4 text-slate-400" />}
+                />
               </div>
 
               {/* Mode of Learning */}
@@ -437,30 +420,26 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
                   Mode of Learning <span className="text-red-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant={modeOfLearning === 'In-person' ? 'primary' : 'outline'}
+                    size="sm"
                     onClick={() => setModeOfLearning('In-person')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center justify-center gap-1.5 ${
-                      modeOfLearning === 'In-person'
-                        ? 'bg-[#0E3589] text-white border-[#0E3589] shadow-xs'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
+                    className="w-full"
                     id="btn-demo-mode-in-person"
                   >
-                    <span>🏫 In-person</span>
-                  </button>
-                  <button
+                    🏫 In-person
+                  </Button>
+                  <Button
                     type="button"
+                    variant={modeOfLearning === 'Online' ? 'primary' : 'outline'}
+                    size="sm"
                     onClick={() => setModeOfLearning('Online')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center justify-center gap-1.5 ${
-                      modeOfLearning === 'Online'
-                        ? 'bg-[#0E3589] text-white border-[#0E3589] shadow-xs'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
+                    className="w-full"
                     id="btn-demo-mode-online"
                   >
-                    <span>💻 Online</span>
-                  </button>
+                    💻 Online
+                  </Button>
                 </div>
               </div>
 
@@ -477,69 +456,47 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Calendar Date Picker */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Demo Date <span className="text-red-500">*</span> <span className="text-[10px] text-slate-500 font-normal">(After today)</span>
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      min={getTomorrowDateString()}
-                      value={demoDate}
-                      onChange={(e) => {
-                        setDemoDate(e.target.value);
-                        if (e.target.value && e.target.value <= getTodayDateString()) {
-                          setDateError('Date must be greater than today.');
-                        } else {
-                          setDateError(null);
-                        }
-                      }}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0E3589] shadow-2xs"
-                    />
-                    {dateError ? (
-                      <p className="text-[10px] font-bold text-red-600 mt-1">{dateError}</p>
-                    ) : demoDate ? (
-                      <p className="text-[10px] font-semibold text-[#0E3589] mt-1 truncate">
-                        📅 {formatReadableDate(demoDate)}
-                      </p>
-                    ) : null}
-                  </div>
+                  <Input
+                    label="Demo Date (After today)"
+                    required
+                    type="date"
+                    min={getTomorrowDateString()}
+                    value={demoDate}
+                    onChange={(e) => {
+                      setDemoDate(e.target.value);
+                      if (e.target.value && e.target.value <= getTodayDateString()) {
+                        setDateError('Date must be greater than today.');
+                      } else {
+                        setDateError(null);
+                      }
+                    }}
+                    error={dateError || undefined}
+                    helperText={demoDate && !dateError ? `📅 ${formatReadableDate(demoDate)}` : undefined}
+                  />
 
-                  {/* Time Input (hh:mm format) */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Demo Time (hh:mm) <span className="text-red-500">*</span> <span className="text-[10px] text-slate-500 font-normal">(4 - 7 PM)</span>
-                    </label>
-                    <div className="relative">
-                      <Clock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <input
-                        type="text"
-                        required
-                        value={demoTime}
-                        onChange={(e) => {
-                          setDemoTime(e.target.value);
-                          setTimeError(null);
-                        }}
-                        onBlur={(e) => {
-                          const check = parseAndValidateDemoTime(e.target.value);
-                          if (!check.isValid) {
-                            setTimeError(check.error || 'Must be between 4:00 PM and 7:00 PM');
-                          } else if (check.formattedTime) {
-                            setDemoTime(check.formattedTime);
-                            setTimeError(null);
-                          }
-                        }}
-                        placeholder="04:00 PM"
-                        className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0E3589] shadow-2xs"
-                      />
-                    </div>
-                    {timeError ? (
-                      <p className="text-[10px] font-bold text-red-600 mt-1">{timeError}</p>
-                    ) : (
-                      <p className="text-[10px] text-slate-500 mt-1">Default: 04:00 PM (4:00 – 7:00 PM)</p>
-                    )}
-                  </div>
+                  <Input
+                    label="Demo Time (hh:mm) (4 - 7 PM)"
+                    required
+                    type="text"
+                    value={demoTime}
+                    onChange={(e) => {
+                      setDemoTime(e.target.value);
+                      setTimeError(null);
+                    }}
+                    onBlur={(e) => {
+                      const check = parseAndValidateDemoTime(e.target.value);
+                      if (!check.isValid) {
+                        setTimeError(check.error || 'Must be between 4:00 PM and 7:00 PM');
+                      } else if (check.formattedTime) {
+                        setDemoTime(check.formattedTime);
+                        setTimeError(null);
+                      }
+                    }}
+                    placeholder="04:00 PM"
+                    leftIcon={<Clock className="w-3.5 h-3.5 text-slate-400" />}
+                    error={timeError || undefined}
+                    helperText={!timeError ? "Default: 04:00 PM (4:00 – 7:00 PM)" : undefined}
+                  />
                 </div>
 
                 {/* Quick Select Preset Pills */}
@@ -547,39 +504,31 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
                   <p className="text-[10px] font-bold text-slate-600 mb-1.5">Quick Select Time Slots:</p>
                   <div className="flex flex-wrap gap-1.5">
                     {landingProperties.demoModal.timePresets.map((preset) => (
-                      <button
+                      <Button
                         type="button"
                         key={preset}
+                        variant={demoTime === preset ? 'primary' : 'outline'}
+                        size="sm"
                         onClick={() => {
                           setDemoTime(preset);
                           setTimeError(null);
                         }}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
-                          demoTime === preset
-                            ? 'bg-[#0E3589] text-white border-[#0E3589] shadow-xs'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-200'
-                        }`}
+                        className="py-1 px-2.5 text-[11px]"
                       >
                         {preset}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Optional Notes */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Specific Handwriting Goals / Observations (Optional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="e.g., Struggling with cursive joining, pencil grip fatigue, slow exam speed..."
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
-                />
-              </div>
+              <Textarea
+                label="Specific Handwriting Goals / Observations (Optional)"
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g., Struggling with cursive joining, pencil grip fatigue, slow exam speed..."
+              />
 
               {/* Academy Direct Details Banner */}
               <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-2xl space-y-1.5 text-[11px] text-slate-600">
@@ -603,22 +552,19 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
 
               {/* Submit CTA */}
               <div className="pt-2">
-                <button
+                <Button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="w-full py-3.5 bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#f07b27] text-white font-extrabold text-sm rounded-xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  variant="accent"
+                  size="lg"
+                  fullWidth
+                  isLoading={isSubmitting}
+                  loadingText="Scheduling Demo..."
+                  leftIcon={<Sparkles className="w-4 h-4" />}
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
                   id="btn-confirm-demo-booking"
                 >
-                  {isSubmitting ? (
-                    <span>Scheduling Demo...</span>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>{landingProperties.demoModal.submitBtn}</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
+                  {landingProperties.demoModal.submitBtn}
+                </Button>
               </div>
             </form>
           )}

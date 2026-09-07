@@ -1,3 +1,6 @@
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Select } from './ui/Select';
 import { Modal } from './ui/Modal';
 import React, { useState, useEffect } from 'react';
 import { 
@@ -357,22 +360,15 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5">
               {/* 1. Date Selection with Calendar Icon */}
               <div className="space-y-1">
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
-                  Request Date <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                    <CalendarIcon className="w-3.5 h-3.5 text-[#0E3589]" />
-                  </div>
-                  <input
-                    type="date"
-                    value={formDate}
-                    onChange={(e) => setFormDate(e.target.value)}
-                    required
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#0E3589] focus:border-transparent shadow-2xs"
-                    id="input-raise-fee-date"
-                  />
-                </div>
+                <Input
+                  label="Request Date"
+                  required
+                  type="date"
+                  value={formDate}
+                  onChange={(e) => setFormDate(e.target.value)}
+                  leftIcon={<CalendarIcon className="w-3.5 h-3.5 text-[#0E3589]" />}
+                  id="input-raise-fee-date"
+                />
               </div>
 
               {/* 2. Free Textbox for 8-class period/milestone (Default to Month/Year) */}
@@ -381,107 +377,89 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
                   <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
                     Milestone / Month Period <span className="text-red-500">*</span>
                   </label>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setFormMilestone(getCurrentMonthYear())}
-                    className="text-[10px] font-bold text-[#0E3589] hover:underline cursor-pointer"
+                    className="text-[10px] text-[#0E3589] p-0 h-auto min-h-0"
                   >
                     Reset to Current Month
-                  </button>
+                  </Button>
                 </div>
-                <input
+                <Input
                   type="text"
                   value={formMilestone}
                   onChange={(e) => setFormMilestone(e.target.value)}
                   placeholder="e.g. August 2026 or September Milestone"
                   required
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-[#0E3589] focus:border-transparent shadow-2xs"
                   id="input-raise-fee-milestone"
                 />
               </div>
 
               {/* 3. Receipt Number */}
               <div className="space-y-1">
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
-                  Receipt Number
-                </label>
-                <input
+                <Input
+                  label="Receipt Number"
                   type="text"
                   value={formReceiptNumber}
                   onChange={(e) => setFormReceiptNumber(e.target.value)}
                   placeholder="e.g. REC-101-AUG26"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#0E3589] focus:border-transparent shadow-2xs"
                   id="input-raise-fee-receipt"
                 />
               </div>
 
               {/* 4. Amount */}
               <div className="space-y-1">
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
-                  Fee Amount (₹) <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
-                    ₹
-                  </div>
-                  <input
-                    type="number"
-                    value={formAmount}
-                    onChange={(e) => setFormAmount(e.target.value)}
-                    required
-                    min="1"
-                    className="w-full pl-7 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-black text-emerald-800 outline-none focus:ring-2 focus:ring-[#0E3589] focus:border-transparent shadow-2xs"
-                    id="input-raise-fee-amount"
-                  />
-                </div>
+                <Input
+                  label="Fee Amount (₹)"
+                  required
+                  type="number"
+                  min="1"
+                  value={formAmount}
+                  onChange={(e) => setFormAmount(e.target.value)}
+                  leftIcon={<span className="font-bold text-xs">₹</span>}
+                  id="input-raise-fee-amount"
+                />
               </div>
 
               {/* 5. Receipt Status */}
               <div className="space-y-1">
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
-                  Receipt Status
-                </label>
-                <select
+                <Select
+                  label="Receipt Status"
                   value={formStatus}
                   onChange={(e) => setFormStatus(e.target.value as 'Pending' | 'Paid')}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-[#0E3589] focus:border-transparent shadow-2xs cursor-pointer text-slate-800"
                   id="select-raise-fee-status"
                 >
                   <option value="Pending">Pending / Due</option>
                   <option value="Paid">Paid (Receipt Issued)</option>
-                </select>
+                </Select>
               </div>
             </div>
 
             {/* In-Person Reception Method & Notes Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
               <div className="space-y-1">
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
-                  In-Person Reception / Payment Method
-                </label>
-                <select
+                <Select
+                  label="In-Person Reception / Payment Method"
                   value={formMethod}
                   onChange={(e) => setFormMethod(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-[#0E3589] focus:border-transparent shadow-2xs cursor-pointer text-slate-800"
                   id="select-raise-fee-method"
                 >
                   <option value="In-Person Reception - Cash">In-Person Reception - Cash</option>
                   <option value="In-Person Reception - UPI / GPay">In-Person Reception - UPI / GPay</option>
                   <option value="In-Person Reception - Card / POS">In-Person Reception - Card / POS</option>
                   <option value="Direct Bank Transfer / NEFT">Direct Bank Transfer / NEFT</option>
-                </select>
+                </Select>
               </div>
 
               <div className="space-y-1 lg:col-span-2">
-                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
-                  Notes
-                </label>
-                <input
+                <Input
+                  label="Notes"
                   type="text"
                   value={formNotes}
                   onChange={(e) => setFormNotes(e.target.value)}
                   placeholder="e.g., Cash collected at desk by Mrs. Deepthy / GPay transaction ref"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-[#0E3589] focus:border-transparent shadow-2xs"
                   id="input-raise-fee-notes"
                 />
               </div>
@@ -494,24 +472,19 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
                 <span>Clicking <strong>Raise Fee Request</strong> will record the milestone in the ledger and dispatch a WhatsApp payment reminder with GPay details.</span>
               </div>
 
-              <button
+              <Button
                 type="submit"
+                variant="primary"
+                size="md"
                 disabled={isSubmitting}
-                className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-700 to-[#0E3589] hover:from-emerald-700 hover:to-[#09225a] text-white text-xs font-extrabold rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 whitespace-nowrap self-end"
+                isLoading={isSubmitting}
+                loadingText="Processing & Dispatching..."
+                leftIcon={<MessageCircle className="w-4 h-4 text-emerald-200" />}
+                className="whitespace-nowrap self-end"
                 id="btn-submit-raise-fee-request"
               >
-                {isSubmitting ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Processing &amp; Dispatching...</span>
-                  </>
-                ) : (
-                  <>
-                    <MessageCircle className="w-4 h-4 text-emerald-200" />
-                    <span>Raise Fee Request</span>
-                  </>
-                )}
-              </button>
+                Raise Fee Request &amp; Dispatch WhatsApp
+              </Button>
             </div>
           </form>
         </div>
@@ -577,86 +550,79 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
                         <tr key={fee.id} className="bg-amber-50/60 border-2 border-amber-300" id={`row-edit-${fee.id}`}>
                           {/* 1. Date */}
                           <td className="py-3 px-3">
-                            <input
+                            <Input
                               type="date"
                               value={editFormData.date}
                               onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
-                              className="w-full p-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold outline-none focus:ring-2 focus:ring-[#0E3589]"
                               id={`input-inline-date-${fee.id}`}
                             />
                           </td>
 
                           {/* 2. Milestone */}
                           <td className="py-3 px-3">
-                            <input
+                            <Input
                               type="text"
                               value={editFormData.milestone}
                               onChange={(e) => setEditFormData({ ...editFormData, milestone: e.target.value })}
                               placeholder="Milestone / Month"
-                              className="w-full p-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-[#0E3589]"
                               id={`input-inline-milestone-${fee.id}`}
                             />
                           </td>
 
                           {/* 3. Receipt */}
                           <td className="py-3 px-3">
-                            <input
+                            <Input
                               type="text"
                               value={editFormData.receiptNumber}
                               onChange={(e) => setEditFormData({ ...editFormData, receiptNumber: e.target.value })}
                               placeholder="Receipt #"
-                              className="w-full p-1.5 bg-white border border-amber-300 rounded-lg text-xs font-mono font-bold outline-none focus:ring-2 focus:ring-[#0E3589]"
                               id={`input-inline-receipt-${fee.id}`}
                             />
                           </td>
 
                           {/* 4. Amount */}
                           <td className="py-3 px-3">
-                            <input
+                            <Input
                               type="number"
                               value={editFormData.amount}
                               onChange={(e) => setEditFormData({ ...editFormData, amount: Number(e.target.value) || 0 })}
-                              className="w-24 p-1.5 bg-white border border-amber-300 rounded-lg text-xs font-black text-emerald-800 outline-none focus:ring-2 focus:ring-[#0E3589]"
                               id={`input-inline-amount-${fee.id}`}
                             />
                           </td>
 
                           {/* 5. Status */}
                           <td className="py-3 px-3">
-                            <select
+                            <Select
                               value={editFormData.status}
                               onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as 'Paid' | 'Pending' })}
-                              className="w-full p-1.5 bg-white border border-amber-300 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-[#0E3589] cursor-pointer"
                               id={`select-inline-status-${fee.id}`}
                             >
                               <option value="Paid">Paid</option>
                               <option value="Pending">Pending / Due</option>
-                            </select>
+                            </Select>
                           </td>
 
                           {/* 6. Method */}
                           <td className="py-3 px-3">
-                            <select
+                            <Select
                               value={editFormData.paymentMethod}
                               onChange={(e) => setEditFormData({ ...editFormData, paymentMethod: e.target.value })}
-                              className="w-full p-1.5 bg-white border border-amber-300 rounded-lg text-xs font-medium outline-none focus:ring-2 focus:ring-[#0E3589] cursor-pointer"
                               id={`select-inline-method-${fee.id}`}
                             >
                               <option value="In-Person Reception - Cash">In-Person Reception - Cash</option>
                               <option value="In-Person Reception - UPI / GPay">In-Person Reception - UPI / GPay</option>
                               <option value="In-Person Reception - Card / POS">In-Person Reception - Card / POS</option>
                               <option value="Direct Bank Transfer / NEFT">Direct Bank Transfer / NEFT</option>
-                            </select>
+                            </Select>
                           </td>
 
                           {/* 7. Notes */}
                           <td className="py-3 px-3">
-                            <input
+                            <Input
                               type="text"
                               value={editFormData.notes}
                               onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
                               placeholder="Notes / Ref"
-                              className="w-full min-w-[140px] p-1.5 bg-white border border-amber-300 rounded-lg text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-[#0E3589]"
                               id={`input-inline-notes-${fee.id}`}
                             />
                           </td>
@@ -664,28 +630,34 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
                           {/* 8. Inline Actions (Save & Cancel) */}
                           <td className="py-3 px-3 text-right whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1.5">
-                              <button
+                              <Button
                                 type="button"
+                                variant="success"
+                                size="sm"
                                 onClick={() => handleSaveInlineEdit(fee.id)}
                                 disabled={isSavingInline}
-                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg shadow-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                isLoading={isSavingInline}
+                                loadingText="Saving..."
+                                leftIcon={<Check className="w-3.5 h-3.5" />}
+                                className="text-[11px] py-1 px-2.5"
                                 title="Save changes"
                                 id={`btn-save-inline-${fee.id}`}
                               >
-                                <Check className="w-3.5 h-3.5" />
-                                <span>{isSavingInline ? 'Saving...' : 'Save'}</span>
-                              </button>
-                              <button
+                                Save
+                              </Button>
+                              <Button
                                 type="button"
+                                variant="secondary"
+                                size="sm"
                                 onClick={cancelInlineEdit}
                                 disabled={isSavingInline}
-                                className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-[11px] rounded-lg flex items-center gap-1 cursor-pointer"
+                                leftIcon={<X className="w-3.5 h-3.5" />}
+                                className="text-[11px] py-1 px-2.5"
                                 title="Cancel editing"
                                 id={`btn-cancel-inline-${fee.id}`}
                               >
-                                <X className="w-3.5 h-3.5" />
-                                <span>Cancel</span>
-                              </button>
+                                Cancel
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -760,57 +732,55 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
                           <div className="flex items-center justify-end gap-1.5">
                             {/* Action 1: Edit Button */}
                             {isAdmin && (
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => startInlineEdit(fee)}
-                                className="p-1.5 text-slate-500 hover:text-[#0E3589] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-blue-200"
+                                className="p-1.5 text-slate-500 hover:text-[#0E3589] hover:bg-blue-50 border border-transparent hover:border-blue-200 min-h-[32px] min-w-[32px]"
                                 title="Edit this fee row inline"
                                 id={`btn-edit-fee-${fee.id}`}
                               >
                                 <Edit3 className="w-3.5 h-3.5" />
-                              </button>
+                              </Button>
                             )}
 
                             {/* Action 2: Delete Button */}
                             {isAdmin && (
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => promptDeleteFeeRow(fee)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-rose-200"
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 min-h-[32px] min-w-[32px]"
                                 title="Delete this fee row"
                                 id={`btn-delete-fee-${fee.id}`}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              </Button>
                             )}
 
                             {/* Action 3: Send Reminder Button (Disabled if Paid) */}
                             {isAdmin && (
-                              <button
+                              <Button
                                 type="button"
+                                variant={isPaid ? 'secondary' : 'outline'}
+                                size="sm"
                                 onClick={() => handleSendRowReminder(fee)}
                                 disabled={isPaid || activeSendingId === fee.id}
-                                className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold flex items-center gap-1.5 transition-all shadow-2xs ${
-                                  isPaid
-                                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
-                                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 hover:border-emerald-400 cursor-pointer active:scale-98'
-                                }`}
+                                isLoading={activeSendingId === fee.id}
+                                loadingText="Sending..."
+                                leftIcon={<Send className={`w-3.5 h-3.5 ${isPaid ? 'text-slate-400' : 'text-emerald-700'}`} />}
+                                className={`text-[11px] py-1 px-2.5 ${isPaid ? 'opacity-60' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'}`}
                                 title={
                                   isPaid
                                     ? 'Fee already paid • No reminder needed'
-                                    : 'Send WhatsApp payment reminder to parent'
+                                    : 'Send payment reminder via WhatsApp / Email'
                                 }
                                 id={`btn-remind-fee-${fee.id}`}
                               >
-                                <MessageCircle className={`w-3.5 h-3.5 ${isPaid ? 'text-slate-400' : 'text-emerald-600'}`} />
-                                <span>
-                                  {isPaid 
-                                    ? 'Paid' 
-                                    : activeSendingId === fee.id 
-                                      ? 'Preparing...' 
-                                      : 'Send Reminder'}
-                                </span>
-                              </button>
+                                Remind
+                              </Button>
                             )}
                           </div>
                         </td>
@@ -860,14 +830,16 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
                   This will permanently remove this fee request and receipt entry from the student's ledger.
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={handleCancelDelete}
                 disabled={isDeletingFee}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="p-1 text-slate-400 hover:text-slate-600"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
 
             {/* Record Summary Box */}
@@ -908,25 +880,29 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
 
             {/* Action Buttons */}
             <div className="flex items-center justify-end gap-2.5 pt-2">
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={handleCancelDelete}
                 disabled={isDeletingFee}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
                 id="btn-cancel-delete-modal"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="danger"
+                size="sm"
                 onClick={handleConfirmDelete}
                 disabled={isDeletingFee}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all flex items-center gap-1.5 disabled:opacity-50"
+                isLoading={isDeletingFee}
+                loadingText="Deleting..."
+                leftIcon={<Trash2 className="w-3.5 h-3.5" />}
                 id="btn-confirm-delete-modal"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>{isDeletingFee ? 'Deleting...' : 'Delete Record'}</span>
-              </button>
+                Delete Record
+              </Button>
             </div>
         </div>
       </Modal>

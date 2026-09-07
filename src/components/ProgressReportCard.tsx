@@ -1,5 +1,6 @@
 import { Modal } from './ui/Modal';
 import React, { useState } from 'react';
+import { Button } from './ui/Button';
 import { 
   Eye,
   X,
@@ -64,22 +65,25 @@ export const ProgressReportCard: React.FC<ProgressReportCardProps> = ({
           </div>
           <div className="flex items-center gap-2">
             {onEmail && (
-              <button
+              <Button
                 onClick={onEmail}
-                disabled={isEmailing}
-                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                isLoading={isEmailing}
+                loadingText="Dispatching Email..."
+                variant="success"
+                size="sm"
+                leftIcon={<Mail className="w-3.5 h-3.5" />}
               >
-                <Mail className="w-3.5 h-3.5" />
-                <span>{isEmailing ? 'Dispatching Email...' : 'Email to Parent'}</span>
-              </button>
+                Email to Parent
+              </Button>
             )}
             {onDelete && (
-              <button
+              <Button
                 onClick={onDelete}
-                className="px-3 py-1.5 bg-red-900/60 hover:bg-red-800 text-red-200 text-xs font-semibold rounded-xl transition-all"
+                variant="danger"
+                size="sm"
               >
                 Delete
-              </button>
+              </Button>
             )}
           </div>
         </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Button } from '../components/ui/Button';
 import { motion } from 'motion/react';
 import { 
   Sparkles, 
@@ -152,17 +153,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-3.5 pt-2">
-              <button
+              <Button
                 onClick={handleDemoClick}
-                className="px-6 sm:px-8 py-3.5 bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#f07b27] text-white font-extrabold text-sm sm:text-base rounded-2xl shadow-lg shadow-orange-500/25 hover:shadow-orange-500/35 transition-all transform hover:-translate-y-0.5 flex items-center gap-2.5 cursor-pointer"
+                variant="accent"
+                size="lg"
+                leftIcon={<Clock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
+                rightIcon={<ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />}
+                className="shadow-lg shadow-orange-500/25 hover:shadow-orange-500/35 transform hover:-translate-y-0.5"
                 id="btn-hero-demo-booking"
               >
-                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                <span>{landingProperties.hero.ctaSecondary}</span>
-                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
+                {landingProperties.hero.ctaSecondary}
+              </Button>
 
-              <button
+              <Button
                 onClick={() => {
                   const el = document.getElementById('syllabus-section');
                   if (el) {
@@ -171,12 +174,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     onNavigate('landing');
                   }
                 }}
-                className="px-5 sm:px-6 py-3.5 bg-white hover:bg-slate-50 text-[#0E3589] font-bold text-sm sm:text-base rounded-2xl border-2 border-[#0E3589]/30 hover:border-[#0E3589] transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                variant="outline"
+                size="lg"
+                leftIcon={<BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-[#0E3589]" />}
+                className="border-2 border-[#0E3589]/30 hover:border-[#0E3589] text-[#0E3589]"
                 id="btn-hero-explore-curriculum"
               >
-                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-[#0E3589]" />
-                <span>Explore Curriculum</span>
-              </button>
+                Explore Curriculum
+              </Button>
             </div>
 
             {/* Trust Mini-Bar */}
@@ -357,13 +362,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </ul>
                 </div>
 
-                <button
+                <Button
                   onClick={handleDemoClick}
-                  className="w-full py-2.5 bg-white text-[#0E3589] hover:bg-blue-50 font-bold text-xs rounded-xl shadow transition-colors flex items-center justify-center gap-2 cursor-pointer mt-2"
+                  variant="outline"
+                  size="sm"
+                  fullWidth
+                  rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                  className="bg-white text-[#0E3589] hover:bg-blue-50 border-transparent shadow mt-2"
                 >
-                  <span>Inquire via Demo / Assessment</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                  Inquire via Demo / Assessment
+                </Button>
               </div>
             ))}
           </div>
@@ -493,7 +501,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         {/* Share testimony prompt for enrolled parents */}
         <div className="mt-8 text-center">
-          <button
+          <Button
             onClick={() => {
               if (currentUser && currentUser.role === 'student') {
                 onNavigate('parentPortal', currentUser.studentId, 'testimony' as any);
@@ -502,12 +510,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 onOpenLogin();
               }
             }}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[#F46E20] font-bold text-xs rounded-full transition-all cursor-pointer shadow-2xs"
+            variant="outline"
+            size="sm"
+            leftIcon={<MessageSquareQuote className="w-4 h-4 text-[#F46E20]" />}
+            className="bg-orange-50 hover:bg-orange-100 border-orange-200 text-[#F46E20] rounded-full shadow-2xs"
             id="btn-landing-add-testimony"
           >
-            <MessageSquareQuote className="w-4 h-4" />
-            <span>Enrolled Parent? Add your child's testimony in the Parent Portal →</span>
-          </button>
+            Enrolled Parent? Add your child's testimony in the Parent Portal →
+          </Button>
         </div>
       </section>
 
@@ -521,21 +531,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             Join thousands of happy learners who gained confidence, neatness, and exam excellence at SmartPen Academy. Book your complimentary Free Demo Class (All days 4–7 PM) with Mrs. Deepthy Rock today!
           </p>
           <div className="flex flex-wrap justify-center gap-4 pt-2">
-            <button
+            <Button
               onClick={handleDemoClick}
-              className="px-8 py-4 bg-[#0E3589] hover:bg-[#07205c] text-white font-extrabold text-base rounded-2xl shadow-xl transition-all cursor-pointer flex items-center gap-2"
+              variant="primary"
+              size="lg"
+              leftIcon={<Clock className="w-5 h-5" />}
+              className="bg-[#0E3589] hover:bg-[#07205c] shadow-xl"
               id="btn-cta-demo-footer"
             >
-              <Clock className="w-5 h-5" />
-              <span>Book for a Free Demo Class</span>
-            </button>
-            <button
+              Book for a Free Demo Class
+            </Button>
+            <Button
               onClick={() => onOpenLogin()}
-              className="px-6 py-4 bg-white/20 hover:bg-white/30 text-white font-bold text-base rounded-2xl backdrop-blur-sm border border-white/40 transition-all cursor-pointer"
+              variant="ghost"
+              size="lg"
+              className="bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm border border-white/40"
               id="btn-cta-portal-signin"
             >
               Sign In to Portal
-            </button>
+            </Button>
           </div>
         </div>
       </section>

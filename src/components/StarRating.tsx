@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Button } from './ui/Button';
 import { Star } from 'lucide-react';
 
 interface StarRatingProps {
@@ -43,13 +44,15 @@ export const StarRating: React.FC<StarRatingProps> = ({
         const isFilled = starNumber <= displayRating;
 
         return (
-          <button
+          <Button
             key={index}
             type="button"
+            variant="ghost"
+            size="icon"
             disabled={readOnly}
             onMouseEnter={() => !readOnly && setHoverRating(starNumber)}
             onClick={() => !readOnly && onChange && onChange(starNumber)}
-            className={`transition-all duration-150 focus:outline-none p-0.5 rounded ${
+            className={`p-1 rounded ${
               !readOnly
                 ? 'cursor-pointer hover:scale-125 active:scale-95'
                 : 'cursor-default'
@@ -64,7 +67,7 @@ export const StarRating: React.FC<StarRatingProps> = ({
                   : 'text-slate-300 fill-slate-100 hover:text-amber-300'
               }`}
             />
-          </button>
+          </Button>
         );
       })}
     </div>

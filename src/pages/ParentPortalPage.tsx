@@ -1,4 +1,8 @@
 import { Modal } from '../components/ui/Modal';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Textarea } from '../components/ui/Textarea';
 import React, { useState, useEffect } from 'react';
 import { 
   GraduationCap, 
@@ -227,12 +231,14 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
         <p className="text-xs text-slate-500 font-medium leading-relaxed">
           Please sign in with your student credentials or select a student profile.
         </p>
-        <button
+        <Button
           onClick={() => onOpenLogin()}
-          className="w-full py-3 bg-gradient-to-r from-[#F46E20] to-[#FF8C38] text-white font-bold text-xs rounded-xl shadow cursor-pointer"
+          variant="accent"
+          size="md"
+          fullWidth
         >
           Sign In to Student Portal
-        </button>
+        </Button>
       </div>
     );
   }
@@ -276,25 +282,29 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
 
           {/* Navigation Links to return back to Admin screens */}
           <div className="flex flex-wrap items-center gap-2.5">
-            <button
+            <Button
               onClick={() => onNavigate('studentDetail', student.id)}
-              className="px-4 py-2 bg-white hover:bg-slate-100 text-[#0E3589] font-black text-xs rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all active:scale-95"
+              variant="outline"
+              size="sm"
+              className="bg-white hover:bg-slate-100 text-[#0E3589] font-black shadow-md active:scale-95"
               id="btn-preview-back-student-file"
               title={`Return to ${student.displayName}'s Student Dossier`}
+              leftIcon={<ArrowLeft className="w-4 h-4" />}
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to Student File</span>
-            </button>
+              Back to Student File
+            </Button>
 
-            <button
+            <Button
               onClick={() => onNavigate('admin')}
-              className="px-4 py-2 bg-blue-800/80 hover:bg-blue-700/80 text-white font-bold text-xs rounded-xl border border-blue-400/40 shadow-xs flex items-center gap-2 cursor-pointer transition-all active:scale-95"
+              variant="primary"
+              size="sm"
+              className="bg-blue-800/80 hover:bg-blue-700/80 text-white font-bold border border-blue-400/40 shadow-xs active:scale-95"
               id="btn-preview-back-admin-dashboard"
               title="Return to Admin Command Center"
+              leftIcon={<ShieldCheck className="w-4 h-4 text-blue-200" />}
             >
-              <ShieldCheck className="w-4 h-4 text-blue-200" />
-              <span>Admin Dashboard</span>
-            </button>
+              Admin Dashboard
+            </Button>
           </div>
         </div>
       )}
@@ -322,14 +332,16 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
               </p>
             </div>
           </div>
-          <button
+          <Button
             type="button"
+            variant="accent"
+            size="sm"
             onClick={() => setActiveTab('testimony')}
-            className="px-4 py-2 bg-[#F46E20] hover:bg-[#e05c10] text-white text-xs font-black rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+            className="shrink-0"
+            leftIcon={<Sparkles className="w-3.5 h-3.5" />}
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Leave a Testimonial</span>
-          </button>
+            Leave a Testimonial
+          </Button>
         </div>
       )}
 
@@ -343,10 +355,10 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
             {user?.role === 'student' && user.siblingStudents && user.siblingStudents.length > 1 && (
               <div className="flex items-center gap-1.5 bg-orange-50 px-2.5 py-1 rounded-xl border border-orange-200">
                 <span className="text-[11px] font-bold text-[#F46E20]">Family Profiles:</span>
-                <select
+                <Select
                   value={student.id}
                   onChange={(e) => switchStudent(e.target.value)}
-                  className="bg-white text-xs font-bold text-slate-800 py-0.5 px-2 rounded-lg border border-orange-200 focus:outline-none focus:ring-1 focus:ring-[#F46E20] cursor-pointer"
+                  className="bg-white text-xs font-bold text-slate-800 py-0.5 px-2 rounded-lg border border-orange-200"
                   id="select-portal-switch-student"
                 >
                   {user.siblingStudents.map((s) => (
@@ -354,7 +366,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                       {s.displayName || s.fullName} {s.age ? `(Age ${s.age})` : ''}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             )}
           </div>
@@ -366,97 +378,105 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
         {/* Quick Return button in header for Admin */}
         {user?.role === 'admin' && (
           <div className="flex items-center gap-2">
-            <button
+            <Button
               onClick={() => onNavigate('studentDetail', student.id)}
-              className="px-3.5 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-[#0E3589] border border-slate-300 hover:border-blue-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+              variant="secondary"
+              size="sm"
+              className="px-3.5 py-1.5 hover:bg-blue-50 text-slate-700 hover:text-[#0E3589] border border-slate-300 hover:border-blue-300 rounded-xl text-xs font-bold shadow-2xs"
               id="btn-header-return-student"
+              leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Exit Preview &amp; Back to Student File</span>
-            </button>
+              Exit Preview &amp; Back to Student File
+            </Button>
           </div>
         )}
       </div>
 
       {/* Navigation Tabs */}
       <div className="bg-white p-2 rounded-3xl border border-slate-200 shadow-xs flex flex-wrap gap-2">
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setActiveTab('overview')}
-          className={`flex-1 min-w-[130px] py-3 px-3 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`flex-1 min-w-[130px] min-h-[44px] py-3 px-3 rounded-2xl text-xs font-extrabold transition-all gap-1.5 ${
             activeTab === 'overview'
-              ? 'bg-[#0E3589] text-white shadow-md'
+              ? 'bg-[#0E3589] text-white shadow-md hover:bg-[#0E3589]'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
           id="tab-portal-overview"
+          leftIcon={<Smile className="w-4 h-4" />}
         >
-          <Smile className="w-4 h-4" />
-          <span>{parentPortalProperties.tabs.overview}</span>
-        </button>
+          {parentPortalProperties.tabs.overview}
+        </Button>
 
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setActiveTab('progress')}
-          className={`flex-1 min-w-[130px] py-3 px-3 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`flex-1 min-w-[130px] min-h-[44px] py-3 px-3 rounded-2xl text-xs font-extrabold transition-all gap-1.5 ${
             activeTab === 'progress'
-              ? 'bg-[#F46E20] text-white shadow-md'
+              ? 'bg-[#F46E20] text-white shadow-md hover:bg-[#F46E20]'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
           id="tab-portal-progress"
+          leftIcon={<TrendingUp className="w-4 h-4" />}
         >
-          <TrendingUp className="w-4 h-4" />
-          <span>{parentPortalProperties.tabs.progressReport}</span>
-        </button>
+          {parentPortalProperties.tabs.progressReport}
+        </Button>
 
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setActiveTab('works')}
-          className={`flex-1 min-w-[130px] py-3 px-3 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`flex-1 min-w-[130px] min-h-[44px] py-3 px-3 rounded-2xl text-xs font-extrabold transition-all gap-1.5 ${
             activeTab === 'works'
-              ? 'bg-[#0E3589] text-white shadow-md'
+              ? 'bg-[#0E3589] text-white shadow-md hover:bg-[#0E3589]'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
           id="tab-portal-works"
+          leftIcon={<ImageIcon className="w-4 h-4" />}
         >
-          <ImageIcon className="w-4 h-4" />
-          <span>{parentPortalProperties.tabs.writingWorks}</span>
-        </button>
+          {parentPortalProperties.tabs.writingWorks}
+        </Button>
 
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setActiveTab('testimony')}
-          className={`flex-1 min-w-[130px] py-3 px-3 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`flex-1 min-w-[130px] min-h-[44px] py-3 px-3 rounded-2xl text-xs font-extrabold transition-all gap-1.5 ${
             activeTab === 'testimony'
-              ? 'bg-gradient-to-r from-[#F46E20] to-[#FF8C38] text-white shadow-md'
+              ? 'bg-gradient-to-r from-[#F46E20] to-[#FF8C38] text-white shadow-md hover:bg-[#F46E20]'
               : 'text-slate-600 hover:bg-orange-50 hover:text-[#F46E20]'
           }`}
           id="tab-portal-testimony"
+          leftIcon={<MessageSquareQuote className="w-4 h-4 text-amber-300" />}
         >
-          <MessageSquareQuote className="w-4 h-4 text-amber-300" />
-          <span>Add Testimony</span>
-        </button>
+          Add Testimony
+        </Button>
 
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setActiveTab('attendance')}
-          className={`flex-1 min-w-[130px] py-3 px-3 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`flex-1 min-w-[130px] min-h-[44px] py-3 px-3 rounded-2xl text-xs font-extrabold transition-all gap-1.5 ${
             activeTab === 'attendance'
-              ? 'bg-[#0E3589] text-white shadow-md'
+              ? 'bg-[#0E3589] text-white shadow-md hover:bg-[#0E3589]'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
           id="tab-portal-attendance"
+          leftIcon={<Calendar className="w-4 h-4" />}
         >
-          <Calendar className="w-4 h-4" />
-          <span>{parentPortalProperties.tabs.attendance}</span>
-        </button>
+          {parentPortalProperties.tabs.attendance}
+        </Button>
 
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setActiveTab('fees')}
-          className={`flex-1 min-w-[130px] py-3 px-3 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`flex-1 min-w-[130px] min-h-[44px] py-3 px-3 rounded-2xl text-xs font-extrabold transition-all gap-1.5 ${
             activeTab === 'fees'
-              ? 'bg-[#0E3589] text-white shadow-md'
+              ? 'bg-[#0E3589] text-white shadow-md hover:bg-[#0E3589]'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
           id="tab-portal-fees"
+          leftIcon={<DollarSign className="w-4 h-4" />}
         >
-          <DollarSign className="w-4 h-4" />
-          <span>{parentPortalProperties.tabs.feeReceipts}</span>
-        </button>
+          {parentPortalProperties.tabs.feeReceipts}
+        </Button>
       </div>
 
       {/* ========================================================================= */}
@@ -479,14 +499,16 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                 </p>
               </div>
             </div>
-            <button
+            <Button
               onClick={() => setActiveTab('testimony')}
-              className="px-5 py-2.5 bg-[#F46E20] hover:bg-[#e05c10] text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 shrink-0"
+              variant="accent"
+              size="sm"
+              className="px-5 shadow-xs whitespace-nowrap shrink-0"
               id="btn-overview-add-testimony"
+              leftIcon={<Sparkles className="w-3.5 h-3.5" />}
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Add Parent Testimony →</span>
-            </button>
+              Add Parent Testimony →
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -545,12 +567,14 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                   <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
                   <span>Progress Report ({latestReport.milestoneTitle || "After 10 Classes"})</span>
                 </h3>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setActiveTab('progress')}
-                  className="text-xs font-bold text-[#0E3589] hover:underline cursor-pointer"
+                  className="text-xs font-bold text-[#0E3589] hover:underline p-0 min-h-[44px] hover:bg-transparent"
                 >
                   Full Screen Report View →
-                </button>
+                </Button>
               </div>
               <ProgressReportCard report={latestReport} student={student} />
             </div>
@@ -652,13 +676,14 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                 />
               </div>
               <div className="flex justify-end">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={() => setSelectedPhoto(null)}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl cursor-pointer"
                 >
                   Close
-                </button>
+                </Button>
               </div>
             </div>
           </Modal>
@@ -724,13 +749,15 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                       {[1, 2, 3, 4, 5].map((starVal) => {
                         const isFilled = (hoverRating || testimonyRating) >= starVal;
                         return (
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon"
                             key={starVal}
                             onClick={() => setTestimonyRating(starVal)}
                             onMouseEnter={() => setHoverRating(starVal)}
                             onMouseLeave={() => setHoverRating(0)}
-                            className="p-1 hover:scale-125 transition-transform cursor-pointer focus:outline-none"
+                            className="p-1 hover:scale-125 hover:bg-transparent min-w-[44px] min-h-[44px]"
                             id={`star-rating-btn-${starVal}`}
                           >
                             <Star
@@ -740,7 +767,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                                   : 'text-slate-300'
                               }`}
                             />
-                          </button>
+                          </Button>
                         );
                       })}
                     </div>
@@ -756,13 +783,12 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                     <label className="block text-xs font-bold text-slate-800">
                       Parent / Guardian Name <span className="text-red-500">*</span>
                     </label>
-                    <input
+                    <Input
                       type="text"
                       value={testimonyParentName}
                       onChange={(e) => setTestimonyParentName(e.target.value)}
                       placeholder="e.g. Mrs. Sunita Sharma"
                       required
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-[#0E3589] focus:outline-none bg-slate-50/50"
                       id="input-testimony-parent-name"
                     />
                   </div>
@@ -771,17 +797,16 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                     <label className="block text-xs font-bold text-slate-800">
                       Relationship
                     </label>
-                    <select
+                    <Select
                       value={testimonyRelationship}
                       onChange={(e) => setTestimonyRelationship(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-[#0E3589] focus:outline-none bg-slate-50/50"
                       id="select-testimony-relationship"
                     >
                       <option value="Mother">Mother</option>
                       <option value="Father">Father</option>
                       <option value="Guardian">Guardian</option>
                       <option value="Student">Student (Self)</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
 
@@ -794,34 +819,35 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                     {parentPortalProperties.testimony.transformationTags.map((tag) => {
                       const isSelected = testimonyTag === tag && !customTag;
                       return (
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           key={tag}
                           onClick={() => {
                             setTestimonyTag(tag);
                             setCustomTag('');
                           }}
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all min-h-[44px] ${
                             isSelected
-                              ? 'bg-[#F46E20] text-white shadow-xs scale-102'
+                              ? 'bg-[#F46E20] text-white shadow-xs hover:bg-[#F46E20]'
                               : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/70'
                           }`}
                         >
                           {isSelected ? '✓ ' : ''}{tag}
-                        </button>
+                        </Button>
                       );
                     })}
                   </div>
                   {/* Custom tag input option */}
                   <div className="pt-1">
-                    <input
+                    <Input
                       type="text"
                       value={customTag}
                       onChange={(e) => {
                         setCustomTag(e.target.value);
                       }}
                       placeholder="Or enter a custom highlight tag (e.g. Scored 98% in CBSE Board Exam)..."
-                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-[#F46E20] focus:outline-none bg-white"
                     />
                   </div>
                 </div>
@@ -831,12 +857,11 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                   <label className="block text-xs font-bold text-slate-800">
                     {parentPortalProperties.testimony.headlineLabel} (Optional)
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={testimonyHeadline}
                     onChange={(e) => setTestimonyHeadline(e.target.value)}
                     placeholder={parentPortalProperties.testimony.headlinePlaceholder}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-[#0E3589] focus:outline-none bg-white"
                     id="input-testimony-headline"
                   />
                 </div>
@@ -846,13 +871,12 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                   <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
                     {parentPortalProperties.testimony.reviewLabel} <span className="text-red-500">*</span>
                   </label>
-                  <textarea
+                  <Textarea
                     rows={4}
                     value={testimonyReview}
                     onChange={(e) => setTestimonyReview(e.target.value)}
                     placeholder={parentPortalProperties.testimony.reviewPlaceholder}
                     required
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs font-medium leading-relaxed focus:ring-2 focus:ring-[#0E3589] focus:outline-none bg-white"
                     id="textarea-testimony-review"
                   />
                   <p className="text-[11px] text-slate-400">
@@ -884,13 +908,15 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                           alt="Preview"
                           className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-2xs"
                         />
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setTestimonyImage('')}
-                          className="text-xs font-bold text-red-500 hover:underline cursor-pointer"
+                          className="text-xs font-bold text-red-500 hover:underline p-0 min-h-[44px] hover:bg-transparent"
                         >
                           Remove
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -912,24 +938,18 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
 
                 {/* 8. Submit Button */}
                 <div>
-                  <button
+                  <Button
                     type="submit"
-                    disabled={isSubmittingTestimony}
-                    className="w-full py-3.5 px-6 bg-gradient-to-r from-[#F46E20] via-[#FF8C38] to-[#F46E20] hover:from-[#e05c10] hover:to-[#e05c10] text-white font-extrabold text-sm rounded-2xl shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                    variant="accent"
+                    size="lg"
+                    fullWidth
+                    isLoading={isSubmittingTestimony}
+                    loadingText={parentPortalProperties.testimony.submittingBtn}
                     id="btn-submit-testimony"
+                    leftIcon={<Send className="w-4 h-4" />}
                   >
-                    {isSubmittingTestimony ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>{parentPortalProperties.testimony.submittingBtn}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        <span>{parentPortalProperties.testimony.submitBtn}</span>
-                      </>
-                    )}
-                  </button>
+                    {parentPortalProperties.testimony.submitBtn}
+                  </Button>
                 </div>
               </form>
 
@@ -1039,13 +1059,15 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                         <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold rounded-full">
                           {item.beforeAfterTag || 'Featured'}
                         </span>
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleDeleteTestimony(item.id)}
-                          className="text-slate-400 hover:text-red-600 p-1 transition-colors cursor-pointer"
+                          className="text-slate-400 hover:text-red-600 p-1 min-h-[44px] min-w-[44px]"
                           title="Delete testimony"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        </Button>
                       </div>
                     </div>
 

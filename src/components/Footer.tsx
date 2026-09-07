@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from './ui/Button';
 import { Mail, Phone, MapPin, Heart, Sparkles, Shield, Award } from 'lucide-react';
 import { commonProperties } from '../properties/common.properties';
 import { landingProperties } from '../properties/landing.properties';
@@ -58,36 +59,44 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             </h3>
             <ul className="space-y-2.5 text-xs text-slate-400">
               <li>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => onNavigate('landing')}
-                  className="hover:text-amber-300 transition-colors text-left"
+                  className="p-0 min-h-[44px] sm:min-h-[28px] text-slate-400 hover:text-amber-300 font-normal justify-start h-auto"
                 >
                   {commonProperties.nav.home}
-                </button>
+                </Button>
               </li>
               <li>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => onNavigate('about')}
-                  className="hover:text-amber-300 transition-colors text-left"
+                  className="p-0 min-h-[44px] sm:min-h-[28px] text-slate-400 hover:text-amber-300 font-normal justify-start h-auto"
                 >
                   {commonProperties.nav.about}
-                </button>
+                </Button>
               </li>
               <li>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => onNavigate('admin')}
-                  className="hover:text-amber-300 transition-colors text-left"
+                  className="p-0 min-h-[44px] sm:min-h-[28px] text-slate-400 hover:text-amber-300 font-normal justify-start h-auto"
                 >
                   {commonProperties.nav.adminDashboard}
-                </button>
+                </Button>
               </li>
               <li>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => onNavigate('parentPortal')}
-                  className="hover:text-amber-300 transition-colors text-left"
+                  className="p-0 min-h-[44px] sm:min-h-[28px] text-slate-400 hover:text-amber-300 font-normal justify-start h-auto"
                 >
                   {commonProperties.nav.parentPortal}
-                </button>
+                </Button>
               </li>
               <li>
                 <span className="text-slate-500">

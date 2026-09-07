@@ -1,3 +1,6 @@
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Select } from './ui/Select';
 import { Modal } from './ui/Modal';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -341,14 +344,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     >
             {/* Top Decorative Header */}
             <div className="shrink-0 bg-gradient-to-r from-[#0E3589] via-[#0084F4] to-[#F46E20] px-6 py-5 text-white text-center relative shadow-xs">
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
                 onClick={onClose}
-                className="absolute top-3.5 right-3.5 p-2 text-white/80 hover:text-white rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                className="absolute top-3.5 right-3.5 text-white/80 hover:text-white rounded-full hover:bg-white/10"
                 aria-label="Close"
                 id="btn-close-login-modal"
               >
                 <X className="w-5 h-5" />
-              </button>
+              </Button>
               <div className="flex justify-center mb-1.5">
                 <div className="bg-white p-1.5 rounded-2xl shadow-md">
                   <SmartPenLogo size="sm" />
@@ -389,20 +395,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                       <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                         Email, Username, or Phone Number
                       </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                          <UserIcon className="w-4 h-4" />
-                        </div>
-                        <input
-                          type="text"
-                          required
-                          value={identifier}
-                          onChange={(e) => setIdentifier(e.target.value)}
-                          placeholder="e.g. parent@example.com, coach_anil, or 9876543210"
-                          className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589] focus:border-transparent transition-all"
-                          id="input-login-identifier"
-                        />
-                      </div>
+                      <Input
+                        id="input-login-identifier"
+                        type="text"
+                        required
+                        value={identifier}
+                        onChange={(e) => setIdentifier(e.target.value)}
+                        placeholder="e.g. parent@example.com, coach_anil, or 9876543210"
+                        leftIcon={<UserIcon className="w-4 h-4" />}
+                      />
                       <p className="text-[11px] text-slate-500 mt-1">
                         Coaches, Parents, and Students sign in through this unified form.
                       </p>
@@ -412,70 +413,64 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                       <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                         Password
                       </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                          <Lock className="w-4 h-4" />
-                        </div>
-                        <input
-                          type="password"
-                          required
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="Enter your account password"
-                          className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589] focus:border-transparent transition-all"
-                          id="input-login-password"
-                        />
-                      </div>
+                      <Input
+                        id="input-login-password"
+                        type="password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter your account password"
+                        leftIcon={<Lock className="w-4 h-4" />}
+                      />
                     </div>
 
                     {/* Links: Forgot Password & Change Password */}
                     <div className="flex items-center justify-between text-xs pt-1">
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           setCurrentView('forgot');
                           setErrorMessage(null);
                           setForgotIdentifier(identifier);
                         }}
-                        className="font-medium text-[#F46E20] hover:text-[#d3540e] hover:underline cursor-pointer"
+                        className="font-medium text-[#F46E20] hover:text-[#d3540e] hover:underline p-0 min-h-[44px] hover:bg-transparent"
                         id="btn-goto-forgot-password"
                       >
                         Forgot Password?
-                      </button>
+                      </Button>
 
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           setCurrentView('change');
                           setErrorMessage(null);
                           setChangeEmail(identifier);
                         }}
-                        className="font-medium text-[#0E3589] hover:text-[#0a2766] hover:underline flex items-center gap-1 cursor-pointer"
+                        className="font-medium text-[#0E3589] hover:text-[#0a2766] hover:underline flex items-center gap-1 cursor-pointer p-0 min-h-[44px] hover:bg-transparent"
                         id="btn-goto-change-password"
+                        leftIcon={<Key className="w-3 h-3" />}
                       >
-                        <Key className="w-3 h-3" />
-                        <span>Change Password</span>
-                      </button>
+                        Change Password
+                      </Button>
                     </div>
 
-                    <button
+                    <Button
                       type="submit"
-                      disabled={isLoading}
-                      className="w-full py-3 px-4 bg-gradient-to-r from-[#0E3589] to-[#0084F4] hover:from-[#0a2766] hover:to-[#0070d1] text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 mt-2"
+                      variant="primary"
+                      size="md"
+                      fullWidth
+                      isLoading={isLoading}
+                      loadingText="Verifying Credentials..."
                       id="btn-submit-login"
+                      className="mt-2"
+                      rightIcon={<ArrowRight className="w-4 h-4" />}
                     >
-                      {isLoading ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>Verifying Credentials...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Sign In to Portal</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
+                      Sign In to Portal
+                    </Button>
                   </form>
                 </div>
               )}
@@ -489,12 +484,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
                   <div className="space-y-2.5">
                     {availableRoles.map((role) => (
-                      <button
+                      <Button
                         key={role}
                         type="button"
+                        variant="outline"
+                        size="md"
+                        fullWidth
                         onClick={() => handleRoleSelection(role)}
                         disabled={isLoading}
-                        className="w-full p-3.5 border border-slate-200 hover:border-[#0E3589] bg-white hover:bg-slate-50 rounded-2xl flex items-center justify-between transition-all group cursor-pointer text-left"
+                        className="p-3.5 border-slate-200 hover:border-[#0E3589] bg-white hover:bg-slate-50 rounded-2xl justify-between text-left h-auto min-h-[44px]"
                         id={`btn-select-role-${role}`}
                       >
                         <div className="flex items-center gap-3">
@@ -513,21 +511,24 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                           </div>
                         </div>
                         <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#0E3589] group-hover:translate-x-0.5 transition-all" />
-                      </button>
+                      </Button>
                     ))}
                   </div>
 
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
+                    fullWidth
                     onClick={() => {
                       setCurrentView('login');
                       setErrorMessage(null);
                     }}
-                    className="w-full py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 cursor-pointer mt-2"
+                    className="text-xs font-semibold text-slate-600 hover:text-slate-900 mt-2"
+                    leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
                   >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Back to login form</span>
-                  </button>
+                    Back to login form
+                  </Button>
                 </div>
               )}
 
@@ -540,12 +541,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
                   <div className="space-y-2.5">
                     {availableStudents.map((std) => (
-                      <button
+                      <Button
                         key={std.id}
                         type="button"
+                        variant="outline"
+                        size="md"
+                        fullWidth
                         onClick={() => handleStudentSelection(std.id)}
                         disabled={isLoading}
-                        className="w-full p-3.5 border border-slate-200 hover:border-[#F46E20] bg-white hover:bg-orange-50/50 rounded-2xl flex items-center justify-between transition-all group cursor-pointer text-left"
+                        className="p-3.5 border-slate-200 hover:border-[#F46E20] bg-white hover:bg-orange-50/50 rounded-2xl justify-between text-left h-auto min-h-[44px]"
                         id={`btn-select-student-${std.id}`}
                       >
                         <div className="flex items-center gap-3">
@@ -562,21 +566,24 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                           </div>
                         </div>
                         <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#F46E20] group-hover:translate-x-0.5 transition-all" />
-                      </button>
+                      </Button>
                     ))}
                   </div>
 
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
+                    fullWidth
                     onClick={() => {
                       setCurrentView('login');
                       setErrorMessage(null);
                     }}
-                    className="w-full py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 cursor-pointer mt-2"
+                    className="text-xs font-semibold text-slate-600 hover:text-slate-900 mt-2"
+                    leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
                   >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Back to login form</span>
-                  </button>
+                    Back to login form
+                  </Button>
                 </div>
               )}
 
@@ -595,27 +602,31 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         {forgotSuccessMessage}
                       </p>
                       <div className="flex gap-2 pt-2">
-                        <button
+                        <Button
                           type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-1/2 border-emerald-300 text-emerald-800 hover:bg-emerald-50"
                           onClick={() => {
                             setCurrentView('reset-token');
                             setErrorMessage(null);
                           }}
-                          className="w-1/2 py-2 px-3 bg-white border border-emerald-300 text-emerald-800 font-semibold text-xs rounded-xl shadow-xs hover:bg-emerald-50 transition-colors cursor-pointer"
                         >
                           Have a Token?
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          variant="success"
+                          size="sm"
+                          className="w-1/2"
                           onClick={() => {
                             setCurrentView('login');
                             setErrorMessage(null);
                           }}
-                          className="w-1/2 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
                           id="btn-back-from-forgot-success"
                         >
                           Back to Login
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ) : (
@@ -628,53 +639,44 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                           Registered Email or Phone
                         </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <Mail className="w-4 h-4" />
-                          </div>
-                          <input
-                            type="text"
-                            required
-                            value={forgotIdentifier}
-                            onChange={(e) => setForgotIdentifier(e.target.value)}
-                            placeholder="e.g. parent@example.com or 9876543210"
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#F46E20] focus:border-transparent transition-all"
-                            id="input-forgot-email"
-                          />
-                        </div>
+                        <Input
+                          id="input-forgot-email"
+                          type="text"
+                          required
+                          value={forgotIdentifier}
+                          onChange={(e) => setForgotIdentifier(e.target.value)}
+                          placeholder="e.g. parent@example.com or 9876543210"
+                          leftIcon={<Mail className="w-4 h-4" />}
+                        />
                       </div>
 
                       <div className="flex gap-2 pt-2">
-                        <button
+                        <Button
                           type="button"
+                          variant="secondary"
+                          size="md"
+                          className="w-1/3"
                           onClick={() => {
                             setCurrentView('login');
                             setErrorMessage(null);
                           }}
-                          className="w-1/3 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1"
                           id="btn-cancel-forgot"
+                          leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
                         >
-                          <ArrowLeft className="w-3.5 h-3.5" />
-                          <span>Back</span>
-                        </button>
-                        <button
+                          Back
+                        </Button>
+                        <Button
                           type="submit"
-                          disabled={isSendingForgot}
-                          className="w-2/3 py-2.5 px-3 bg-[#F46E20] hover:bg-[#d8580f] text-white font-bold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-1.5 disabled:opacity-70 cursor-pointer"
+                          variant="accent"
+                          size="md"
+                          className="w-2/3"
+                          isLoading={isSendingForgot}
+                          loadingText="Sending Link..."
                           id="btn-submit-forgot"
+                          leftIcon={<Key className="w-3.5 h-3.5" />}
                         >
-                          {isSendingForgot ? (
-                            <>
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              <span>Sending Link...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Key className="w-3.5 h-3.5" />
-                              <span>Send Reset Link</span>
-                            </>
-                          )}
-                        </button>
+                          Send Reset Link
+                        </Button>
                       </div>
                     </form>
                   )}
@@ -695,17 +697,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                       <p className="text-xs text-emerald-700 leading-relaxed">
                         {resetSuccessMessage}
                       </p>
-                      <button
+                      <Button
                         type="button"
+                        variant="success"
+                        size="md"
+                        fullWidth
                         onClick={() => {
                           setCurrentView('login');
                           setErrorMessage(null);
                         }}
-                        className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow transition-colors cursor-pointer"
                         id="btn-back-from-reset-success"
                       >
                         Sign In with New Password
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     <form onSubmit={handleResetTokenSubmit} className="space-y-3.5" id="form-reset-password">
@@ -717,94 +721,76 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
                           Reset Token
                         </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <Key className="w-4 h-4" />
-                          </div>
-                          <input
-                            type="text"
-                            required
-                            value={resetToken}
-                            onChange={(e) => setResetToken(e.target.value)}
-                            placeholder="Enter 64-character token from email"
-                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589] transition-all font-mono"
-                            id="input-reset-token"
-                          />
-                        </div>
+                        <Input
+                          id="input-reset-token"
+                          type="text"
+                          required
+                          value={resetToken}
+                          onChange={(e) => setResetToken(e.target.value)}
+                          placeholder="Enter 64-character token from email"
+                          className="font-mono text-xs"
+                          leftIcon={<Key className="w-4 h-4" />}
+                        />
                       </div>
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
                           New Password
                         </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <Lock className="w-4 h-4" />
-                          </div>
-                          <input
-                            type="password"
-                            required
-                            minLength={8}
-                            value={resetNewPassword}
-                            onChange={(e) => setResetNewPassword(e.target.value)}
-                            placeholder="Minimum 8 characters"
-                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589] transition-all"
-                            id="input-reset-new-password"
-                          />
-                        </div>
+                        <Input
+                          id="input-reset-new-password"
+                          type="password"
+                          required
+                          minLength={8}
+                          value={resetNewPassword}
+                          onChange={(e) => setResetNewPassword(e.target.value)}
+                          placeholder="Minimum 8 characters"
+                          leftIcon={<Lock className="w-4 h-4" />}
+                        />
                       </div>
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
                           Confirm New Password
                         </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <Lock className="w-4 h-4" />
-                          </div>
-                          <input
-                            type="password"
-                            required
-                            minLength={8}
-                            value={resetConfirmPassword}
-                            onChange={(e) => setResetConfirmPassword(e.target.value)}
-                            placeholder="Re-enter new password"
-                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589] transition-all"
-                            id="input-reset-confirm-password"
-                          />
-                        </div>
+                        <Input
+                          id="input-reset-confirm-password"
+                          type="password"
+                          required
+                          minLength={8}
+                          value={resetConfirmPassword}
+                          onChange={(e) => setResetConfirmPassword(e.target.value)}
+                          placeholder="Re-enter new password"
+                          leftIcon={<Lock className="w-4 h-4" />}
+                        />
                       </div>
 
                       <div className="flex gap-2 pt-2">
-                        <button
+                        <Button
                           type="button"
+                          variant="secondary"
+                          size="md"
+                          className="w-1/3"
                           onClick={() => {
                             setCurrentView('login');
                             setErrorMessage(null);
                           }}
-                          className="w-1/3 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1"
+                          leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
                         >
-                          <ArrowLeft className="w-3.5 h-3.5" />
-                          <span>Back</span>
-                        </button>
-                        <button
+                          Back
+                        </Button>
+                        <Button
                           type="submit"
-                          disabled={isResettingPassword}
-                          className="w-2/3 py-2.5 px-3 bg-[#0E3589] hover:bg-[#09225a] text-white font-bold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-1.5 disabled:opacity-70 cursor-pointer"
+                          variant="primary"
+                          size="md"
+                          className="w-2/3"
+                          isLoading={isResettingPassword}
+                          loadingText="Updating..."
                           id="btn-submit-token-reset"
+                          leftIcon={<ShieldCheck className="w-3.5 h-3.5" />}
                         >
-                          {isResettingPassword ? (
-                            <>
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              <span>Updating...</span>
-                            </>
-                          ) : (
-                            <>
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              <span>Save Password</span>
-                            </>
-                          )}
-                        </button>
+                          Save Password
+                        </Button>
                       </div>
                     </form>
                   )}
@@ -825,17 +811,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                       <p className="text-xs text-emerald-700 leading-relaxed">
                         {changeSuccessMessage}
                       </p>
-                      <button
+                      <Button
                         type="button"
+                        variant="success"
+                        size="md"
+                        fullWidth
                         onClick={() => {
                           setCurrentView('login');
                           setErrorMessage(null);
                         }}
-                        className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow transition-colors cursor-pointer"
                         id="btn-back-from-change-success"
                       >
                         {authProperties.changePasswordModal.closeBtn}
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     <form onSubmit={handleChangePasswordSubmit} className="space-y-3.5" id="form-change-password">
@@ -847,26 +835,21 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
                           {authProperties.changePasswordModal.emailLabel}
                         </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <Mail className="w-4 h-4" />
-                          </div>
-                          <input
-                            type="email"
-                            required
-                            value={changeEmail}
-                            onChange={(e) => {
-                              setChangeEmail(e.target.value);
-                              if (e.target.value.includes('@')) {
-                                checkFamilyMembers(e.target.value);
-                              }
-                            }}
-                            onBlur={() => checkFamilyMembers(changeEmail)}
-                            placeholder={authProperties.changePasswordModal.emailPlaceholder}
-                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589] transition-all"
-                            id="input-change-email"
-                          />
-                        </div>
+                        <Input
+                          id="input-change-email"
+                          type="email"
+                          required
+                          value={changeEmail}
+                          onChange={(e) => {
+                            setChangeEmail(e.target.value);
+                            if (e.target.value.includes('@')) {
+                              checkFamilyMembers(e.target.value);
+                            }
+                          }}
+                          onBlur={() => checkFamilyMembers(changeEmail)}
+                          placeholder={authProperties.changePasswordModal.emailPlaceholder}
+                          leftIcon={<Mail className="w-4 h-4" />}
+                        />
                       </div>
 
                       {familyStudents.length > 1 && (
@@ -905,10 +888,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             </label>
                             {passwordScope === 'single' && (
                               <div className="pl-5 pt-1">
-                                <select
+                                <Select
                                   value={targetStudentId}
                                   onChange={(e) => setTargetStudentId(e.target.value)}
-                                  className="w-full py-1.5 px-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                                   id="select-target-student-password"
                                 >
                                   {familyStudents.map((s) => (
@@ -916,7 +898,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                                       {s.displayName} {s.age ? `(Age ${s.age})` : ''}
                                     </option>
                                   ))}
-                                </select>
+                                </Select>
                               </div>
                             )}
                           </div>
@@ -927,94 +909,74 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
                           {authProperties.changePasswordModal.currentPasswordLabel}
                         </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <Key className="w-4 h-4" />
-                          </div>
-                          <input
-                            type="password"
-                            value={changeCurrentPassword}
-                            onChange={(e) => setChangeCurrentPassword(e.target.value)}
-                            placeholder={authProperties.changePasswordModal.currentPasswordPlaceholder}
-                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589] transition-all"
-                            id="input-change-current-password"
-                          />
-                        </div>
+                        <Input
+                          id="input-change-current-password"
+                          type="password"
+                          value={changeCurrentPassword}
+                          onChange={(e) => setChangeCurrentPassword(e.target.value)}
+                          placeholder={authProperties.changePasswordModal.currentPasswordPlaceholder}
+                          leftIcon={<Key className="w-4 h-4" />}
+                        />
                       </div>
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
                           {authProperties.changePasswordModal.newPasswordLabel}
                         </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <Lock className="w-4 h-4" />
-                          </div>
-                          <input
-                            type="password"
-                            required
-                            minLength={8}
-                            value={changeNewPassword}
-                            onChange={(e) => setChangeNewPassword(e.target.value)}
-                            placeholder={authProperties.changePasswordModal.newPasswordPlaceholder}
-                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589] transition-all"
-                            id="input-change-new-password"
-                          />
-                        </div>
+                        <Input
+                          id="input-change-new-password"
+                          type="password"
+                          required
+                          minLength={8}
+                          value={changeNewPassword}
+                          onChange={(e) => setChangeNewPassword(e.target.value)}
+                          placeholder={authProperties.changePasswordModal.newPasswordPlaceholder}
+                          leftIcon={<Lock className="w-4 h-4" />}
+                        />
                       </div>
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
                           {authProperties.changePasswordModal.confirmPasswordLabel}
                         </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <Lock className="w-4 h-4" />
-                          </div>
-                          <input
-                            type="password"
-                            required
-                            minLength={8}
-                            value={changeConfirmPassword}
-                            onChange={(e) => setChangeConfirmPassword(e.target.value)}
-                            placeholder={authProperties.changePasswordModal.confirmPasswordPlaceholder}
-                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589] transition-all"
-                            id="input-change-confirm-password"
-                          />
-                        </div>
+                        <Input
+                          id="input-change-confirm-password"
+                          type="password"
+                          required
+                          minLength={8}
+                          value={changeConfirmPassword}
+                          onChange={(e) => setChangeConfirmPassword(e.target.value)}
+                          placeholder={authProperties.changePasswordModal.confirmPasswordPlaceholder}
+                          leftIcon={<Lock className="w-4 h-4" />}
+                        />
                       </div>
 
                       <div className="flex gap-2 pt-2">
-                        <button
+                        <Button
                           type="button"
+                          variant="secondary"
+                          size="md"
+                          className="w-1/3"
                           onClick={() => {
                             setCurrentView('login');
                             setErrorMessage(null);
                           }}
-                          className="w-1/3 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1"
                           id="btn-cancel-change"
+                          leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
                         >
-                          <ArrowLeft className="w-3.5 h-3.5" />
-                          <span>Back</span>
-                        </button>
-                        <button
+                          Back
+                        </Button>
+                        <Button
                           type="submit"
-                          disabled={isUpdatingPassword}
-                          className="w-2/3 py-2.5 px-3 bg-[#0E3589] hover:bg-[#09225a] text-white font-bold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-1.5 disabled:opacity-70 cursor-pointer"
+                          variant="primary"
+                          size="md"
+                          className="w-2/3"
+                          isLoading={isUpdatingPassword}
+                          loadingText={authProperties.changePasswordModal.updatingBtn}
                           id="btn-submit-change-password"
                         >
-                          {isUpdatingPassword ? (
-                            <>
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              <span>{authProperties.changePasswordModal.updatingBtn}</span>
-                            </>
-                          ) : (
-                            <>
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              <span>{authProperties.changePasswordModal.submitBtn}</span>
-                            </>
-                          )}
-                        </button>
+                          {authProperties.changePasswordModal.submitBtn}
+                        </Button>
                       </div>
                     </form>
                   )}

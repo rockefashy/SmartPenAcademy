@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '../components/ui/Button';
 import { motion } from 'motion/react';
 import { 
   Sparkles, 
@@ -271,23 +272,27 @@ export const AboutUsPage: React.FC<AboutUsPageProps> = ({ onNavigate, onOpenDemo
                 Schedule a 1-on-1 personalized handwriting assessment with Mrs. Deepthy Rock and see the transformation plan for your child.
               </p>
               <div className="pt-2 space-y-2">
-                <button
+                <Button
                   onClick={() => {
                     if (onOpenDemoBooking) onOpenDemoBooking();
                   }}
-                  className="w-full py-3.5 px-6 bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#e05c10] text-white font-extrabold text-sm rounded-2xl shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+                  variant="accent"
+                  size="lg"
+                  fullWidth
+                  leftIcon={<Clock className="w-4 h-4" />}
                   id="btn-about-book-demo"
                 >
-                  <Clock className="w-4 h-4" />
-                  <span>Book for a Free Demo Class</span>
-                </button>
-                <button
+                  Book for a Free Demo Class
+                </Button>
+                <Button
                   onClick={() => onNavigate('syllabus')}
-                  className="w-full py-3 px-6 bg-white hover:bg-slate-50 text-[#0E3589] font-bold text-xs rounded-xl border border-slate-200 transition-all cursor-pointer"
+                  variant="outline"
+                  size="md"
+                  fullWidth
                   id="btn-about-curriculum"
                 >
-                  Explore Course Curriculum →
-                </button>
+                  Explore Course Curriculum ?
+                </Button>
               </div>
             </div>
           </div>

@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { Button } from './components/ui/Button';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { LoginModal } from './components/LoginModal';
@@ -196,19 +197,23 @@ function MainApp() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                  <button
+                  <Button
                     onClick={() => openLoginModal()}
-                    className="w-full sm:w-auto px-6 py-3 bg-[#0E3589] hover:bg-[#092666] text-white font-extrabold rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                    variant="primary"
+                    size="md"
+                    rightIcon={<ArrowRight className="w-4 h-4" />}
+                    className="w-full sm:w-auto"
                   >
-                    <span>Sign In</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                  <button
+                    Sign In
+                  </Button>
+                  <Button
                     onClick={() => handleNavigate('landing')}
-                    className="w-full sm:w-auto px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition-all cursor-pointer"
+                    variant="secondary"
+                    size="md"
+                    className="w-full sm:w-auto"
                   >
                     Back to Home
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -233,21 +238,25 @@ function MainApp() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                  <button
+                  <Button
                     onClick={() => {
                       logout();
                       openLoginModal();
                     }}
-                    className="w-full sm:w-auto px-6 py-3 bg-[#0E3589] hover:bg-[#092666] text-white font-extrabold rounded-xl text-sm transition-all shadow-md cursor-pointer"
+                    variant="primary"
+                    size="md"
+                    className="w-full sm:w-auto"
                   >
                     Switch Account
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => handleNavigate('parentPortal')}
-                    className="w-full sm:w-auto px-5 py-3 bg-[#F46E20] hover:bg-[#e05c10] text-white font-bold rounded-xl text-sm transition-all cursor-pointer"
+                    variant="accent"
+                    size="md"
+                    className="w-full sm:w-auto"
                   >
                     Go to My Student Portal
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -279,18 +288,20 @@ function MainApp() {
                   Please log in with verified staff credentials to review or edit this student file.
                 </p>
                 <div className="flex justify-center gap-3">
-                  <button
+                  <Button
                     onClick={() => openLoginModal()}
-                    className="px-5 py-2.5 bg-[#0E3589] text-white font-bold rounded-xl text-xs cursor-pointer shadow"
+                    variant="primary"
+                    size="sm"
                   >
                     Sign In
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => handleNavigate('landing')}
-                    className="px-4 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs"
+                    variant="secondary"
+                    size="sm"
                   >
                     Home
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -311,12 +322,13 @@ function MainApp() {
                   Access to student dossier and editing is restricted to administrators and assigned coaches.
                 </p>
                 <div className="flex justify-center gap-3">
-                  <button
+                  <Button
                     onClick={() => handleNavigate('parentPortal')}
-                    className="px-5 py-2.5 bg-[#F46E20] text-white font-bold rounded-xl text-xs cursor-pointer shadow"
+                    variant="accent"
+                    size="sm"
                   >
                     Go to My Student Portal
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -356,19 +368,23 @@ function MainApp() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                  <button
+                  <Button
                     onClick={() => openLoginModal()}
-                    className="w-full sm:w-auto px-6 py-3 bg-[#F46E20] hover:bg-[#e05c10] text-white font-extrabold rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                    variant="accent"
+                    size="md"
+                    rightIcon={<ArrowRight className="w-4 h-4" />}
+                    className="w-full sm:w-auto"
                   >
-                    <span>Sign In to Portal</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                  <button
+                    Sign In to Portal
+                  </Button>
+                  <Button
                     onClick={() => setIsDemoModalOpen(true)}
-                    className="w-full sm:w-auto px-5 py-3 bg-blue-50 hover:bg-blue-100 text-[#0E3589] font-bold rounded-xl text-sm transition-all cursor-pointer border border-blue-200"
+                    variant="outline"
+                    size="md"
+                    className="w-full sm:w-auto bg-blue-50 hover:bg-blue-100 text-[#0E3589] border-blue-200"
                   >
                     Book Free Demo Class
-                  </button>
+                  </Button>
                 </div>
 
                 <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-500 font-medium">
@@ -427,12 +443,14 @@ function MainApp() {
             <Lock className="w-4 h-4 shrink-0" />
             <span>Your secure session has expired. Please sign in again to continue accessing your SmartPen dashboard and AI Agent features.</span>
           </div>
-          <button
+          <Button
             onClick={() => openLoginModal()}
-            className="px-3 py-1 bg-white text-slate-900 font-bold rounded-lg text-xs hover:bg-slate-100 transition-colors shadow-xs shrink-0 cursor-pointer ml-3"
+            variant="outline"
+            size="sm"
+            className="bg-white text-slate-900 border-transparent shadow-xs shrink-0 ml-3 py-1"
           >
             Sign In Now
-          </button>
+          </Button>
         </div>
       )}
 

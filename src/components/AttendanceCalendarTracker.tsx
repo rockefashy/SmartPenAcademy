@@ -1,3 +1,5 @@
+import { Button } from './ui/Button';
+import { Textarea } from './ui/Textarea';
 import { Modal } from './ui/Modal';
 import React, { useState, useMemo } from 'react';
 import { 
@@ -381,15 +383,18 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
         {/* Navigation Buttons: Left Arrow / Month Name / Right Arrow */}
         <div className="flex items-center gap-2.5">
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
             onClick={handlePrevMonth}
-            className="w-10 h-10 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 flex items-center justify-center shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+            className="w-10 h-10 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs"
             title="View Previous Month"
             id="btn-prev-month"
             aria-label="Previous Month"
           >
             <ChevronLeft className="w-5 h-5 text-slate-700" />
-          </button>
+          </Button>
 
           <div className="px-4 py-2 bg-white border border-slate-200 rounded-xl shadow-2xs">
             <span className="text-sm sm:text-base font-black text-slate-900 tracking-tight" id="calendar-current-month-label">
@@ -397,24 +402,29 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
             </span>
           </div>
 
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
             onClick={handleNextMonth}
-            className="w-10 h-10 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 flex items-center justify-center shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95"
+            className="w-10 h-10 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs"
             title="View Next Month"
             id="btn-next-month"
             aria-label="Next Month"
           >
             <ChevronRight className="w-5 h-5 text-slate-700" />
-          </button>
+          </Button>
 
           {!isCurrentMonthView && (
-            <button
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
               onClick={handleGoToCurrentMonth}
-              className="px-3.5 py-2 bg-[#0E3589] hover:bg-[#08225e] text-white text-xs font-extrabold rounded-xl shadow-2xs transition-all cursor-pointer"
               id="btn-today-month"
             >
               Current Month
-            </button>
+            </Button>
           )}
         </div>
 
@@ -557,16 +567,18 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                     /* Enrolled Day not yet recorded */
                     isAdmin ? (
                       <div className="flex items-center gap-1">
-                        <button
+                        <Button
                           type="button"
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleMarkStatus(cell.dateStr, 'Present')}
                           disabled={isMutating}
-                          className="flex-1 py-1 px-1 bg-white hover:bg-emerald-50 text-[#0E3589] hover:text-emerald-700 border border-blue-200 hover:border-emerald-300 rounded-lg text-[9px] sm:text-[10px] font-bold flex items-center justify-center gap-0.5 shadow-2xs transition-all cursor-pointer"
+                          leftIcon={<Plus className="w-2.5 h-2.5" />}
+                          className="flex-1 py-1 px-1 text-[9px] sm:text-[10px] border-blue-200"
                           title="Mark Attended"
                         >
-                          <Plus className="w-2.5 h-2.5" />
-                          <span>Check</span>
-                        </button>
+                          Check
+                        </Button>
                       </div>
                     ) : (
                       <div className="text-[9px] text-blue-600 font-semibold text-center bg-blue-50/50 py-0.5 rounded border border-blue-100">
@@ -575,16 +587,18 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                     )
                   ) : isAdmin && cell.isCurrentMonth ? (
                     /* Non-enrolled day in Admin mode */
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => handleMarkStatus(cell.dateStr, 'Present', 'Special extra session')}
                       disabled={isMutating}
-                      className="w-full py-0.5 px-1 bg-slate-100 hover:bg-emerald-50 text-slate-500 hover:text-emerald-700 rounded text-[9px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-0.5 cursor-pointer"
+                      leftIcon={<Plus className="w-2 h-2" />}
+                      className="w-full py-0.5 px-1 text-[9px] opacity-0 group-hover:opacity-100"
                       title="Mark Extra Class"
                     >
-                      <Plus className="w-2 h-2" />
-                      <span>Extra</span>
-                    </button>
+                      Extra
+                    </Button>
                   ) : null}
 
                   {/* Note snippet indicator */}
@@ -604,41 +618,41 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                 {isAdmin && cell.isCurrentMonth && (
                   <div className="mt-1 pt-1 border-t border-slate-200/60 flex items-center justify-between gap-1">
                     {/* Add / Edit Note Button */}
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpenNoteModal(cell.dateStr);
                       }}
                       disabled={isMutating}
-                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 transition-all cursor-pointer ${
-                        hasNote
-                          ? 'bg-blue-100 hover:bg-blue-200 text-[#0E3589]'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900'
-                      }`}
+                      leftIcon={<Edit3 className="w-2.5 h-2.5" />}
+                      className="text-[9px] px-1.5 py-0.5"
                       title={hasNote ? 'Edit Note' : 'Add Note'}
                       id={`btn-note-${cell.dateStr}`}
                     >
-                      <Edit3 className="w-2.5 h-2.5" />
-                      <span>{hasNote ? 'Edit' : '+ Note'}</span>
-                    </button>
+                      {hasNote ? 'Edit' : '+ Note'}
+                    </Button>
 
                     {/* Clear Button (Visible when attendance record exists) */}
                     {hasRecord && (
-                      <button
+                      <Button
                         type="button"
+                        variant="danger"
+                        size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteRecord(cell.dateStr);
                         }}
                         disabled={isMutating}
-                        className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/80 flex items-center gap-0.5 transition-all cursor-pointer"
+                        leftIcon={<Trash2 className="w-2.5 h-2.5" />}
+                        className="text-[9px] px-1.5 py-0.5"
                         title="Clear attendance record for this date"
                         id={`btn-clear-${cell.dateStr}`}
                       >
-                        <Trash2 className="w-2.5 h-2.5" />
-                        <span>Clear</span>
-                      </button>
+                        Clear
+                      </Button>
                     )}
                   </div>
                 )}
@@ -678,15 +692,16 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
 
           {/* Quick Add Note Button for Admin */}
           {isAdmin && (
-            <button
+            <Button
               type="button"
+              variant="primary"
+              size="sm"
               onClick={() => handleOpenNoteModal(todayStr)}
-              className="px-3 py-1.5 bg-[#0E3589] hover:bg-[#08225e] text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer self-start sm:self-auto"
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
               id="btn-add-today-note"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Note for Today</span>
-            </button>
+              Add Note for Today
+            </Button>
           )}
         </div>
 
@@ -741,41 +756,46 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                   <div className="flex-1">
                     {isEditing && isAdmin ? (
                       <div className="space-y-2">
-                        <textarea
+                        <Textarea
                           rows={2}
                           value={inlineEditText}
                           onChange={(e) => setInlineEditText(e.target.value)}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                           placeholder="Enter coach observations, lesson drills..."
                         />
                         <div className="flex flex-wrap items-center gap-2">
-                          <button
+                          <Button
                             type="button"
+                            variant="primary"
+                            size="sm"
                             onClick={() => handleSaveInlineNote(rec.date)}
-                            disabled={isMutating}
-                            className="px-3 py-1 bg-[#0E3589] hover:bg-[#08225e] text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1 cursor-pointer"
+                            isLoading={isMutating}
+                            leftIcon={<Save className="w-3 h-3" />}
+                            className="px-3 py-1 text-xs"
                           >
-                            <Save className="w-3 h-3" />
-                            <span>Save</span>
-                          </button>
-                          <button
+                            Save
+                          </Button>
+                          <Button
                             type="button"
+                            variant="outline"
+                            size="sm"
                             onClick={() => setEditingNoteDate(null)}
-                            className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg cursor-pointer"
+                            className="px-3 py-1 text-xs"
                           >
                             Cancel
-                          </button>
+                          </Button>
                           {/* Presets */}
                           <div className="flex flex-wrap gap-1">
                             {COMMON_DRILL_NOTES.slice(0, 3).map((drill) => (
-                              <button
+                              <Button
                                 key={drill}
                                 type="button"
+                                variant="outline"
+                                size="sm"
                                 onClick={() => setInlineEditText(drill)}
-                                className="text-[10px] bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-[#0E3589] px-2 py-0.5 rounded border border-slate-200"
+                                className="text-[10px] px-2 py-0.5"
                               >
                                 + {drill}
-                              </button>
+                              </Button>
                             ))}
                           </div>
                         </div>
@@ -790,27 +810,31 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                   {/* Right Column: Admin Actions (Edit & Remove Note) */}
                   {isAdmin && !isEditing && (
                     <div className="flex items-center gap-1.5 shrink-0 self-end md:self-start">
-                      <button
+                      <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={() => {
                           setEditingNoteDate(rec.date);
                           setInlineEditText(rec.notes || '');
                         }}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-[#0E3589] border border-slate-200 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                        leftIcon={<Edit3 className="w-3 h-3" />}
+                        className="px-2.5 py-1 text-xs"
                         title="Edit note"
                       >
-                        <Edit3 className="w-3 h-3" />
-                        <span>Edit</span>
-                      </button>
+                        Edit
+                      </Button>
 
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleDeleteNoteOnly(rec.date)}
-                        className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                        className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50"
                         title="Delete note only"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -866,14 +890,16 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                 </div>
               </div>
 
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setActiveNoteModalDate(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+                className="rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600"
                 title="Close"
               >
                 <X className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
 
             {/* Attendance Status Picker */}
@@ -882,31 +908,25 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                 Attendance Status:
               </label>
               <div className="grid grid-cols-2 gap-2">
-                <button
+                <Button
                   type="button"
+                  variant={modalStatus === 'Present' ? 'success' : 'secondary'}
+                  size="sm"
                   onClick={() => setModalStatus('Present')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    modalStatus === 'Present'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'bg-slate-100 hover:bg-emerald-50 text-slate-700'
-                  }`}
+                  leftIcon={<CheckCircle2 className="w-4 h-4" />}
                 >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Attended (Present)</span>
-                </button>
+                  Attended (Present)
+                </Button>
 
-                <button
+                <Button
                   type="button"
+                  variant={modalStatus === 'Absent' ? 'danger' : 'secondary'}
+                  size="sm"
                   onClick={() => setModalStatus('Absent')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    modalStatus === 'Absent'
-                      ? 'bg-amber-600 text-white shadow-xs'
-                      : 'bg-slate-100 hover:bg-amber-50 text-slate-700'
-                  }`}
+                  leftIcon={<XCircle className="w-4 h-4" />}
                 >
-                  <XCircle className="w-4 h-4" />
-                  <span>Absent</span>
-                </button>
+                  Absent
+                </Button>
               </div>
             </div>
 
@@ -918,12 +938,11 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                 </label>
                 <span className="text-[10px] text-slate-400">Visible on Parent Portal</span>
               </div>
-              <textarea
+              <Textarea
                 rows={3}
                 value={modalNoteText}
                 onChange={(e) => setModalNoteText(e.target.value)}
                 placeholder="e.g. Practiced cursive loop heights, 4-line baseline check..."
-                className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#0E3589] outline-none"
                 autoFocus
               />
             </div>
@@ -935,38 +954,43 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
               </span>
               <div className="flex flex-wrap gap-1">
                 {COMMON_DRILL_NOTES.map((drill) => (
-                  <button
+                  <Button
                     key={drill}
                     type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() => setModalNoteText(drill)}
-                    className="text-[10px] bg-slate-100 hover:bg-blue-100 hover:text-[#0E3589] text-slate-700 px-2 py-1 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                    className="text-[10px] px-2 py-1"
                   >
                     + {drill}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
 
             {/* Modal Actions */}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setActiveNoteModalDate(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
               >
                 Cancel
-              </button>
+              </Button>
 
-              <button
+              <Button
                 type="button"
+                variant="primary"
+                size="sm"
                 onClick={handleSaveModalNote}
-                disabled={isMutating}
-                className="px-5 py-2 bg-[#0E3589] hover:bg-[#08225e] text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer"
+                isLoading={isMutating}
+                loadingText="Saving..."
+                leftIcon={<Check className="w-3.5 h-3.5" />}
                 id="btn-save-modal-note"
               >
-                <Check className="w-3.5 h-3.5" />
-                <span>Save Note</span>
-              </button>
+                Save Note
+              </Button>
             </div>
         </div>
       </Modal>

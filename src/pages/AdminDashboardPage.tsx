@@ -1,6 +1,4 @@
-import { Modal } from '../components/ui/Modal';
-import { Button } from '../components/ui/Button';
-import { Input, Select } from '../components/ui/FormField';
+import { Modal, Button, Input, Select, Textarea, FormField } from '../components/ui';
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
@@ -819,36 +817,28 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
         {!isCoach && (
           <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
-            <button
+            <Button
               onClick={() => {
                 setActiveTab('coachEnrollment');
               }}
-              className={`px-4 sm:px-5 py-2.5 font-extrabold text-xs rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all ${
-                activeTab === 'coachEnrollment'
-                  ? 'bg-[#072464] text-white ring-2 ring-blue-300'
-                  : 'bg-[#0E3589] hover:bg-[#072464] text-white shadow-blue-900/20'
-              }`}
+              variant="primary"
               id="btn-admin-enroll-coach"
             >
               <UserPlus className="w-4 h-4 text-orange-400" />
               <span>{adminProperties.header.newCoachEnrollBtn || '+ Enroll Coach'}</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => {
                 setEditingStudent(null);
                 setEnrollmentPrefillData(null);
                 setActiveTab('studentEnrollment');
               }}
-              className={`px-4 sm:px-5 py-2.5 font-extrabold text-xs rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all ${
-                activeTab === 'studentEnrollment' && !editingStudent
-                  ? 'bg-[#c9520e] text-white ring-2 ring-orange-300'
-                  : 'bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#f07b27] text-white shadow-orange-500/20'
-              }`}
+              variant="accent"
               id="btn-admin-enroll"
             >
               <UserPlus className="w-4 h-4" />
               <span>{adminProperties.header.newStudentEnrollBtn}</span>
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -860,12 +850,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
             <span>{notificationBanner}</span>
           </div>
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setNotificationBanner(null)}
-            className="text-emerald-700 hover:text-emerald-950 text-xs underline cursor-pointer"
+            className="text-emerald-700 hover:text-emerald-950 underline h-auto p-1"
           >
             Dismiss
-          </button>
+          </Button>
         </div>
       )}
 
@@ -876,20 +869,24 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
             <span>{errorMessageBanner}</span>
           </div>
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setErrorMessageBanner(null)}
-            className="text-red-700 hover:text-red-950 text-xs underline cursor-pointer"
+            className="text-red-700 hover:text-red-950 underline h-auto p-1"
           >
             Dismiss
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Module Navigation Tabs (Roster vs Coach Assignment vs Coach Enrollment vs Alerts) */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-2">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <button
+          <Button
             onClick={() => setActiveTab('roster')}
+            variant="ghost"
             className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'roster'
                 ? 'bg-[#0E3589] text-white shadow-md'
@@ -904,12 +901,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             }`}>
               {students.length}
             </span>
-          </button>
+          </Button>
 
           {!isCoach && (
             <>
-              <button
+              <Button
                 onClick={() => setActiveTab('assignment')}
+                variant="ghost"
                 className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all cursor-pointer ${
                   activeTab === 'assignment'
                     ? 'bg-[#0E3589] text-white shadow-md'
@@ -932,13 +930,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     All Assigned
                   </span>
                 )}
-              </button>
+              </Button>
 
-              <button
+              <Button
                 onClick={() => {
                   setActiveTab('coaches');
                   loadCoaches();
                 }}
+                variant="ghost"
                 className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all cursor-pointer ${
                   activeTab === 'coaches'
                     ? 'bg-[#0E3589] text-white shadow-md'
@@ -953,13 +952,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 }`}>
                   {coaches.length}
                 </span>
-              </button>
+              </Button>
 
-              <button
+              <Button
                 onClick={() => {
                   setActiveTab('alerts');
                   loadAlertsAndBookings();
                 }}
+                variant="ghost"
                 className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all cursor-pointer relative ${
                   activeTab === 'alerts'
                     ? 'bg-[#F46E20] text-white shadow-md'
@@ -976,20 +976,21 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     {newBookingsCount > 0 ? `${newBookingsCount} New` : unreadAlertsCount}
                   </span>
                 )}
-              </button>
+              </Button>
             </>
           )}
         </div>
 
-        <button
+        <Button
           onClick={handleExportCSV}
-          className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+          variant="outline"
+          size="sm"
           id="btn-export-excel"
           title="Export Roster (CSV)"
         >
           <Download className="w-4 h-4 text-emerald-600" />
           <span className="hidden sm:inline">{adminProperties.header.exportExcelBtn}</span>
-        </button>
+        </Button>
       </div>
 
       {/* ========================================================================= */}
@@ -1077,44 +1078,50 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <ArrowUpDown className="w-4 h-4 text-[#0E3589]" />
                 <span className="font-bold text-slate-700">{adminProperties.filters.sortByLabel}:</span>
                 <div className="flex flex-wrap gap-1">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       if (sortBy === 'createdDate') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
                       else { setSortBy('createdDate'); setSortOrder('desc'); }
                     }}
-                    className={`px-2.5 py-1 rounded-lg font-semibold transition-colors ${
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition-colors h-auto ${
                       sortBy === 'createdDate' ? 'bg-blue-100 text-[#0E3589]' : 'text-slate-600 hover:bg-slate-100'
                     }`}
                   >
                     {adminProperties.filters.sortCreatedDate} {sortBy === 'createdDate' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </button>
+                  </Button>
 
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       if (sortBy === 'name') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
                       else { setSortBy('name'); setSortOrder('asc'); }
                     }}
-                    className={`px-2.5 py-1 rounded-lg font-semibold transition-colors ${
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition-colors h-auto ${
                       sortBy === 'name' ? 'bg-blue-100 text-[#0E3589]' : 'text-slate-600 hover:bg-slate-100'
                     }`}
                   >
                     {adminProperties.filters.sortName} {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </button>
+                  </Button>
 
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       if (sortBy === 'grade') setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
                       else { setSortBy('grade'); setSortOrder('asc'); }
                     }}
-                    className={`px-2.5 py-1 rounded-lg font-semibold transition-colors ${
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition-colors h-auto ${
                       sortBy === 'grade' ? 'bg-blue-100 text-[#0E3589]' : 'text-slate-600 hover:bg-slate-100'
                     }`}
                   >
                     {adminProperties.filters.sortCurrentClass} {sortBy === 'grade' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -1169,12 +1176,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                 {student.displayName.charAt(0)}
                               </div>
                               <div>
-                                <button
+                                <Button
+                                  variant="ghost"
                                   onClick={() => onNavigate('studentDetail', student.id, 1)}
-                                  className="font-extrabold text-sm text-[#0E3589] hover:underline text-left cursor-pointer"
+                                  className="font-extrabold text-sm text-[#0E3589] hover:underline text-left p-0 h-auto inline-flex"
                                 >
                                   {student.displayName}
-                                </button>
+                                </Button>
                                 <p className="text-[11px] text-slate-500 font-medium">
                                   {student.age ? `Age: ${student.age} yrs • ` : ''}{student.gradeClass ? `${formatGradeClass(student.gradeClass)} • ` : ''}{formatDominantHand(student.dominantHand)} • <span className="font-semibold text-slate-700">{student.modeOfLearning || 'In-person'}</span>
                                 </p>
@@ -1208,12 +1216,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                     {student.coachName || 'Assigned'}
                                   </span>
                                   {!isCoach && (
-                                    <button
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
                                       onClick={() => setQuickCoachAssignStudent(student)}
-                                      className="block text-[10px] text-slate-400 hover:text-[#0E3589] underline cursor-pointer"
+                                      className="text-[10px] text-slate-400 hover:text-[#0E3589] underline p-0 h-auto"
                                     >
                                       Change Coach
-                                    </button>
+                                    </Button>
                                   )}
                                 </div>
                               ) : isCoach ? (
@@ -1221,13 +1232,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                   Unassigned
                                 </span>
                               ) : (
-                                <button
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
                                   onClick={() => setQuickCoachAssignStudent(student)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 transition-colors cursor-pointer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 h-auto"
                                 >
                                   <BadgeAlert className="w-3 h-3 text-amber-600" />
                                   <span>Assign Coach</span>
-                                </button>
+                                </Button>
                               )}
                             </div>
                           </td>
@@ -1266,12 +1280,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                           {/* Status & Date of Leaving */}
                           <td className="py-3.5 px-4">
                             <div className="flex flex-col items-start gap-1">
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="sm"
                                 disabled={isCoach}
                                 onClick={() => !isCoach && handleToggleStudentStatus(student)}
                                 title={!isCoach ? (student.status === 'Active' ? 'Click to deactivate student' : 'Click to reactivate student') : 'Student Status'}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold h-auto ${
                                   isCoach ? 'cursor-default' : 'cursor-pointer hover:shadow-xs hover:scale-105 active:scale-95'
                                 } ${
                                   student.status === 'Active'
@@ -1286,7 +1302,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                   <XCircle className="w-3 h-3 text-slate-400" />
                                 )}
                                 <span>{student.status}</span>
-                              </button>
+                              </Button>
                               {student.dateOfLeaving && (
                                 <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap pl-1" title="Date of Leaving">
                                   Left: {student.dateOfLeaving}
@@ -1299,85 +1315,97 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                           <td className="py-3.5 px-4">
                             <div className="flex items-center justify-center gap-1.5">
                               {/* 1. Mark Attendance */}
-                              <button
+                              <Button
+                                size="icon"
+                                variant="ghost"
                                 disabled={student.status === 'Inactive'}
                                 onClick={() => student.status !== 'Inactive' && setQuickAttendanceStudent(student)}
                                 title={student.status === 'Inactive' ? 'Attendance disabled: Student is Inactive (Read-Only Archive)' : adminProperties.actions.markAttendance}
-                                className={`p-1.5 rounded-lg transition-colors ${
+                                className={`rounded-lg ${
                                   student.status === 'Inactive'
                                     ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                                    : 'bg-blue-50 hover:bg-blue-100 text-[#0E3589] cursor-pointer'
+                                    : 'bg-blue-50 hover:bg-blue-100 text-[#0E3589]'
                                 }`}
                               >
                                 <Calendar className="w-4 h-4" />
-                              </button>
+                              </Button>
 
                               {/* 2. Mark Fee Paid (8-Class Cycle) */}
-                              <button
+                              <Button
+                                size="icon"
+                                variant="ghost"
                                 disabled={student.status === 'Inactive'}
                                 onClick={() => student.status !== 'Inactive' && handleOpenQuickFee(student)}
                                 title={student.status === 'Inactive' ? 'Fee payment disabled: Student is Inactive (Read-Only Archive)' : (hasPendingFeeAlert ? '8 Classes Completed • Fee Receipt Due (₹1,600)' : adminProperties.actions.markFeePaid)}
-                                className={`p-1.5 rounded-lg transition-colors relative ${
+                                className={`rounded-lg relative ${
                                   student.status === 'Inactive'
                                     ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
                                     : hasPendingFeeAlert
-                                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 cursor-pointer'
+                                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
                                     : paidCyclesCount > 0
-                                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 cursor-pointer'
-                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer'
+                                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
                                 }`}
                               >
                                 <DollarSign className="w-4 h-4" />
                                 {hasPendingFeeAlert && (
                                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" />
                                 )}
-                              </button>
+                              </Button>
 
                               {/* Edit Student Details */}
                               {!isCoach && (
-                                <button
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
                                   onClick={() => {
                                     setEditingStudent(student);
                                     setEnrollmentPrefillData(null);
                                     setActiveTab('studentEnrollment');
                                   }}
                                   title={`Edit Student Details for ${student.displayName}`}
-                                  className="p-1.5 bg-blue-50 hover:bg-blue-100 text-[#0E3589] border border-blue-200/80 rounded-lg transition-colors cursor-pointer"
+                                  className="bg-blue-50 hover:bg-blue-100 text-[#0E3589] border border-blue-200/80 rounded-lg"
                                   id={`btn-edit-student-${student.id}`}
                                 >
                                   <Edit3 className="w-4 h-4" />
-                                </button>
+                                </Button>
                               )}
 
                               {/* Add a Sibling Quick Action */}
                               {!isCoach && (
-                                <button
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
                                   onClick={() => handleAddSibling(student)}
                                   title={`${adminProperties.actions.addSibling} for ${student.displayName}`}
-                                  className="p-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/80 rounded-lg transition-colors cursor-pointer"
+                                  className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/80 rounded-lg"
                                   id={`btn-add-sibling-${student.id}`}
                                 >
                                   <UserPlus className="w-4 h-4" />
-                                </button>
+                                </Button>
                               )}
 
                               {/* 3. View Student Details */}
-                              <button
+                              <Button
+                                size="icon"
+                                variant="ghost"
                                 onClick={() => onNavigate('studentDetail', student.id, 1)}
                                 title={adminProperties.actions.viewStudentDetails}
-                                className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors cursor-pointer"
+                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg"
                               >
                                 <Eye className="w-4 h-4" />
-                              </button>
+                              </Button>
 
                               {/* 4. Preview Parent Portal */}
-                              <button
+                              <Button
+                                size="icon"
+                                variant="ghost"
                                 onClick={() => onNavigate('parentPortal', student.id)}
                                 title={`Preview Parent Portal for ${student.displayName}`}
-                                className="p-1.5 bg-orange-50 hover:bg-orange-100 text-[#F46E20] border border-orange-200/80 rounded-lg transition-colors cursor-pointer"
+                                className="bg-orange-50 hover:bg-orange-100 text-[#F46E20] border border-orange-200/80 rounded-lg"
                               >
                                 <GraduationCap className="w-4 h-4" />
-                              </button>
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -1433,45 +1461,40 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
           <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3">
               {/* Search */}
-              <div className="md:col-span-5 relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Search className="w-4 h-4" />
-                </div>
-                <input
+              <div className="md:col-span-5">
+                <Input
                   type="text"
                   value={assignmentSearch}
                   onChange={(e) => setAssignmentSearch(e.target.value)}
                   placeholder="Search by student name, parent, phone, school..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                  leftIcon={<Search className="w-4 h-4" />}
                 />
               </div>
 
               {/* Assignment Status Filter */}
               <div className="md:col-span-3">
-                <select
+                <Select
                   value={assignmentStatusFilter}
                   onChange={(e) => setAssignmentStatusFilter(e.target.value as any)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                 >
                   <option value="All">All Students ({students.length})</option>
                   <option value="Unassigned">⚠️ Unassigned Only ({unassignedStudentsCount})</option>
                   <option value="Assigned">✓ Assigned Only ({assignedStudentsCount})</option>
-                </select>
+                </Select>
               </div>
 
               {/* Coach Filter */}
               <div className="md:col-span-4">
-                <select
+                <Select
                   value={assignmentCoachFilter}
                   onChange={(e) => setAssignmentCoachFilter(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                 >
                   <option value="All">Filter by Assigned Coach (All)</option>
                   <option value="Unassigned">⚠️ Not Assigned to Any Coach</option>
                   {coaches.map((c) => (
                     <option key={c.id} value={c.id}>Coach {c.displayName} ({c.studentCount || 0} students)</option>
                   ))}
-                </select>
+                </Select>
               </div>
             </div>
 
@@ -1515,12 +1538,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                 {student.displayName.charAt(0)}
                               </div>
                               <div>
-                                <button
+                                <Button
+                                  variant="ghost"
                                   onClick={() => onNavigate('studentDetail', student.id, 1)}
-                                  className="font-extrabold text-sm text-[#0E3589] hover:underline text-left cursor-pointer"
+                                  className="font-extrabold text-sm text-[#0E3589] hover:underline text-left p-0 h-auto inline-flex"
                                 >
                                   {student.displayName}
-                                </button>
+                                </Button>
                                 <p className="text-[11px] text-slate-500 font-medium">
                                   {student.gradeClass ? `${formatGradeClass(student.gradeClass)} • ` : ''}{student.schoolName}
                                 </p>
@@ -1565,20 +1589,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                           {/* Instant 1-Click Assignment Dropdown */}
                           <td className="py-3.5 px-4">
                             <div className="flex items-center gap-2">
-                              <select
+                              <Select
                                 disabled={isUpdating}
                                 value={student.coachId || ''}
                                 onChange={(e) => {
                                   const val = e.target.value;
                                   handleAssignCoach(student.id, val ? val : null);
                                 }}
-                                className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors outline-none cursor-pointer ${
-                                  isUpdating
-                                    ? 'bg-slate-100 text-slate-400 border-slate-200'
-                                    : student.coachId
-                                    ? 'bg-white text-slate-900 border-slate-300 hover:border-[#0E3589] focus:ring-2 focus:ring-[#0E3589]'
-                                    : 'bg-amber-50 text-amber-900 border-amber-300 hover:border-amber-500 focus:ring-2 focus:ring-amber-500'
-                                }`}
                               >
                                 <option value="">-- No Coach Assigned --</option>
                                 {coaches.map((c) => (
@@ -1586,20 +1603,22 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                     Coach {c.displayName} ({c.designation})
                                   </option>
                                 ))}
-                              </select>
+                              </Select>
                               {isUpdating && <RefreshCw className="w-4 h-4 animate-spin text-[#0E3589]" />}
                             </div>
                           </td>
 
                           {/* Quick Dossier link */}
                           <td className="py-3.5 px-4 text-center">
-                            <button
+                            <Button
+                              size="icon"
+                              variant="ghost"
                               onClick={() => onNavigate('studentDetail', student.id, 1)}
                               title="Open Student Profile"
-                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors cursor-pointer"
+                              className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg"
                             >
                               <Eye className="w-4 h-4" />
-                            </button>
+                            </Button>
                           </td>
                         </tr>
                       );
@@ -1661,19 +1680,21 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
           {/* Header & Back Action */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
             <div className="flex items-center gap-3">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => {
                   setActiveTab('coaches');
                   loadCoaches();
                 }}
-                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-2xs"
+                className="rounded-xl shadow-2xs font-bold"
                 title="Return to Coach Directory"
                 id="btn-back-to-coach-directory"
+                leftIcon={<ArrowLeft className="w-4 h-4 text-slate-700" />}
               >
-                <ArrowLeft className="w-4 h-4 text-slate-700" />
-                <span>Coach Directory</span>
-              </button>
+                Coach Directory
+              </Button>
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
@@ -1701,13 +1722,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     <p className="font-bold text-red-900">Enrollment Error</p>
                     <p className="text-[11px] text-red-700 mt-0.5 leading-relaxed">{coachFormError}</p>
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setCoachFormError(null)}
-                    className="text-red-500 hover:text-red-800 text-xs font-bold cursor-pointer"
+                    className="text-red-500 hover:text-red-800 text-xs font-bold p-1 min-h-[32px] min-w-[32px]"
                   >
                     ×
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -1717,7 +1740,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     First Name <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <Input
                     type="text"
                     required
                     value={coachForm.firstName}
@@ -1730,7 +1753,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                       });
                     }}
                     placeholder="e.g. Deepthy"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                     id="input-coach-first-name"
                   />
                 </div>
@@ -1738,7 +1760,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Last Name <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <Input
                     type="text"
                     required
                     value={coachForm.lastName}
@@ -1751,7 +1773,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                       });
                     }}
                     placeholder="e.g. Rock"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                     id="input-coach-last-name"
                   />
                 </div>
@@ -1765,7 +1786,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   </label>
                   <span className="text-[10px] text-slate-400">Shown in rosters &amp; applet</span>
                 </div>
-                <input
+                <Input
                   type="text"
                   required
                   value={coachForm.displayName}
@@ -1774,7 +1795,6 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     setCoachForm({ ...coachForm, displayName: e.target.value });
                   }}
                   placeholder="e.g. Deepthy Rock"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                   id="input-coach-display-name"
                 />
               </div>
@@ -1785,13 +1805,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Email Address <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <Input
                     type="email"
                     required
                     value={coachForm.email}
                     onChange={(e) => setCoachForm({ ...coachForm, email: e.target.value })}
                     placeholder="e.g. coach@smartpen.in"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                     id="input-coach-email"
                   />
                 </div>
@@ -1800,13 +1819,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Primary Phone / WhatsApp <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <Input
                     type="tel"
                     required
                     value={coachForm.phoneNumber}
                     onChange={(e) => setCoachForm({ ...coachForm, phoneNumber: e.target.value })}
                     placeholder="e.g. 8861751000"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                     id="input-coach-phone"
                   />
                 </div>
@@ -1819,31 +1837,29 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     <label className="block text-xs font-bold text-slate-700 mb-1">
                       Designation
                     </label>
-                    <select
+                    <Select
                       value={coachForm.designation}
                       onChange={(e) => setCoachForm({ ...coachForm, designation: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                       id="select-coach-designation"
                     >
                       <option value="Principal Tutor">Principal Tutor (Master Instructor)</option>
                       <option value="Executive Tutor">Executive Tutor (Senior Coach)</option>
                       <option value="Senior Master Coach">Senior Master Coach</option>
                       <option value="Associate Tutor">Associate Tutor (Junior Coach)</option>
-                    </select>
+                    </Select>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
                       Status
                     </label>
-                    <select
+                    <Select
                       value={coachForm.status}
                       onChange={(e) => setCoachForm({ ...coachForm, status: e.target.value as 'Active' | 'Inactive' })}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                       id="select-coach-status"
                     >
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
 
@@ -1851,12 +1867,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Educational Qualification
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={coachForm.educationalQualification}
                     onChange={(e) => setCoachForm({ ...coachForm, educationalQualification: e.target.value })}
                     placeholder="e.g. M.Ed, Certified Master Calligrapher, B.A. Literature"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                     id="input-coach-qualification"
                   />
                 </div>
@@ -1866,11 +1881,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     <label className="block text-xs font-bold text-slate-700 mb-1">
                       Date of Joining
                     </label>
-                    <input
+                    <Input
                       type="date"
                       value={coachForm.dateOfJoining}
                       onChange={(e) => setCoachForm({ ...coachForm, dateOfJoining: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                       id="input-coach-joining-date"
                     />
                   </div>
@@ -1878,12 +1892,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     <label className="block text-xs font-bold text-slate-700 mb-1">
                       Date of Leaving <span className="text-slate-400 font-normal">(Optional)</span>
                     </label>
-                    <input
+                    <Input
                       type="date"
                       min={coachForm.dateOfJoining || undefined}
                       value={coachForm.dateOfLeaving}
                       onChange={(e) => setCoachForm({ ...coachForm, dateOfLeaving: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                       id="input-coach-leaving-date"
                     />
                   </div>
@@ -1895,12 +1908,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Residential / Communication Address
                 </label>
-                <textarea
+                <Textarea
                   rows={2}
                   value={coachForm.address}
                   onChange={(e) => setCoachForm({ ...coachForm, address: e.target.value })}
                   placeholder="e.g. #42, 5th Cross, Indiranagar, Bangalore - 560038"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589] resize-none"
+                  className="resize-none"
                   id="textarea-coach-address"
                 />
               </div>
@@ -1922,18 +1935,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   ].map((spec) => {
                     const isSelected = coachForm.specializations.includes(spec);
                     return (
-                      <button
+                      <Button
                         type="button"
                         key={spec}
+                        variant={isSelected ? 'primary' : 'secondary'}
+                        size="sm"
                         onClick={() => toggleFormSpecialization(spec)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                        className={`rounded-lg text-xs font-bold ${
                           isSelected
                             ? 'bg-[#0E3589] text-white'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                       >
                         {spec} {isSelected ? '✓' : '+'}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -1945,12 +1960,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Emergency Contact Person
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={coachForm.emergencyContactName}
                     onChange={(e) => setCoachForm({ ...coachForm, emergencyContactName: e.target.value })}
                     placeholder="e.g. Spouse / Relative"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                     id="input-coach-emergency-name"
                   />
                 </div>
@@ -1958,12 +1972,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Emergency Phone
                   </label>
-                  <input
+                  <Input
                     type="tel"
                     value={coachForm.emergencyContactPhone}
                     onChange={(e) => setCoachForm({ ...coachForm, emergencyContactPhone: e.target.value })}
                     placeholder="e.g. 9845012345"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                     id="input-coach-emergency-phone"
                   />
                 </div>
@@ -1974,12 +1987,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Professional Notes / Bio
                 </label>
-                <input
+                <Input
                   type="text"
                   value={coachForm.notes}
                   onChange={(e) => setCoachForm({ ...coachForm, notes: e.target.value })}
                   placeholder="e.g. 8+ years experience in handwriting transformation"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                   id="input-coach-notes"
                 />
               </div>
@@ -1993,13 +2005,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <Lock className="w-4 h-4" />
                   </div>
-                  <input
+                  <Input
                     type="text"
                     required
                     value={coachForm.password}
                     onChange={(e) => setCoachForm({ ...coachForm, password: e.target.value })}
                     placeholder="e.g. Coach@Secure2026 (min 8 chars)"
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                    className="pl-10 font-mono"
                     id="input-coach-password"
                   />
                 </div>
@@ -2007,35 +2019,29 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               </div>
 
               <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-slate-200">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => {
                     setActiveTab('coaches');
                     loadCoaches();
                   }}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                  className="w-full sm:w-auto"
                   id="btn-cancel-coach-enrollment"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="primary"
+                  isLoading={isSubmittingCoach}
                   disabled={isSubmittingCoach}
-                  className="w-full sm:w-auto px-6 py-2.5 bg-[#0E3589] hover:bg-[#072464] text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto"
                   id="btn-submit-coach-enrollment"
+                  leftIcon={!isSubmittingCoach ? <CheckCircle className="w-4 h-4" /> : undefined}
                 >
-                  {isSubmittingCoach ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Enrolling Coach...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Enroll Coach &amp; Create Credentials</span>
-                    </>
-                  )}
-                </button>
+                  {isSubmittingCoach ? 'Enrolling Coach...' : 'Enroll Coach & Create Credentials'}
+                </Button>
               </div>
             </form>
           </div>
@@ -2064,23 +2070,28 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               </div>
               <div className="flex items-center gap-2.5">
                 {!isCoach && (
-                  <button
+                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={() => setActiveTab('coachEnrollment')}
-                    className="px-4 py-2 bg-[#0E3589] hover:bg-[#072464] text-white font-extrabold text-xs rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer transition-all"
+                    className="font-extrabold"
                     id="btn-directory-enroll-coach"
+                    leftIcon={<UserPlus className="w-3.5 h-3.5 text-orange-400" />}
                   >
-                    <UserPlus className="w-3.5 h-3.5 text-orange-400" />
-                    <span>+ Enroll Coach</span>
-                  </button>
+                    + Enroll Coach
+                  </Button>
                 )}
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={loadCoaches}
                   title="Refresh directory"
-                  className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600 transition-colors cursor-pointer"
+                  className="p-2"
                   id="btn-refresh-coaches"
+                  aria-label="Refresh directory"
                 >
                   <RefreshCw className={`w-4 h-4 ${coachesLoading ? 'animate-spin' : ''}`} />
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -2088,31 +2099,31 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             <div className="flex flex-col sm:flex-row gap-2.5">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <input
+                <Input
                   type="text"
                   placeholder="Search by name, email, phone, qualification..."
                   value={coachSearchQuery}
                   onChange={(e) => setCoachSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                  className="pl-9"
                   id="input-search-coaches"
                 />
               </div>
               <div className="flex gap-2">
-                <select
+                <Select
                   value={coachStatusFilter}
                   onChange={(e) => setCoachStatusFilter(e.target.value as any)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                  className="font-bold text-slate-700"
                   id="select-coach-status-filter"
                 >
                   <option value="All">All Statuses</option>
                   <option value="Active">Active Only</option>
                   <option value="Inactive">Inactive Only</option>
-                </select>
+                </Select>
 
-                <select
+                <Select
                   value={coachDesignationFilter}
                   onChange={(e) => setCoachDesignationFilter(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                  className="font-bold text-slate-700"
                   id="select-coach-designation-filter"
                 >
                   <option value="All">All Designations</option>
@@ -2120,7 +2131,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <option value="Executive Tutor">Executive Tutor</option>
                   <option value="Senior Master Coach">Senior Master Coach</option>
                   <option value="Associate Tutor">Associate Tutor</option>
-                </select>
+                </Select>
               </div>
             </div>
 
@@ -2209,39 +2220,45 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                           </div>
 
                           <div className="flex items-center gap-1.5 self-end sm:self-start">
-                            <button
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handleOpenEditCoach(coach)}
                               title="Edit Coach Details"
-                              className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                              className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 border-slate-200 rounded-lg text-xs font-bold"
+                              leftIcon={<Edit2 className="w-3.5 h-3.5 text-[#0E3589]" />}
                             >
-                              <Edit2 className="w-3.5 h-3.5 text-[#0E3589]" />
-                              <span>Edit</span>
-                            </button>
-                            <button
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               disabled={deletingCoachId === coach.id}
+                              isLoading={deletingCoachId === coach.id}
                               onClick={() => handleToggleCoachStatus(coach)}
                               title={coach.status === 'Active' ? 'Deactivate Coach (Soft Delete)' : 'Reactivate Coach'}
-                              className={`p-1.5 border rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
+                              className={`p-1.5 rounded-lg text-xs font-bold ${
                                 coach.status === 'Active'
                                   ? 'bg-white hover:bg-amber-50 text-amber-700 border-amber-200'
                                   : 'bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-200'
                               }`}
                               id={`btn-toggle-coach-${coach.id}`}
+                              leftIcon={
+                                deletingCoachId !== coach.id ? (
+                                  coach.status === 'Active' ? (
+                                    <UserX className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <UserCheck className="w-3.5 h-3.5" />
+                                  )
+                                ) : undefined
+                              }
                             >
-                              {deletingCoachId === coach.id ? (
-                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              ) : coach.status === 'Active' ? (
-                                <>
-                                  <UserX className="w-3.5 h-3.5" />
-                                  <span className="hidden sm:inline">Deactivate</span>
-                                </>
+                              {coach.status === 'Active' ? (
+                                <span className="hidden sm:inline">Deactivate</span>
                               ) : (
-                                <>
-                                  <UserCheck className="w-3.5 h-3.5" />
-                                  <span className="hidden sm:inline">Reactivate</span>
-                                </>
+                                <span className="hidden sm:inline">Reactivate</span>
                               )}
-                            </button>
+                            </Button>
                           </div>
                         </div>
 
@@ -2295,16 +2312,18 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                             </span>
                           </div>
 
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
                               setAssignmentCoachFilter(coach.id);
                               setActiveTab('assignment');
                             }}
-                            className="text-[11px] font-bold text-[#0E3589] hover:underline flex items-center gap-1 cursor-pointer"
+                            className="text-[11px] font-bold text-[#0E3589] hover:underline p-1 min-h-[32px]"
+                            rightIcon={<ChevronRight className="w-3 h-3" />}
                           >
-                            <span>Assign Students</span>
-                            <ChevronRight className="w-3 h-3" />
-                          </button>
+                            Assign Students
+                          </Button>
                         </div>
                       </div>
                     );
@@ -2343,7 +2362,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         showCloseButton={true}
       >
         <div className="space-y-6 text-center">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 setEnrolledCoachSuccessModal(null);
                 setTimeout(() => {
@@ -2353,12 +2374,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   }
                 }, 100);
               }}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer text-sm font-bold"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-2 rounded-xl text-sm font-bold"
               id="btn-close-coach-success-modal"
               aria-label="Close"
             >
               ✕
-            </button>
+            </Button>
 
             <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle className="w-9 h-9 text-emerald-600" />
@@ -2397,7 +2418,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <button
+              <Button
+                variant="primary"
                 onClick={() => {
                   setEnrolledCoachSuccessModal(null);
                   setTimeout(() => {
@@ -2407,22 +2429,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     }
                   }, 100);
                 }}
-                className="flex-1 py-3 bg-[#0E3589] hover:bg-[#072464] text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                className="flex-1 py-3"
                 id="btn-confirm-coach-view-directory"
+                rightIcon={<ArrowRight className="w-4 h-4" />}
               >
-                <span>View in Coach Directory</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-              <button
+                View in Coach Directory
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setEnrolledCoachSuccessModal(null);
                   setActiveTab('coachEnrollment');
                 }}
-                className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                className="py-3 px-4"
                 id="btn-confirm-coach-enroll-another"
               >
                 Enroll Another Coach
-              </button>
+              </Button>
             </div>
         </div>
       </Modal>
@@ -2442,12 +2465,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <ShieldCheck className="w-5 h-5 text-[#0E3589]" />
                 <h3 className="font-black text-sm">Assign Coach to Student</h3>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setQuickCoachAssignStudent(null)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 min-h-[32px] min-w-[32px]"
+                aria-label="Close"
               >
                 ✕
-              </button>
+              </Button>
             </div>
 
             <div>
@@ -2462,12 +2488,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             <div className="space-y-2">
               <label className="block text-xs font-bold text-slate-700">Select Coach</label>
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                <button
+                <Button
                   type="button"
+                  variant={!quickCoachAssignStudent.coachId ? 'primary' : 'outline'}
                   onClick={() => handleAssignCoach(quickCoachAssignStudent.id, null)}
-                  className={`w-full p-3 rounded-xl border text-left text-xs font-bold flex items-center justify-between cursor-pointer transition-colors ${
+                  className={`w-full p-3 rounded-xl border text-left text-xs font-bold justify-between ${
                     !quickCoachAssignStudent.coachId
-                      ? 'bg-amber-50 border-amber-300 text-amber-900'
+                      ? 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100'
                       : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'
                   }`}
                 >
@@ -2476,40 +2503,43 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     <span>No Coach (Unassigned)</span>
                   </span>
                   {!quickCoachAssignStudent.coachId && <Check className="w-4 h-4 text-amber-600" />}
-                </button>
+                </Button>
 
                 {coaches.map((c) => {
                   const isCurrent = quickCoachAssignStudent.coachId === c.id;
                   return (
-                    <button
+                    <Button
                       key={c.id}
                       type="button"
+                      variant={isCurrent ? 'primary' : 'outline'}
                       onClick={() => handleAssignCoach(quickCoachAssignStudent.id, c.id)}
-                      className={`w-full p-3 rounded-xl border text-left text-xs font-bold flex items-center justify-between cursor-pointer transition-colors ${
+                      className={`w-full p-3 rounded-xl border text-left text-xs font-bold justify-between ${
                         isCurrent
-                          ? 'bg-blue-50 border-[#0E3589] text-[#0E3589]'
+                          ? 'bg-blue-50 border-[#0E3589] text-[#0E3589] hover:bg-blue-100'
                           : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800'
                       }`}
                     >
-                      <div>
+                      <div className="text-left">
                         <p className="font-extrabold text-xs">Coach {c.displayName}</p>
                         <p className="text-[10px] text-slate-500 font-normal">{c.designation} • {c.studentCount || 0} students assigned</p>
                       </div>
                       {isCurrent && <Check className="w-4 h-4 text-[#0E3589]" />}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
             </div>
 
             <div className="pt-2 flex justify-end">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => setQuickCoachAssignStudent(null)}
-                className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                className="px-4 py-2"
               >
                 Close
-              </button>
+              </Button>
             </div>
         </div>
       </Modal>
@@ -2573,39 +2603,46 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold text-slate-500">Filter Inquiries:</span>
               {(['All', 'New', 'Contacted', 'Scheduled', 'Enrolled'] as const).map((filterOpt) => (
-                <button
+                <Button
                   key={filterOpt}
+                  type="button"
+                  variant={alertFilter === filterOpt ? 'primary' : 'secondary'}
+                  size="sm"
                   onClick={() => setAlertFilter(filterOpt)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  className={`rounded-xl text-xs font-bold ${
                     alertFilter === filterOpt
                       ? 'bg-[#0E3589] text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
                   {filterOpt}
-                </button>
+                </Button>
               ))}
             </div>
 
             {/* Actions */}
             <div className="flex items-center gap-2">
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={loadAlertsAndBookings}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="rounded-xl font-bold"
                 title="Refresh latest inquiries"
+                leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${alertsLoading ? 'animate-spin' : ''}`} />}
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${alertsLoading ? 'animate-spin' : ''}`} />
-                <span>{adminProperties.alertsModule.refreshBtn}</span>
-              </button>
+                {adminProperties.alertsModule.refreshBtn}
+              </Button>
 
               {unreadAlertsCount > 0 && (
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleMarkAllAlertsRead}
-                  className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#0E3589] font-bold text-xs rounded-xl border border-blue-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="rounded-xl font-bold bg-blue-50 hover:bg-blue-100 text-[#0E3589] border-blue-200"
+                  leftIcon={<CheckCheck className="w-3.5 h-3.5" />}
                 >
-                  <CheckCheck className="w-3.5 h-3.5" />
-                  <span>{adminProperties.alertsModule.markAllReadBtn}</span>
-                </button>
+                  {adminProperties.alertsModule.markAllReadBtn}
+                </Button>
               )}
             </div>
           </div>
@@ -2653,13 +2690,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
                         {isFeeDue && targetStudent && (
                           <div className="pt-1.5 flex items-center gap-2 flex-wrap">
-                            <button
+                            <Button
                               type="button"
+                              variant="primary"
+                              size="sm"
                               onClick={() => handleOpenQuickFee(targetStudent, al.metadata?.cycleLabel)}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold shadow-2xs transition-colors cursor-pointer"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold shadow-2xs py-1 px-2.5 min-h-[28px]"
                             >
                               Record ₹1,600 Receipt
-                            </button>
+                            </Button>
                             {targetStudent.whatsappMobile && (
                               <a
                                 href={`https://wa.me/${targetStudent.whatsappMobile.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
@@ -2682,21 +2721,27 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
                       <div className="flex items-center gap-1 shrink-0">
                         {!al.isRead && (
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleMarkAlertRead(al.id)}
-                            className="p-1 hover:bg-blue-50 text-[#0E3589] rounded-lg text-[10px] font-bold cursor-pointer"
+                            className="p-1 hover:bg-blue-50 text-[#0E3589] rounded-lg min-h-[28px] min-w-[28px]"
                             title="Mark read"
+                            aria-label="Mark read"
                           >
                             <CheckCheck className="w-3.5 h-3.5" />
-                          </button>
+                          </Button>
                         )}
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleDeleteAlert(al.id)}
-                          className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg cursor-pointer"
+                          className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg min-h-[28px] min-w-[28px]"
                           title="Delete alert"
+                          aria-label="Delete alert"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   );
@@ -2831,10 +2876,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
                           {/* Booking Status Dropdown */}
                           <td className="py-4 px-4">
-                            <select
+                            <Select
                               value={booking.status}
                               onChange={(e) => handleUpdateBookingStatus(booking.id, e.target.value as any)}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                              className={`font-bold ${
                                 booking.status === 'New'
                                   ? 'bg-red-50 text-red-700 border-red-200'
                                   : booking.status === 'Contacted'
@@ -2851,7 +2896,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                               <option value="Scheduled">● Demo Scheduled</option>
                               <option value="Enrolled">● Converted &amp; Enrolled</option>
                               <option value="Cancelled">● Cancelled</option>
-                            </select>
+                            </Select>
                           </td>
 
                           {/* Received At */}
@@ -2866,19 +2911,24 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                           <td className="py-4 px-4">
                             <div className="flex items-center justify-center gap-1.5">
                               {/* Add / Edit Note */}
-                              <button
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => {
                                   setSelectedBookingForNotes(booking);
                                   setBookingNotesText(booking.notes || '');
                                 }}
                                 title="Add Assessment Note"
-                                className="p-2 bg-blue-50 hover:bg-blue-100 text-[#0E3589] rounded-xl transition-colors cursor-pointer"
+                                className="p-2 bg-blue-50 hover:bg-blue-100 text-[#0E3589] rounded-xl"
+                                aria-label="Add Assessment Note"
                               >
                                 <Edit2 className="w-4 h-4" />
-                              </button>
+                              </Button>
 
                               {/* Fast-Track Enroll */}
-                              <button
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => {
                                   onNavigate('enroll', undefined, 'alerts', {
                                     studentName: booking.studentName,
@@ -2891,19 +2941,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                   });
                                 }}
                                 title="Fast-Track Enroll this Student"
-                                className="p-2 bg-orange-50 hover:bg-orange-100 text-[#F46E20] rounded-xl transition-colors cursor-pointer"
+                                className="p-2 bg-orange-50 hover:bg-orange-100 text-[#F46E20] rounded-xl"
+                                aria-label="Fast-Track Enroll this Student"
                               >
                                 <UserPlus className="w-4 h-4" />
-                              </button>
+                              </Button>
 
                               {/* Delete */}
-                              <button
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setBookingToDelete(booking)}
                                 title="Delete Inquiry"
-                                className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-xl transition-colors cursor-pointer"
+                                className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-xl"
+                                aria-label="Delete Inquiry"
                               >
                                 <Trash2 className="w-4 h-4" />
-                              </button>
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -2931,12 +2985,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <Edit2 className="w-5 h-5 text-[#F46E20]" />
                 <h3 className="font-extrabold text-sm sm:text-base">Demo Assessment Notes &amp; Comments</h3>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setSelectedBookingForNotes(null)}
-                className="text-slate-400 hover:text-slate-600 text-base font-bold cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 text-base font-bold p-1 min-h-[32px] min-w-[32px]"
+                aria-label="Close"
               >
                 ✕
-              </button>
+              </Button>
             </div>
 
             <div className="p-3 bg-blue-50/60 border border-blue-100 rounded-2xl text-xs text-slate-700 space-y-1">
@@ -2957,12 +3014,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <label className="block text-xs font-extrabold text-slate-800 mb-1.5">
                   Parent Remarks &amp; Coach Assessment Notes
                 </label>
-                <textarea
+                <Textarea
                   rows={5}
                   value={bookingNotesText}
                   onChange={(e) => setBookingNotesText(e.target.value)}
                   placeholder="Enter full parent discussion notes, diagnostic observations, handwriting style concerns, or demo evaluation feedback here..."
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589] leading-relaxed"
+                  className="leading-relaxed"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
                   Notes entered here are fully accessible whenever you open this note editor, without truncation.
@@ -2970,19 +3027,21 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               </div>
 
               <div className="flex gap-2.5 pt-2">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => setSelectedBookingForNotes(null)}
-                  className="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
+                  className="w-1/3 py-2.5"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="w-2/3 py-2.5 bg-[#0E3589] hover:bg-[#072464] text-white font-bold text-xs rounded-xl shadow transition-colors cursor-pointer"
+                  variant="primary"
+                  className="w-2/3 py-2.5"
                 >
                   Save Assessment Notes
-                </button>
+                </Button>
               </div>
             </form>
         </div>
@@ -3025,32 +3084,26 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             </p>
 
             <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 disabled={isDeletingBooking}
                 onClick={() => setBookingToDelete(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
+                className="px-4 py-2"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="danger"
                 disabled={isDeletingBooking}
+                isLoading={isDeletingBooking}
                 onClick={() => handleDeleteBooking(bookingToDelete.id)}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors shadow-sm flex items-center gap-1.5"
+                className="px-4 py-2"
+                leftIcon={!isDeletingBooking ? <Trash2 className="w-3.5 h-3.5" /> : undefined}
               >
-                {isDeletingBooking ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Deleting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Inquiry</span>
-                  </>
-                )}
-              </button>
+                Delete Inquiry
+              </Button>
             </div>
         </div>
       </Modal>
@@ -3070,12 +3123,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <Calendar className="w-5 h-5 text-[#F46E20]" />
                 <h3 className="font-bold text-sm">Mark Attendance</h3>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setQuickAttendanceStudent(null)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 min-h-[32px] min-w-[32px]"
+                aria-label="Close"
               >
                 ✕
-              </button>
+              </Button>
             </div>
 
             <p className="text-xs text-slate-600">
@@ -3085,12 +3141,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             <form onSubmit={handleQuickAttendanceSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Date</label>
-                <input
+                <Input
                   type="date"
                   required
                   value={quickAttendanceDate}
                   onChange={(e) => setQuickAttendanceDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                 />
               </div>
 
@@ -3098,37 +3153,42 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <label className="block text-xs font-bold text-slate-700 mb-1">Status</label>
                 <div className="grid grid-cols-3 gap-2">
                   {(['Present', 'Absent', 'Late'] as const).map((st) => (
-                    <button
+                    <Button
                       key={st}
                       type="button"
+                      variant={quickAttendanceStatus === st ? 'primary' : 'outline'}
+                      size="sm"
                       onClick={() => setQuickAttendanceStatus(st)}
-                      className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                      className={`py-2 text-xs font-bold rounded-xl ${
                         quickAttendanceStatus === st
                           ? 'bg-[#0E3589] text-white border-[#0E3589]'
                           : 'bg-slate-50 text-slate-700 border-slate-200'
                       }`}
                     >
                       {st}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
 
               <div className="flex gap-2 pt-2">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => setQuickAttendanceStudent(null)}
-                  className="w-1/3 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                  className="w-1/3 py-2"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="primary"
+                  isLoading={isSubmittingAttendance}
                   disabled={isSubmittingAttendance}
-                  className="w-2/3 py-2 bg-[#0E3589] hover:bg-[#072464] text-white font-bold text-xs rounded-xl shadow transition-colors cursor-pointer"
+                  className="w-2/3 py-2"
                 >
                   {isSubmittingAttendance ? 'Saving...' : 'Confirm Attendance'}
-                </button>
+                </Button>
               </div>
             </form>
         </div>
@@ -3149,12 +3209,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <DollarSign className="w-5 h-5 text-emerald-600" />
                 <h3 className="font-bold text-sm">Issue 8-Class Fee Receipt (₹1,600)</h3>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setQuickFeeStudent(null)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 min-h-[32px] min-w-[32px]"
+                aria-label="Close"
               >
                 ✕
-              </button>
+              </Button>
             </div>
 
             <p className="text-xs text-slate-600">
@@ -3164,66 +3227,69 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             <form onSubmit={handleQuickFeeSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Fee Milestone / Month</label>
-                <input
+                <Input
                   type="text"
                   required
                   value={quickFeePeriod}
                   onChange={(e) => setQuickFeePeriod(e.target.value)}
                   placeholder="e.g. August 2026 or September Milestone"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900"
+                  className="font-bold text-slate-900"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Receipt Number</label>
-                <input
+                <Input
                   type="text"
                   value={quickFeeReceiptNo}
                   onChange={(e) => setQuickFeeReceiptNo(e.target.value)}
                   placeholder="e.g. REC-101-C1"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono"
+                  className="font-mono"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Amount (₹ INR)</label>
-                <input
+                <Input
                   type="number"
                   required
                   value={quickFeeAmount}
                   onChange={(e) => setQuickFeeAmount(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-emerald-800"
+                  className="font-bold text-emerald-800"
                   id="input-quick-fee-amount"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Notes</label>
-                <input
+                <Input
                   type="text"
                   value={quickFeeNotes}
                   onChange={(e) => setQuickFeeNotes(e.target.value)}
                   placeholder="e.g. In-Person Cash / UPI Reference / Bank Transfer details"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:ring-2 focus:ring-[#0E3589]"
+                  className="font-medium text-slate-900"
                   id="input-quick-fee-notes"
                 />
               </div>
 
               <div className="flex gap-2 pt-2">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => setQuickFeeStudent(null)}
-                  className="w-1/3 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                  className="w-1/3 py-2"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="primary"
+                  isLoading={isSubmittingFee}
                   disabled={isSubmittingFee}
-                  className="w-2/3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition-colors cursor-pointer"
+                  className="w-2/3 py-2 bg-emerald-600 hover:bg-emerald-700"
                 >
                   {isSubmittingFee ? 'Saving...' : 'Issue & Mark Paid (₹1,600)'}
-                </button>
+                </Button>
               </div>
             </form>
         </div>
@@ -3250,16 +3316,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <p className="text-xs text-slate-500">{editingCoach.displayName} ({editingCoach.email})</p>
                 </div>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 onClick={() => {
                   setEditingCoach(null);
                   setEditCoachForm(null);
                 }}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 min-h-[32px] min-w-[32px]"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
-              </button>
+              </Button>
             </div>
 
             <form onSubmit={handleUpdateCoach} className="space-y-4">
@@ -3271,13 +3340,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     <p className="font-bold text-red-900">Update Error</p>
                     <p className="text-[11px] text-red-700 mt-0.5 leading-relaxed">{editCoachError}</p>
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setEditCoachError(null)}
-                    className="text-red-500 hover:text-red-800 text-xs font-bold cursor-pointer"
+                    className="text-red-500 hover:text-red-800 text-xs font-bold p-1 min-h-[32px] min-w-[32px]"
                   >
                     ×
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -3287,24 +3358,22 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     First Name <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <Input
                     type="text"
                     required
                     value={editCoachForm.firstName}
                     onChange={(e) => setEditCoachForm({ ...editCoachForm, firstName: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Last Name <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <Input
                     type="text"
                     required
                     value={editCoachForm.lastName}
                     onChange={(e) => setEditCoachForm({ ...editCoachForm, lastName: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                   />
                 </div>
               </div>
@@ -3314,13 +3383,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Display Name <span className="text-red-500">*</span>
                 </label>
-                <input
+                <Input
                   type="text"
                   required
                   value={editCoachForm.displayName}
                   onChange={(e) => setEditCoachForm({ ...editCoachForm, displayName: e.target.value })}
                   placeholder="e.g. Deepthy Rock"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                 />
               </div>
 
@@ -3330,12 +3398,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Email Address <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <Input
                     type="email"
                     required
                     value={editCoachForm.email}
                     onChange={(e) => setEditCoachForm({ ...editCoachForm, email: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                   />
                 </div>
 
@@ -3343,12 +3410,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Primary Phone / WhatsApp <span className="text-red-500">*</span>
                   </label>
-                  <input
+                  <Input
                     type="tel"
                     required
                     value={editCoachForm.phoneNumber}
                     onChange={(e) => setEditCoachForm({ ...editCoachForm, phoneNumber: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                   />
                 </div>
               </div>
@@ -3360,22 +3426,22 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     <label className="block text-xs font-bold text-slate-700 mb-1">
                       Designation
                     </label>
-                    <select
+                    <Select
                       value={editCoachForm.designation}
                       onChange={(e) => setEditCoachForm({ ...editCoachForm, designation: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                      className="font-bold"
                     >
                       <option value="Principal Tutor">Principal Tutor (Master Instructor)</option>
                       <option value="Executive Tutor">Executive Tutor (Senior Coach)</option>
                       <option value="Senior Master Coach">Senior Master Coach</option>
                       <option value="Associate Tutor">Associate Tutor (Junior Coach)</option>
-                    </select>
+                    </Select>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
                       Status
                     </label>
-                    <select
+                    <Select
                       value={editCoachForm.status}
                       onChange={(e) => {
                         const newStatus = e.target.value as 'Active' | 'Inactive';
@@ -3389,12 +3455,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                             : editCoachForm.dateOfLeaving
                         });
                       }}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                      className="font-bold"
                       id="select-edit-coach-status"
                     >
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
 
@@ -3402,12 +3468,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Educational Qualification
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={editCoachForm.educationalQualification}
                     onChange={(e) => setEditCoachForm({ ...editCoachForm, educationalQualification: e.target.value })}
                     placeholder="e.g. M.Ed, Certified Master Calligrapher"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                   />
                 </div>
 
@@ -3416,23 +3481,21 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     <label className="block text-xs font-bold text-slate-700 mb-1">
                       Date of Joining
                     </label>
-                    <input
+                    <Input
                       type="date"
                       value={editCoachForm.dateOfJoining}
                       onChange={(e) => setEditCoachForm({ ...editCoachForm, dateOfJoining: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
                       Date of Leaving <span className="text-slate-400 font-normal">(Optional)</span>
                     </label>
-                    <input
+                    <Input
                       type="date"
                       min={editCoachForm.dateOfJoining || undefined}
                       value={editCoachForm.dateOfLeaving}
                       onChange={(e) => setEditCoachForm({ ...editCoachForm, dateOfLeaving: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                     />
                   </div>
                 </div>
@@ -3443,12 +3506,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Residential / Communication Address
                 </label>
-                <textarea
+                <Textarea
                   rows={2}
                   value={editCoachForm.address}
                   onChange={(e) => setEditCoachForm({ ...editCoachForm, address: e.target.value })}
                   placeholder="Address details..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589] resize-none"
+                  className="resize-none"
                 />
               </div>
 
@@ -3469,18 +3532,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   ].map((spec) => {
                     const isSelected = editCoachForm.specializations.includes(spec);
                     return (
-                      <button
+                      <Button
                         type="button"
                         key={spec}
+                        variant={isSelected ? 'primary' : 'secondary'}
+                        size="sm"
                         onClick={() => toggleEditSpecialization(spec)}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${
                           isSelected
                             ? 'bg-[#0E3589] text-white'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                       >
                         {spec} {isSelected ? '✓' : '+'}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -3492,24 +3557,22 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Emergency Contact Person
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={editCoachForm.emergencyContactName}
                     onChange={(e) => setEditCoachForm({ ...editCoachForm, emergencyContactName: e.target.value })}
                     placeholder="e.g. Spouse / Relative"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Emergency Phone
                   </label>
-                  <input
+                  <Input
                     type="tel"
                     value={editCoachForm.emergencyContactPhone}
                     onChange={(e) => setEditCoachForm({ ...editCoachForm, emergencyContactPhone: e.target.value })}
                     placeholder="e.g. 9845012345"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                   />
                 </div>
               </div>
@@ -3519,12 +3582,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Professional Notes / Bio
                 </label>
-                <input
+                <Input
                   type="text"
                   value={editCoachForm.notes}
                   onChange={(e) => setEditCoachForm({ ...editCoachForm, notes: e.target.value })}
                   placeholder="e.g. Senior tutor notes..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
                 />
               </div>
 
@@ -3537,44 +3599,38 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <Lock className="w-4 h-4" />
                   </div>
-                  <input
+                  <Input
                     type="text"
                     value={editCoachForm.password}
                     onChange={(e) => setEditCoachForm({ ...editCoachForm, password: e.target.value })}
                     placeholder="Enter new password (min 8 chars)"
-                    className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                    className="pl-9 font-mono"
                   />
                 </div>
               </div>
 
               <div className="flex gap-2 pt-3 border-t border-slate-100">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => {
                     setEditingCoach(null);
                     setEditCoachForm(null);
                   }}
-                  className="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                  className="w-1/3 py-2.5"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="primary"
+                  isLoading={isUpdatingCoach}
                   disabled={isUpdatingCoach}
-                  className="w-2/3 py-2.5 bg-[#0E3589] hover:bg-[#072464] text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-2/3 py-2.5"
+                  leftIcon={!isUpdatingCoach ? <Check className="w-4 h-4" /> : undefined}
                 >
-                  {isUpdatingCoach ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Saving Changes...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Save Coach Profile</span>
-                    </>
-                  )}
-                </button>
+                  {isUpdatingCoach ? 'Saving Changes...' : 'Save Coach Profile'}
+                </Button>
               </div>
             </form>
         </div>

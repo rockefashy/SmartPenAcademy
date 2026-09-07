@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { Button } from './Button';
 import { X } from 'lucide-react';
 
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | 'full';
@@ -120,14 +121,16 @@ export const Modal: React.FC<ModalProps> & {
               )}
             </div>
             {showCloseButton && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={onClose}
-                className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                className="rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 active:bg-slate-200"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5 sm:w-4 sm:h-4" />
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -157,14 +160,16 @@ Modal.Header = ({ title, subtitle, onClose, children, className = '' }) => (
       )}
     </div>
     {onClose && (
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         onClick={onClose}
-        className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+        className="rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 active:bg-slate-200"
         aria-label="Close dialog"
       >
         <X className="w-5 h-5 sm:w-4 sm:h-4" />
-      </button>
+      </Button>
     )}
   </div>
 );

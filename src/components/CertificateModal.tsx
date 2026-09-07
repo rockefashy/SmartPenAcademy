@@ -1,4 +1,7 @@
 import { Modal } from './ui/Modal';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Textarea } from './ui/Textarea';
 import React, { useState } from 'react';
 import { 
   Award, 
@@ -126,78 +129,95 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               onClick={handlePrint}
-              className="px-4 py-2 bg-white hover:bg-amber-100 text-[#0E3589] text-xs font-black rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+              leftIcon={<Printer className="w-4 h-4 text-[#F46E20]" />}
+              className="bg-white hover:bg-amber-100 text-[#0E3589]"
             >
-              <Printer className="w-4 h-4 text-[#F46E20]" />
               <span className="hidden sm:inline">Print / Save PDF</span>
-            </button>
-            <button
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={onClose}
-              className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/25 text-white flex items-center justify-center text-sm font-bold transition-all cursor-pointer"
+              className="bg-white/10 hover:bg-white/25 text-white"
+              aria-label="Close modal"
             >
               <X className="w-5 h-5" />
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Tab Selector & Quick Action Bar (Hidden in Print) */}
         <div className="bg-slate-50 border-b border-slate-200 px-5 py-2.5 flex flex-wrap items-center justify-between gap-3 print:hidden shrink-0">
           <div className="flex items-center gap-2 bg-slate-200/80 p-1 rounded-xl">
-            <button
+            <Button
+              type="button"
+              variant={activeTab === 'preview' ? 'primary' : 'ghost'}
+              size="sm"
               onClick={() => setActiveTab('preview')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'preview'
-                  ? 'bg-white text-[#0E3589] shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              leftIcon={<Eye className="w-3.5 h-3.5" />}
+              className="py-1 px-3"
             >
-              <Eye className="w-3.5 h-3.5" />
-              <span>{certificateProperties.modal.previewTab}</span>
-            </button>
-            <button
+              {certificateProperties.modal.previewTab}
+            </Button>
+            <Button
+              type="button"
+              variant={activeTab === 'customize' ? 'primary' : 'ghost'}
+              size="sm"
               onClick={() => setActiveTab('customize')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'customize'
-                  ? 'bg-white text-[#0E3589] shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              leftIcon={<Edit3 className="w-3.5 h-3.5 text-[#F46E20]" />}
+              className="py-1 px-3"
             >
-              <Edit3 className="w-3.5 h-3.5 text-[#F46E20]" />
-              <span>{certificateProperties.modal.customizeTab}</span>
-            </button>
+              {certificateProperties.modal.customizeTab}
+            </Button>
           </div>
 
           {/* Theme Quick Buttons in bar */}
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-bold text-slate-500 hidden md:inline">Theme:</span>
             <div className="flex items-center gap-1.5">
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
                 title="Royal Navy & Gold"
                 onClick={() => setTheme('navyGold')}
-                className={`w-6 h-6 rounded-full bg-[#0E3589] border-2 transition-transform cursor-pointer ${
+                className={`w-6 h-6 min-h-[36px] min-w-[36px] rounded-full bg-[#0E3589] border-2 ${
                   theme === 'navyGold' ? 'scale-115 border-amber-400 ring-2 ring-amber-200' : 'border-white hover:scale-105'
                 }`}
               />
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
                 title="Emerald Distinction"
                 onClick={() => setTheme('emeraldGold')}
-                className={`w-6 h-6 rounded-full bg-[#065F46] border-2 transition-transform cursor-pointer ${
+                className={`w-6 h-6 min-h-[36px] min-w-[36px] rounded-full bg-[#065F46] border-2 ${
                   theme === 'emeraldGold' ? 'scale-115 border-amber-400 ring-2 ring-amber-200' : 'border-white hover:scale-105'
                 }`}
               />
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
                 title="Crimson Prestige"
                 onClick={() => setTheme('crimsonGold')}
-                className={`w-6 h-6 rounded-full bg-[#881337] border-2 transition-transform cursor-pointer ${
+                className={`w-6 h-6 min-h-[36px] min-w-[36px] rounded-full bg-[#881337] border-2 ${
                   theme === 'crimsonGold' ? 'scale-115 border-amber-400 ring-2 ring-amber-200' : 'border-white hover:scale-105'
                 }`}
               />
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
                 title="Golden Sunshine"
                 onClick={() => setTheme('amberWarm')}
-                className={`w-6 h-6 rounded-full bg-[#EA580C] border-2 transition-transform cursor-pointer ${
+                className={`w-6 h-6 min-h-[36px] min-w-[36px] rounded-full bg-[#EA580C] border-2 ${
                   theme === 'amberWarm' ? 'scale-115 border-amber-400 ring-2 ring-amber-200' : 'border-white hover:scale-105'
                 }`}
               />
@@ -205,13 +225,16 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
 
             <div className="h-4 w-[1px] bg-slate-300 mx-1" />
 
-            <button
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               onClick={handleCopyCitation}
-              className="px-2.5 py-1 text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
+              leftIcon={copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              className="py-1 px-2.5"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Copied!' : 'Copy Text'}</span>
-            </button>
+              {copied ? 'Copied!' : 'Copy Text'}
+            </Button>
           </div>
         </div>
 
@@ -235,12 +258,15 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
                     <strong>Print Tip:</strong> Select <strong>Landscape</strong> orientation in your browser print dialogue for best framing results.
                   </span>
                 </div>
-                <button
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setActiveTab('customize')}
-                  className="text-xs font-bold text-[#0E3589] hover:underline cursor-pointer"
+                  className="text-xs font-bold text-[#0E3589] hover:underline"
                 >
                   Customise Citation &amp; Title →
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
@@ -255,12 +281,15 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
                     Fine-tune the certificate wording, designation, and displayed badges.
                   </p>
                 </div>
-                <button
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={handleResetToDefault}
                   className="text-xs font-bold text-slate-500 hover:text-slate-800"
                 >
                   Reset Defaults
-                </button>
+                </Button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -271,65 +300,46 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
                   </label>
                   <div className="flex flex-wrap gap-2 mb-2">
                     {certificateProperties.awardTitles.map((t) => (
-                      <button
+                      <Button
                         key={t}
                         type="button"
+                        variant={awardTitle === t ? 'primary' : 'outline'}
+                        size="sm"
                         onClick={() => setAwardTitle(t)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                          awardTitle === t
-                            ? 'bg-[#0E3589] text-white border-[#0E3589]'
-                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                        }`}
+                        className="py-1 px-2.5 text-xs"
                       >
                         {t}
-                      </button>
+                      </Button>
                     ))}
                   </div>
-                  <input
+                  <Input
                     type="text"
                     value={awardTitle}
                     onChange={(e) => setAwardTitle(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0E3589] outline-hidden"
                   />
                 </div>
 
-                {/* Milestone Batch */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">
-                    {certificateProperties.modal.milestoneLabel}
-                  </label>
-                  <input
-                    type="text"
-                    value={milestoneTitle}
-                    onChange={(e) => setMilestoneTitle(e.target.value)}
-                    placeholder="e.g. 10-Class Handwriting Transformation"
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0E3589] outline-hidden"
-                  />
-                </div>
+                <Input
+                  label={certificateProperties.modal.milestoneLabel}
+                  type="text"
+                  value={milestoneTitle}
+                  onChange={(e) => setMilestoneTitle(e.target.value)}
+                  placeholder="e.g. 10-Class Handwriting Transformation"
+                />
 
-                {/* Date of Conferral */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">
-                    {certificateProperties.modal.issueDateLabel}
-                  </label>
-                  <input
-                    type="date"
-                    value={issueDate}
-                    onChange={(e) => setIssueDate(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0E3589] outline-hidden"
-                  />
-                </div>
+                <Input
+                  label={certificateProperties.modal.issueDateLabel}
+                  type="date"
+                  value={issueDate}
+                  onChange={(e) => setIssueDate(e.target.value)}
+                />
 
-                {/* Citation Paragraph */}
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-xs font-bold text-slate-700">
-                    {certificateProperties.modal.citationLabel}
-                  </label>
-                  <textarea
+                <div className="sm:col-span-2">
+                  <Textarea
+                    label={certificateProperties.modal.citationLabel}
                     rows={3}
                     value={customCitation}
                     onChange={(e) => setCustomCitation(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-[#0E3589] outline-hidden leading-relaxed"
                   />
                 </div>
 
@@ -362,13 +372,15 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
               </div>
 
               <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
-                <button
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="md"
                   onClick={() => setActiveTab('preview')}
-                  className="px-5 py-2.5 bg-[#0E3589] hover:bg-[#08225e] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer flex items-center gap-2"
+                  leftIcon={<Eye className="w-4 h-4" />}
                 >
-                  <Eye className="w-4 h-4" />
-                  <span>Preview Certificate with Changes</span>
-                </button>
+                  Preview Certificate with Changes
+                </Button>
               </div>
             </div>
           )}
@@ -382,19 +394,23 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
             >
               {certificateProperties.modal.closeBtn}
-            </button>
-            <button
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
               onClick={handlePrint}
-              className="px-5 py-2 bg-gradient-to-r from-[#0E3589] to-[#0084F4] hover:opacity-90 text-white text-xs font-black rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
+              leftIcon={<Printer className="w-4 h-4 text-amber-300" />}
             >
-              <Printer className="w-4 h-4 text-amber-300" />
-              <span>{certificateProperties.modal.printBtn}</span>
-            </button>
+              {certificateProperties.modal.printBtn}
+            </Button>
           </div>
         </div>
 

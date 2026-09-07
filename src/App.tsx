@@ -33,7 +33,40 @@ function MainApp() {
   } = useAuth();
   
   // Navigation State
-  const [currentView, setCurrentView] = useState<string>('landing');
+  const getInitialView = () => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const qToken = params.get('token');
+      if (qToken) {
+        try {
+          localStorage.setItem('smartpen_token', qToken);
+        } catch {}
+      }
+      const qView = params.get('view');
+      if (qView && ['landing', 'about', 'enroll', 'admin', 'parentPortal'].includes(qView)) {
+        return qView;
+      }
+      if (window.location.hash) {
+        const hash = window.location.hash.replace('#', '');
+        if (['landing', 'about', 'enroll', 'admin', 'parentPortal'].includes(hash)) {
+          return hash;
+        }
+      }
+    }
+    return 'landing';
+  };
+  const [currentView, setCurrentView] = useState<string>(getInitialView);
+
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (['landing', 'about', 'enroll', 'admin', 'parentPortal'].includes(hash)) {
+        setCurrentView(hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
   const [selectedStudentId, setSelectedStudentId] = useState<string | undefined>(undefined);
   const [studentDetailSection, setStudentDetailSection] = useState<number>(1);
   const [adminInitialTab, setAdminInitialTab] = useState<'roster' | 'assignment' | 'coaches' | 'coachEnrollment' | 'studentEnrollment' | 'alerts'>('roster');

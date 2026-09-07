@@ -1,4 +1,6 @@
 import { Modal } from '../components/ui/Modal';
+import { Button } from '../components/ui/Button';
+import { Input, Select } from '../components/ui/FormField';
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
@@ -999,75 +1001,73 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
           <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3">
               {/* Search Input */}
-              <div className="md:col-span-4 relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Search className="w-4 h-4" />
-                </div>
-                <input
+              <div className="md:col-span-4">
+                <Input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={adminProperties.filters.searchPlaceholder}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                  leftIcon={<Search className="w-4 h-4" />}
+                  id="input-roster-search"
                 />
               </div>
 
               {/* Status Filter */}
               <div className="md:col-span-2">
-                <select
+                <Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as any)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                  id="select-roster-status"
                 >
                   <option value="All">All Statuses ({students.length})</option>
                   <option value="Active">Active ({activeCount})</option>
                   <option value="Inactive">Inactive ({inactiveCount})</option>
-                </select>
+                </Select>
               </div>
 
               {/* Coach Filter (Only visible to Admin) */}
               {!isCoach && (
                 <div className="md:col-span-2">
-                  <select
+                  <Select
                     value={rosterCoachFilter}
                     onChange={(e) => setRosterCoachFilter(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                    id="select-roster-coach"
                   >
                     <option value="All">All Coaches</option>
-                    <option value="Unassigned">⚠️ Unassigned ({unassignedStudentsCount})</option>
+                    <option value="Unassigned">?? Unassigned ({unassignedStudentsCount})</option>
                     {coaches.map((c) => (
                       <option key={c.id} value={c.id}>Coach {c.displayName}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               )}
 
               {/* Grade Filter */}
               <div className="md:col-span-2">
-                <select
+                <Select
                   value={gradeFilter}
                   onChange={(e) => setGradeFilter(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                  id="select-roster-grade"
                 >
                   <option value="All">All Grades</option>
                   {uniqueGrades.map((g) => (
                     <option key={g} value={g}>{g}</option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               {/* Timing Filter */}
               <div className="md:col-span-2">
-                <select
+                <Select
                   value={timingFilter}
                   onChange={(e) => setTimingFilter(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0E3589]"
+                  id="select-roster-timing"
                 >
                   <option value="All">All Slots</option>
                   {uniqueTimings.map((t) => (
                     <option key={t} value={t}>{t}</option>
                   ))}
-                </select>
+                </Select>
               </div>
             </div>
 
@@ -2327,6 +2327,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       {/* ========================================================================= */}
       {/* POPUP: ENROLLED COACH SUCCESS CONFIRMATION MODAL                          */}
       {/* ========================================================================= */}
+      {enrolledCoachSuccessModal && (
       <Modal
         isOpen={Boolean(enrolledCoachSuccessModal)}
         onClose={() => {
@@ -2425,8 +2426,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             </div>
         </div>
       </Modal>
+      )}
 
       {/* Quick Coach Reassign Modal */}
+      {quickCoachAssignStudent && (
       <Modal
         isOpen={Boolean(quickCoachAssignStudent)}
         onClose={() => setQuickCoachAssignStudent(null)}
@@ -2510,6 +2513,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             </div>
         </div>
       </Modal>
+      )}
 
       {/* ========================================================================= */}
       {/* TAB 2: ALERTS & FREE DEMO CLASS BOOKINGS MODULE                            */}
@@ -2914,6 +2918,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       )}
 
       {/* Booking Assessment Notes Editor Modal */}
+      {selectedBookingForNotes && (
       <Modal
         isOpen={Boolean(selectedBookingForNotes)}
         onClose={() => setSelectedBookingForNotes(null)}
@@ -2982,8 +2987,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             </form>
         </div>
       </Modal>
+      )}
 
       {/* Delete Demo Booking Inquiry Confirmation Modal */}
+      {bookingToDelete && (
       <Modal
         isOpen={Boolean(bookingToDelete)}
         onClose={() => setBookingToDelete(null)}
@@ -3047,8 +3054,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             </div>
         </div>
       </Modal>
+      )}
 
       {/* Quick Attendance Modal */}
+      {quickAttendanceStudent && (
       <Modal
         isOpen={Boolean(quickAttendanceStudent)}
         onClose={() => setQuickAttendanceStudent(null)}
@@ -3124,8 +3133,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             </form>
         </div>
       </Modal>
+      )}
 
       {/* Quick Fee Modal */}
+      {quickFeeStudent && (
       <Modal
         isOpen={Boolean(quickFeeStudent)}
         onClose={() => setQuickFeeStudent(null)}
@@ -3217,8 +3228,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             </form>
         </div>
       </Modal>
+      )}
 
       {/* Edit Coach Profile Modal */}
+      {editingCoach && editCoachForm && (
       <Modal
         isOpen={Boolean(editingCoach && editCoachForm)}
         onClose={() => {
@@ -3566,6 +3579,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             </form>
         </div>
       </Modal>
+      )}
     </div>
   );
 };

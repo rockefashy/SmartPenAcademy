@@ -1264,7 +1264,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 app.get('/api/auth/me', authenticateJwt, async (req: AuthRequest, res) => {
   try {
     if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
-    const user = (await db.findUserByUsername(req.user.username)) || (await db.findUserById(req.user.id));
+    const user = (req.user.username ? await db.findUserByUsername(req.user.username) : null) || (await db.findUserById(req.user.id));
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     let siblingStudents: any = undefined;
@@ -1304,7 +1304,8 @@ app.get('/api/auth/me', authenticateJwt, async (req: AuthRequest, res) => {
       siblingStudents
     });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message || 'Failed to fetch current user session.' });
+    console.error('[AUTH /api/auth/me ERROR STACK]', err.stack);
+    return res.status(500).json({ error: err.message, stack: err.stack });
   }
 });
 

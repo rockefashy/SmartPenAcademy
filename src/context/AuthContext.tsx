@@ -145,7 +145,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     };
 
-    validateStoredSession();
+    const sessionTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+
+    validateStoredSession().finally(() => {
+      clearTimeout(sessionTimer);
+    });
 
     return () => {
       if (authListener?.subscription) {

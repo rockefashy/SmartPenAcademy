@@ -451,6 +451,7 @@ function mapToolAuditLogRow(row: any): ToolAuditLog {
 export class SupabaseDatabase {
   // ================= USERS & AUTH =================
   async findUsersByIdentifier(loginIdentifier: string): Promise<StoredUser[]> {
+    if (!loginIdentifier || typeof loginIdentifier !== "string") return [];
     const supabase = getSupabase();
     const clean = loginIdentifier.trim().toLowerCase();
     const phoneDigits = loginIdentifier.replace(/\D/g, '');

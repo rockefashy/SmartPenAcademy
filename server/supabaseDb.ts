@@ -205,6 +205,11 @@ function mapAttendanceRow(row: any): AttendanceRecord {
 }
 
 function mapFeeRow(row: any): FeeRecord {
+  const status: 'Paid' | 'Pending' | 'Overdue' = 
+    (row.status === 'Paid' || row.status === 'Pending' || row.status === 'Overdue')
+      ? row.status
+      : (row.is_paid ? 'Paid' : 'Pending');
+
   return {
     id: row.id,
     studentId: row.student_id,
@@ -212,8 +217,7 @@ function mapFeeRow(row: any): FeeRecord {
     yearMonth: row.year_month || undefined,
     milestone: row.milestone || undefined,
     amount: row.amount !== undefined && row.amount !== null ? Number(row.amount) : 0,
-    isPaid: row.is_paid !== undefined ? Boolean(row.is_paid) : (row.status === 'Paid'),
-    status: row.status || (row.is_paid ? 'Paid' : 'Pending'),
+    status,
     paidDate: row.paid_date || undefined,
     receiptNumber: row.receipt_number || row.receipt_no || undefined,
     paymentMethod: row.payment_method || undefined,
@@ -2366,7 +2370,10 @@ export class SupabaseDatabase {
       throw new Error("Cannot save fee record without a valid year_month.");
     }
 
-    const isPaid = fee.isPaid !== undefined ? Boolean(fee.isPaid) : fee.status === 'Paid';
+    const status = (fee.status === 'Paid' || fee.status === 'Pending' || fee.status === 'Overdue')
+      ? fee.status
+      : ((fee as any).isPaid ? 'Paid' : 'Pending');
+    const isPaid = status === 'Paid';
     const paidDate = safeIsoDate(fee.paidDate) || (isPaid ? effectiveDate : null);
 
     const row = {
@@ -2375,12 +2382,10 @@ export class SupabaseDatabase {
       date: effectiveDate,
       year_month: yearMonth,
       milestone: fee.milestone || fee.period || null,
-      is_paid: isPaid,
-      status: fee.status || (isPaid ? 'Paid' : 'Pending'),
+      status,
       paid_date: paidDate,
       amount: Number(fee.amount),
       receipt_number: fee.receiptNumber || (fee as any).receiptNo || null,
-      receipt_no: (fee as any).receiptNo || fee.receiptNumber || null,
       payment_method: fee.paymentMethod || null,
       notes: fee.notes || null,
       created_at: (fee as any).createdAt || new Date().toISOString()
@@ -2419,20 +2424,22 @@ export class SupabaseDatabase {
     if (updates.paidDate !== undefined) {
       updateData.paid_date = safeIsoDate(updates.paidDate) || null;
     }
-    if (updates.isPaid !== undefined) {
-      updateData.is_paid = Boolean(updates.isPaid);
-      if (updates.status === undefined) {
-        updateData.status = updates.isPaid ? 'Paid' : 'Pending';
+    if ((updates as any).isPaid !== undefined && updates.status === undefined) {
+      updateData.status = (updates as any).isPaid ? 'Paid' : 'Pending';
+    }
+    if (updates.status !== undefined) {
+      updateData.status = updates.status;
+      if (updates.status === 'Paid' && !updates.paidDate) {
+        updateData.paid_date = new Date().toISOString().split('T')[0];
+      } else if (updates.status !== 'Paid' && updates.paidDate === undefined) {
+        updateData.paid_date = null;
       }
     }
-    if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.amount !== undefined && updates.amount !== null && !isNaN(Number(updates.amount))) {
       updateData.amount = Number(updates.amount);
     }
     if (updates.receiptNumber !== undefined || (updates as any).receiptNo !== undefined) {
-      const rec = updates.receiptNumber || (updates as any).receiptNo || null;
-      updateData.receipt_number = rec;
-      updateData.receipt_no = rec;
+      updateData.receipt_number = updates.receiptNumber || (updates as any).receiptNo || null;
     }
     if (updates.paymentMethod !== undefined) updateData.payment_method = updates.paymentMethod;
     if (updates.notes !== undefined) updateData.notes = updates.notes;
@@ -2981,15 +2988,13 @@ export class SupabaseDatabase {
       student_name: testimonial.studentName || null,
       parent_name: testimonial.parentName || null,
       grade: testimonial.grade || null,
-      student_grade: testimonial.grade || null,
-      rating: testimonial.rating !== undefined && testimonial.rating !== null ? Number(testimonial.rating) : null,
+        rating: testimonial.rating !== undefined && testimonial.rating !== null ? Number(testimonial.rating) : null,
       review: testimonial.review || null,
-      review_text: testimonial.review || null,
-      title: testimonial.title || null,
+        title: testimonial.title || null,
       handwriting_style: (testimonial as any).handwritingStyle || null,
       status: testimonial.status || null,
       is_featured: testimonial.status === 'Featured' ? true : (testimonial.status === 'Approved' ? false : null),
-      after_image: testimonial.image || null,
+      image: testimonial.image || null,
       created_at: new Date().toISOString()
     };
 
@@ -3013,7 +3018,6 @@ export class SupabaseDatabase {
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.review !== undefined) {
       updateData.review = updates.review;
-      updateData.review_text = updates.review;
     }
     if (updates.rating !== undefined) updateData.rating = Number(updates.rating);
     if (updates.title !== undefined) updateData.title = updates.title;

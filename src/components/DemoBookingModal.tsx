@@ -1,3 +1,4 @@
+import { Modal } from './ui/Modal';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
@@ -246,15 +247,15 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
   );
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm">
-      <div className="min-h-full w-full flex items-center justify-center p-3 sm:p-5 text-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          transition={{ duration: 0.25 }}
-          className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border-2 border-orange-100/90 overflow-hidden text-left my-auto max-h-[92vh] flex flex-col"
-        >
+    <Modal
+      isOpen={isOpen}
+      onClose={handleResetAndClose}
+      size="lg"
+      showCloseButton={false}
+      className="p-0 border-2 border-orange-100/90 overflow-hidden"
+      bodyClassName="p-0 flex flex-col"
+      id="modal-demo-booking"
+    >
           {/* Header Ribbon (Always pinned & visible at top) */}
           <div className="shrink-0 bg-gradient-to-r from-[#0E3589] via-[#0084F4] to-[#F46E20] px-5 sm:px-6 py-4 sm:py-5 text-white relative shadow-sm">
             <button
@@ -622,8 +623,6 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
             </form>
           )}
         </div>
-      </motion.div>
-      </div>
-    </div>
+    </Modal>
   );
 };

@@ -1,3 +1,4 @@
+import { Modal } from './ui/Modal';
 import React, { useState, useMemo } from 'react';
 import { 
   ChevronLeft, 
@@ -836,12 +837,14 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
       {/* ========================================================================= */}
       {/* POPUP MODAL: ADD / EDIT NOTE DIALOG (Admin)                              */}
       {/* ========================================================================= */}
-      {activeNoteModalDate && (
-        <div 
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
-          id="modal-attendance-note"
-        >
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95 duration-150">
+      <Modal
+        isOpen={Boolean(activeNoteModalDate)}
+        onClose={() => setActiveNoteModalDate(null)}
+        size="md"
+        showCloseButton={false}
+        id="modal-attendance-note"
+      >
+        <div className="space-y-4">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
@@ -965,9 +968,8 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                 <span>Save Note</span>
               </button>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

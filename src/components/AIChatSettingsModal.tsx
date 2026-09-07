@@ -1,3 +1,4 @@
+import { Modal } from './ui/Modal';
 import React, { useState, useEffect } from 'react';
 import { Settings, Key, Globe, Cpu, Check, AlertCircle, RefreshCw, X, Sparkles, Shield } from 'lucide-react';
 import { api } from '../services/api';
@@ -73,8 +74,14 @@ export const AIChatSettingsModal: React.FC<AIChatSettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      size="lg"
+      showCloseButton={false}
+      className="p-0 border-0 overflow-hidden"
+      bodyClassName="p-0 flex flex-col"
+    >
         {/* Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-[#0E3589] to-[#1546b3] text-white flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -249,7 +256,6 @@ export const AIChatSettingsModal: React.FC<AIChatSettingsModalProps> = ({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

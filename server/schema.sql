@@ -85,22 +85,6 @@ CREATE TABLE IF NOT EXISTS public.users (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================================
--- 5. SCHEDULE BATCHES
--- ============================================================================
-CREATE TABLE IF NOT EXISTS public.batches (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  days TEXT NOT NULL,
-  time_slot TEXT NOT NULL,
-  current_enrollment INTEGER DEFAULT 0,
-  max_capacity INTEGER DEFAULT 10,
-  available_slots INTEGER DEFAULT 10,
-  age_group TEXT NOT NULL,
-  coach_name TEXT,
-  status TEXT DEFAULT 'Active',
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
 
 -- ============================================================================
 -- 6. DEMO BOOKINGS (Free Demo Sessions 4:00 PM – 7:00 PM)
@@ -108,9 +92,7 @@ CREATE TABLE IF NOT EXISTS public.batches (
 CREATE TABLE IF NOT EXISTS public.demo_bookings (
   id TEXT PRIMARY KEY,
   student_name TEXT NOT NULL,
-  child_name TEXT,
   student_age INTEGER NOT NULL,
-  child_age INTEGER,
   parent_name TEXT NOT NULL,
   parent_phone TEXT NOT NULL,
   parent_email TEXT,
@@ -150,10 +132,8 @@ CREATE TABLE IF NOT EXISTS public.fees (
   year_month TEXT NOT NULL,
   milestone TEXT,
   amount NUMERIC(10, 2) NOT NULL DEFAULT 1600.00,
-  is_paid BOOLEAN NOT NULL DEFAULT FALSE,
   status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Paid', 'Pending', 'Overdue')),
   receipt_number TEXT,
-  receipt_no TEXT,
   payment_method TEXT,
   notes TEXT,
   gpay_utr_ref TEXT,
@@ -235,15 +215,11 @@ CREATE TABLE IF NOT EXISTS public.testimonials (
   student_name TEXT NOT NULL,
   parent_name TEXT NOT NULL,
   grade TEXT,
-  student_grade TEXT,
   rating INTEGER NOT NULL DEFAULT 5,
   review TEXT,
-  review_text TEXT,
   title TEXT,
   handwriting_style TEXT,
   status TEXT DEFAULT 'Published' CHECK (status IN ('Published', 'Pending', 'Archived', 'Featured', 'Approved')),
-  before_image TEXT,
-  after_image TEXT,
   image TEXT,
   is_featured BOOLEAN DEFAULT FALSE,
   verified_student BOOLEAN DEFAULT TRUE,
@@ -646,22 +622,6 @@ CREATE POLICY rls_student_works_student_select ON public.student_works
 -- Default initial password for Administrator: Admin@SmartPen2026
 -- ============================================================================
 
--- 1. Seed Standard Schedule Batches (All days 4:00 PM – 7:00 PM)
-INSERT INTO public.batches (
-  id,
-  name,
-  days,
-  time_slot,
-  age_group,
-  coach_name,
-  status
-) VALUES 
-  ('batch-01', 'Weekday Junior Batch A', 'Mon, Wed, Fri', '04:00 PM - 05:00 PM', 'Ages 4 - 8', NULL, 'Active'),
-  ('batch-02', 'Weekday Senior Speed Batch', 'Mon, Wed, Fri', '05:00 PM - 06:00 PM', 'Ages 9 - 14', NULL, 'Active'),
-  ('batch-03', 'Evening Advanced Cursive', 'Mon, Wed, Fri', '06:00 PM - 07:00 PM', 'Ages 12 - 18', NULL, 'Active'),
-  ('batch-04', 'Weekend Intensive Batch A', 'Tue, Thu, Sat', '04:00 PM - 05:00 PM', 'Ages 5 - 10', NULL, 'Active'),
-  ('batch-05', 'Weekend Intensive Batch B', 'Tue, Thu, Sat', '05:00 PM - 06:00 PM', 'Ages 10 - 16', NULL, 'Active')
-ON CONFLICT (id) DO NOTHING;
 
 -- 2. Seed Single Initial Administrator Account (password: Admin@SmartPen2026)
 INSERT INTO public.users (

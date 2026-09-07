@@ -1,3 +1,4 @@
+import { Modal } from '../components/ui/Modal';
 import React, { useState, useEffect } from 'react';
 import { 
   GraduationCap, 
@@ -241,11 +242,11 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
   const completedCycles = Math.floor(attendedCount / 8);
   const currentCycle = completedCycles + 1;
   const currentCycleProgress = attendedCount % 8;
-  const paidCyclesCount = fees.filter((f) => f.status === 'Paid' || f.isPaid).length;
+  const paidCyclesCount = fees.filter((f) => f.status === 'Paid').length;
   const isFeeDueForCurrentCycle = completedCycles > 0 && paidCyclesCount < completedCycles;
 
   // Pending fee records or cycle due calculation
-  const pendingFees = fees.filter((f) => f.status === 'Pending' || (!f.isPaid && f.status !== 'Paid'));
+  const pendingFees = fees.filter((f) => f.status === 'Pending' || f.status === 'Overdue');
   const pendingFeeTotal = pendingFees.reduce((sum, f) => sum + (f.amount || 1600), 0);
   const hasFeeDue = pendingFees.length > 0 || isFeeDueForCurrentCycle || student.feeStatus === 'Pending' || student.feeStatus === 'Overdue';
   const totalFeeDue = pendingFeeTotal > 0 ? pendingFeeTotal : (hasFeeDue ? 1600 : 0);
@@ -635,37 +636,32 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
           )}
 
           {/* Photo Modal */}
-          {selectedPhoto && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
-              <div className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl space-y-4">
-                <div className="flex justify-between items-center pb-2 border-b">
-                  <h3 className="font-bold text-sm text-[#0E3589]">Writing Work Sample</h3>
-                  <button
-                    onClick={() => setSelectedPhoto(null)}
-                    className="text-slate-400 hover:text-slate-700 font-bold cursor-pointer"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="bg-slate-900 rounded-2xl overflow-hidden max-h-[65vh] flex items-center justify-center">
-                  <img
-                    src={selectedPhoto}
-                    alt="Work sample zoom"
-                    className="max-h-[65vh] w-auto object-contain"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => setSelectedPhoto(null)}
-                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl cursor-pointer"
-                  >
-                    Close
-                  </button>
-                </div>
+          <Modal
+            isOpen={Boolean(selectedPhoto)}
+            onClose={() => setSelectedPhoto(null)}
+            size="2xl"
+            title="Writing Work Sample"
+          >
+            <div className="space-y-4">
+              <div className="bg-slate-900 rounded-2xl overflow-hidden max-h-[65vh] flex items-center justify-center">
+                <img
+                  src={selectedPhoto || ''}
+                  alt="Work sample zoom"
+                  className="max-h-[65vh] w-auto object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPhoto(null)}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Close
+                </button>
               </div>
             </div>
-          )}
+          </Modal>
         </div>
       )}
 
@@ -1132,12 +1128,12 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span
                           className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
-                            fee.isPaid || fee.status === 'Paid'
+                            fee.status === 'Paid'
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                               : 'bg-rose-100 text-rose-800 border border-rose-200'
                           }`}
                         >
-                          {fee.isPaid || fee.status === 'Paid' ? 'Paid' : 'Pending / Due'}
+                          {fee.status === 'Paid' ? 'Paid' : 'Pending / Due'}
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-slate-600 font-medium whitespace-nowrap">

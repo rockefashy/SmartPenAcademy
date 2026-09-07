@@ -1,3 +1,4 @@
+import { Modal } from '../components/ui/Modal';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -792,7 +793,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       {activeTab === 2 && (
         <div className="space-y-6">
           {/* Alert Banner if 8 classes completed and fee receipt pending */}
-          {attendedCount >= 8 && Math.floor(attendedCount / 8) > fees.filter(f => f.isPaid).length && (
+          {attendedCount >= 8 && Math.floor(attendedCount / 8) > fees.filter(f => f.status === 'Paid').length && (
             <div className="p-4 bg-orange-50 border-2 border-orange-200 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
               <div className="space-y-0.5">
                 <p className="text-xs font-black text-orange-950 flex items-center gap-1.5">
@@ -1406,37 +1407,32 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       />
 
       {/* Full Photo Zoom Modal */}
-      {selectedPhotoZoom && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl space-y-4">
-            <div className="flex justify-between items-center pb-2 border-b">
-              <h3 className="font-bold text-sm text-[#0E3589]">Writing Work Sample</h3>
-              <button
-                onClick={() => setSelectedPhotoZoom(null)}
-                className="text-slate-400 hover:text-slate-700 font-bold text-lg"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="bg-slate-900 rounded-2xl overflow-hidden max-h-[65vh] flex items-center justify-center">
-              <img
-                src={selectedPhotoZoom}
-                alt="Work sample zoom"
-                className="max-h-[65vh] w-auto object-contain"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <div className="flex justify-end">
-              <button
-                onClick={() => setSelectedPhotoZoom(null)}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl"
-              >
-                Close
-              </button>
-            </div>
+      <Modal
+        isOpen={Boolean(selectedPhotoZoom)}
+        onClose={() => setSelectedPhotoZoom(null)}
+        size="2xl"
+        title="Writing Work Sample"
+      >
+        <div className="space-y-4">
+          <div className="bg-slate-900 rounded-2xl overflow-hidden max-h-[65vh] flex items-center justify-center">
+            <img
+              src={selectedPhotoZoom || ''}
+              alt="Work sample zoom"
+              className="max-h-[65vh] w-auto object-contain"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setSelectedPhotoZoom(null)}
+              className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl cursor-pointer"
+            >
+              Close
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

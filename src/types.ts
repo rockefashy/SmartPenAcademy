@@ -141,13 +141,11 @@ export interface FeeRecord {
   milestone?: string;
   period?: string;
   cycleNumber?: number;
-  isPaid: boolean;
-  status?: 'Paid' | 'Pending';
+  status: 'Paid' | 'Pending' | 'Overdue';
   paidDate?: string; // YYYY-MM-DD
   amount: number;
   paymentMethod?: string;
   receiptNumber?: string;
-  receiptNo?: string;
   notes?: string;
   createdAt?: string;
   updatedAt?: string;

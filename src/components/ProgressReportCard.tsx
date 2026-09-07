@@ -1,3 +1,4 @@
+import { Modal } from './ui/Modal';
 import React, { useState } from 'react';
 import { 
   Eye,
@@ -271,24 +272,16 @@ export const ProgressReportCard: React.FC<ProgressReportCardProps> = ({
               )}
             </div>
 
-            {zoomImg && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xs">
-                <div className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl space-y-4">
-                  <div className="flex justify-between items-center pb-2 border-b">
-                    <h4 className="font-bold text-sm text-[#0E3589]">Handwriting Sample Zoom</h4>
-                    <button
-                      onClick={() => setZoomImg(null)}
-                      className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 font-bold cursor-pointer"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div className="bg-slate-900 rounded-2xl overflow-hidden max-h-[65vh] flex items-center justify-center">
-                    <img src={zoomImg} alt="Enlarged writing sample" className="max-h-[65vh] max-w-full object-contain" />
-                  </div>
-                </div>
+            <Modal
+              isOpen={Boolean(zoomImg)}
+              onClose={() => setZoomImg(null)}
+              size="2xl"
+              title="Handwriting Sample Zoom"
+            >
+              <div className="bg-slate-900 rounded-2xl overflow-hidden max-h-[65vh] flex items-center justify-center">
+                <img src={zoomImg || ''} alt="Enlarged writing sample" className="max-h-[65vh] max-w-full object-contain" />
               </div>
-            )}
+            </Modal>
           </div>
         )}
 

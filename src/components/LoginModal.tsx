@@ -1,3 +1,4 @@
+import { Modal } from './ui/Modal';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -329,17 +330,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm" id="login-modal-overlay">
-        <div className="min-h-full w-full flex items-center justify-center p-3 sm:p-4 text-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ duration: 0.2 }}
-            className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto max-h-[94vh] flex flex-col text-left"
-            id="login-modal-content"
-          >
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="md"
+      showCloseButton={false}
+      className="p-0 border-0 overflow-hidden"
+      bodyClassName="p-0 flex flex-col"
+      id="login-modal-overlay"
+    >
             {/* Top Decorative Header */}
             <div className="shrink-0 bg-gradient-to-r from-[#0E3589] via-[#0084F4] to-[#F46E20] px-6 py-5 text-white text-center relative shadow-xs">
               <button
@@ -1022,9 +1021,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 </div>
               )}
             </div>
-          </motion.div>
-        </div>
-      </div>
-    </AnimatePresence>
+    </Modal>
   );
 };

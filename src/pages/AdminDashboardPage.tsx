@@ -1,3 +1,4 @@
+import { Modal } from '../components/ui/Modal';
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
@@ -365,7 +366,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         studentId: quickFeeStudent.id,
         yearMonth: quickFeePeriod,
         amount: Number(quickFeeAmount) || 1600,
-        isPaid: true,
+        status: 'Paid',
         paidDate: new Date().toISOString().split('T')[0],
         receiptNumber: quickFeeReceiptNo || `REC-${quickFeeStudent.id.replace('std-', '')}-${Date.now().toString().slice(-4)}`,
         paymentMethod: 'In-Person Reception Card/UPI',
@@ -2326,9 +2327,21 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       {/* ========================================================================= */}
       {/* POPUP: ENROLLED COACH SUCCESS CONFIRMATION MODAL                          */}
       {/* ========================================================================= */}
-      {enrolledCoachSuccessModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full border border-slate-200 shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-200 relative">
+      <Modal
+        isOpen={Boolean(enrolledCoachSuccessModal)}
+        onClose={() => {
+          setEnrolledCoachSuccessModal(null);
+          setTimeout(() => {
+            const tableElement = document.getElementById('coach-directory-table');
+            if (tableElement) {
+              tableElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }, 100);
+        }}
+        size="lg"
+        showCloseButton={true}
+      >
+        <div className="space-y-6 text-center">
             <button
               onClick={() => {
                 setEnrolledCoachSuccessModal(null);
@@ -2410,14 +2423,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 Enroll Another Coach
               </button>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* Quick Coach Reassign Modal */}
-      {quickCoachAssignStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+      <Modal
+        isOpen={Boolean(quickCoachAssignStudent)}
+        onClose={() => setQuickCoachAssignStudent(null)}
+        size="md"
+        showCloseButton={false}
+      >
+        <div className="space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2 text-[#0E3589]">
                 <ShieldCheck className="w-5 h-5 text-[#0E3589]" />
@@ -2492,9 +2508,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 Close
               </button>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* ========================================================================= */}
       {/* TAB 2: ALERTS & FREE DEMO CLASS BOOKINGS MODULE                            */}
@@ -2899,9 +2914,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       )}
 
       {/* Booking Assessment Notes Editor Modal */}
-      {selectedBookingForNotes && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-100 space-y-4">
+      <Modal
+        isOpen={Boolean(selectedBookingForNotes)}
+        onClose={() => setSelectedBookingForNotes(null)}
+        size="lg"
+        showCloseButton={false}
+      >
+        <div className="space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2 text-[#0E3589]">
                 <Edit2 className="w-5 h-5 text-[#F46E20]" />
@@ -2961,14 +2980,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 </button>
               </div>
             </form>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* Delete Demo Booking Inquiry Confirmation Modal */}
-      {bookingToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+      <Modal
+        isOpen={Boolean(bookingToDelete)}
+        onClose={() => setBookingToDelete(null)}
+        size="md"
+        showCloseButton={false}
+      >
+        <div className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
                 <Trash2 className="w-5 h-5" />
@@ -3023,14 +3045,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 )}
               </button>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* Quick Attendance Modal */}
-      {quickAttendanceStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+      <Modal
+        isOpen={Boolean(quickAttendanceStudent)}
+        onClose={() => setQuickAttendanceStudent(null)}
+        size="md"
+        showCloseButton={false}
+      >
+        <div className="space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2 text-[#0E3589]">
                 <Calendar className="w-5 h-5 text-[#F46E20]" />
@@ -3097,14 +3122,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 </button>
               </div>
             </form>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* Quick Fee Modal */}
-      {quickFeeStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+      <Modal
+        isOpen={Boolean(quickFeeStudent)}
+        onClose={() => setQuickFeeStudent(null)}
+        size="md"
+        showCloseButton={false}
+      >
+        <div className="space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2 text-emerald-800">
                 <DollarSign className="w-5 h-5 text-emerald-600" />
@@ -3187,14 +3215,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 </button>
               </div>
             </form>
-          </div>
         </div>
-      )}
+      </Modal>
 
       {/* Edit Coach Profile Modal */}
-      {editingCoach && editCoachForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto my-8">
+      <Modal
+        isOpen={Boolean(editingCoach && editCoachForm)}
+        onClose={() => {
+          setEditingCoach(null);
+          setEditCoachForm(null);
+        }}
+        size="2xl"
+        showCloseButton={false}
+      >
+        <div className="space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5 text-[#0E3589]">
                 <Edit2 className="w-5 h-5" />
@@ -3530,9 +3564,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 </button>
               </div>
             </form>
-          </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

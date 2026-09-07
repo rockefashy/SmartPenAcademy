@@ -114,7 +114,6 @@ CREATE TABLE IF NOT EXISTS public.fees (
   year_month TEXT,
   milestone TEXT,
   amount NUMERIC(10, 2) NOT NULL DEFAULT 1600.00,
-  is_paid BOOLEAN NOT NULL DEFAULT FALSE,
   status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Paid', 'Pending', 'Overdue')),
   receipt_number TEXT,
   payment_method TEXT,
@@ -199,8 +198,8 @@ CREATE TABLE IF NOT EXISTS public.fee_reminders (
 -- 9. DEMO BOOKINGS TABLE
 CREATE TABLE IF NOT EXISTS public.demo_bookings (
   id TEXT PRIMARY KEY,
-  child_name TEXT NOT NULL,
-  child_age INTEGER NOT NULL,
+  student_name TEXT NOT NULL,
+  student_age INTEGER NOT NULL,
   parent_name TEXT,
   parent_phone TEXT NOT NULL,
   preferred_date DATE,
@@ -229,15 +228,11 @@ CREATE TABLE IF NOT EXISTS public.testimonials (
   student_name TEXT NOT NULL,
   parent_name TEXT,
   grade TEXT,
-  student_grade TEXT,
   rating INTEGER DEFAULT 5,
   review TEXT NOT NULL,
-  review_text TEXT,
   title TEXT,
   handwriting_style TEXT,
   status TEXT DEFAULT 'Published' CHECK (status IN ('Published', 'Pending', 'Archived')),
-  before_image TEXT,
-  after_image TEXT,
   image TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

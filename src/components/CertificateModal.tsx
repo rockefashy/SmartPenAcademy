@@ -1,3 +1,4 @@
+import { Modal } from './ui/Modal';
 import React, { useState } from 'react';
 import { 
   Award, 
@@ -96,10 +97,14 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/80 backdrop-blur-sm font-sans print:p-0 print:bg-white print:static print:inset-auto">
-      <div className="min-h-full w-full flex items-center justify-center p-2 sm:p-4 text-center">
-        {/* Container - hide during print if printing specific element, or make print full size */}
-        <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-5xl overflow-hidden flex flex-col max-h-[92vh] text-left my-auto print:max-h-none print:shadow-none print:border-none print:rounded-none">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="5xl"
+      showCloseButton={false}
+      className="p-0 border-0 overflow-hidden font-sans print:p-0 print:bg-white print:static print:inset-auto print:max-h-none print:shadow-none print:border-none print:rounded-none"
+      bodyClassName="p-0 flex flex-col"
+    >
         
         {/* Top Header Bar (Hidden in Print) */}
         <div className="bg-gradient-to-r from-[#0E3589] via-[#0084F4] to-[#F46E20] text-white px-5 py-4 flex items-center justify-between gap-4 print:hidden shrink-0">
@@ -393,8 +398,6 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
           </div>
         </div>
 
-      </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

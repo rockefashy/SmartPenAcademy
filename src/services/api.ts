@@ -502,13 +502,14 @@ export const api = {
     return res.json();
   },
 
-  async addFeeRecord(studentId: string, feeData: { period: string; amount: number; dueDate?: string; paidDate?: string; status?: 'Paid' | 'Pending'; paymentMethod?: string }): Promise<FeeRecord> {
-    const isPaid = feeData.status === 'Paid';
+  async addFeeRecord(studentId: string, feeData: { period: string; amount: number; dueDate?: string; paidDate?: string; status?: 'Paid' | 'Pending' | 'Overdue'; paymentMethod?: string }): Promise<FeeRecord> {
+    const status: 'Paid' | 'Pending' | 'Overdue' = feeData.status || 'Pending';
+    const isPaid = status === 'Paid';
     const payload: Partial<FeeRecord> = {
       studentId,
       yearMonth: feeData.period,
       amount: feeData.amount,
-      isPaid,
+      status,
       paidDate: feeData.paidDate || (isPaid ? new Date().toISOString().split('T')[0] : undefined),
       paymentMethod: feeData.paymentMethod || 'Cash / In-Person Reception',
       receiptNumber: `REC-${Date.now().toString().slice(-6)}`,

@@ -1,3 +1,4 @@
+import { Modal } from './ui/Modal';
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Camera, 
@@ -219,9 +220,14 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="min-h-full w-full flex items-center justify-center p-3 sm:p-4 text-center">
-        <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden my-auto max-h-[94vh] flex flex-col text-left">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="2xl"
+      showCloseButton={false}
+      className="p-0 border-0 overflow-hidden"
+      bodyClassName="p-0 flex flex-col"
+    >
           {/* Header */}
           <div className="shrink-0 bg-gradient-to-r from-[#0E3589] to-[#0084F4] px-6 py-4 text-white flex items-center justify-between shadow-xs">
             <div className="flex items-center gap-2.5">
@@ -477,8 +483,6 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
               )}
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

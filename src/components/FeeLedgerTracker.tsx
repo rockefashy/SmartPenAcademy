@@ -1,3 +1,4 @@
+import { Modal } from './ui/Modal';
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar as CalendarIcon, 
@@ -130,10 +131,8 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
         yearMonth: cleanMilestone,
         milestone: cleanMilestone,
         amount: numAmount,
-        isPaid,
         status: formStatus,
         receiptNumber: formReceiptNumber.trim() || undefined,
-        receiptNo: formReceiptNumber.trim() || undefined,
         paymentMethod: formMethod,
         paidDate: isPaid ? formDate : undefined,
         notes: formNotes.trim() || undefined
@@ -190,9 +189,9 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
     setEditFormData({
       date: fee.date || fee.paidDate || new Date().toISOString().split('T')[0],
       milestone: fee.milestone || fee.yearMonth || getCurrentMonthYear(),
-      receiptNumber: fee.receiptNumber || fee.receiptNo || '',
+      receiptNumber: fee.receiptNumber || '',
       amount: fee.amount || 1600,
-      status: (fee.status === 'Paid' || fee.isPaid) ? 'Paid' : 'Pending',
+      status: (fee.status === 'Paid') ? 'Paid' : 'Pending',
       paymentMethod: fee.paymentMethod || 'In-Person Reception - Cash',
       notes: fee.notes || ''
     });
@@ -215,10 +214,8 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
         yearMonth: cleanMilestone,
         milestone: cleanMilestone,
         receiptNumber: editFormData.receiptNumber.trim() || undefined,
-        receiptNo: editFormData.receiptNumber.trim() || undefined,
         amount: Number(editFormData.amount) || 1600,
         status: editFormData.status,
-        isPaid,
         paidDate: isPaid ? (editFormData.date || new Date().toISOString().split('T')[0]) : undefined,
         paymentMethod: editFormData.paymentMethod,
         notes: editFormData.notes.trim() || undefined
@@ -274,7 +271,7 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
   // Send WhatsApp Reminder for a specific row
   const handleSendRowReminder = async (fee: FeeRecord) => {
     if (!student) return;
-    const isPaid = fee.status === 'Paid' || fee.isPaid;
+    const isPaid = fee.status === 'Paid';
     if (isPaid) return; // Guard clause
 
     setActiveSendingId(fee.id);
@@ -287,7 +284,7 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
         studentName: student.displayName,
         amount: fee.amount || 1600,
         milestone: cleanMilestone,
-        receiptNumber: fee.receiptNumber || fee.receiptNo
+        receiptNumber: fee.receiptNumber
       });
 
       if (res.whatsappUrl) {
@@ -540,11 +537,11 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
           <div className="flex items-center gap-2 text-xs">
             <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-lg font-bold border border-emerald-200 text-[11px]">
               <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-              Paid: {fees.filter(f => f.status === 'Paid' || f.isPaid).length}
+              Paid: {fees.filter(f => f.status === 'Paid').length}
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-800 rounded-lg font-bold border border-amber-200 text-[11px]">
               <AlertCircle className="w-3 h-3 text-amber-600" />
-              Pending: {fees.filter(f => f.status !== 'Paid' && !f.isPaid).length}
+              Pending: {fees.filter(f => f.status !== 'Paid').length}
             </span>
           </div>
         </div>
@@ -569,7 +566,7 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
                 {fees.length > 0 ? (
                   fees.map((fee) => {
                     const isEditing = editingRowId === fee.id;
-                    const isPaid = fee.status === 'Paid' || fee.isPaid;
+                    const isPaid = fee.status === 'Paid';
                     const displayDate = fee.date || fee.paidDate || '—';
                     const displayMilestone = fee.milestone || fee.yearMonth || 'August 2026';
                     const displayReceipt = fee.receiptNumber || fee.receiptNo || '—';
@@ -842,14 +839,14 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
       {/* ========================================================================= */}
       {/* DELETE CONFIRMATION MODAL (Reliable in iFrames & Touch Devices)             */}
       {/* ========================================================================= */}
-      {feeToDelete && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
-          id="modal-delete-fee-confirm"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95 duration-150">
+      <Modal
+        isOpen={Boolean(feeToDelete)}
+        onClose={handleCancelDelete}
+        size="md"
+        showCloseButton={false}
+        id="modal-delete-fee-confirm"
+      >
+        <div className="space-y-5">
             {/* Header */}
             <div className="flex items-start gap-3.5">
               <div className="w-10 h-10 rounded-2xl bg-rose-100 border border-rose-200 flex items-center justify-center shrink-0 text-rose-600">
@@ -894,11 +891,11 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
               <div className="flex justify-between items-center text-slate-600">
                 <span className="font-medium">Status:</span>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                  (feeToDelete.status === 'Paid' || feeToDelete.isPaid)
+                  (feeToDelete.status === 'Paid')
                     ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                     : 'bg-rose-100 text-rose-800 border border-rose-200'
                 }`}>
-                  {(feeToDelete.status === 'Paid' || feeToDelete.isPaid) ? 'Paid' : 'Pending / Due'}
+                  {(feeToDelete.status === 'Paid') ? 'Paid' : 'Pending / Due'}
                 </span>
               </div>
               {feeToDelete.notes && (
@@ -931,9 +928,8 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
                 <span>{isDeletingFee ? 'Deleting...' : 'Delete Record'}</span>
               </button>
             </div>
-          </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

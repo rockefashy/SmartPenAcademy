@@ -638,7 +638,7 @@ export async function executeTool(
           const presentCount = attendanceRecs.filter(r => r.status === 'Present').length;
           const fees = await db.getFeesByStudent(student.id);
           const completedCycles = Math.floor(presentCount / 8);
-          const isFeeDue = completedCycles > 0 && fees.filter(f => f.isPaid).length < completedCycles;
+          const isFeeDue = completedCycles > 0 && fees.filter(f => f.status === 'Paid').length < completedCycles;
 
           const gpayLink = `upi://pay?pa=8861751000@okbizaxis&pn=SmartPen%20Academy&am=1600&cu=INR`;
 
@@ -648,10 +648,10 @@ export async function executeTool(
             classesAttended: presentCount,
             completedCycles,
             feeStatus: isFeeDue ? 'Fee Due (₹1,600)' : 'No pending Fee',
-            paidReceiptsCount: fees.filter(f => f.isPaid).length,
+            paidReceiptsCount: fees.filter(f => f.status === 'Paid').length,
             gpayNumber: '8861751000',
             gpayLink
-          }, `💳 **Fee Status for ${student.displayName}**:\n• Status: **${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ No pending Fee'}**\n• Classes Attended: ${presentCount} (${completedCycles} completed 8-class cycles)\n• Paid Receipts: ${fees.filter(f => f.isPaid).length}\n• Direct GPAY Payment: **8861751000**`, true);
+          }, `💳 **Fee Status for ${student.displayName}**:\n• Status: **${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ No pending Fee'}**\n• Classes Attended: ${presentCount} (${completedCycles} completed 8-class cycles)\n• Paid Receipts: ${fees.filter(f => f.status === 'Paid').length}\n• Direct GPAY Payment: **8861751000**`, true);
         } else {
           if (userContext?.role === 'coach') {
             const coachKey = userContext.coachId || userContext.id;
@@ -664,9 +664,9 @@ export async function executeTool(
               const presentCount = attendanceRecs.filter(r => r.status === 'Present').length;
               const fees = await db.getFeesByStudent(s.id);
               const completedCycles = Math.floor(presentCount / 8);
-              const isFeeDue = completedCycles > 0 && fees.filter(f => f.isPaid).length < completedCycles;
+              const isFeeDue = completedCycles > 0 && fees.filter(f => f.status === 'Paid').length < completedCycles;
               if (isFeeDue) dueCount++;
-              dues.push(`• **${s.displayName}**: ${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ Paid up to date'} (${presentCount} classes, ${fees.filter(f => f.isPaid).length} receipts)`);
+              dues.push(`• **${s.displayName}**: ${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ Paid up to date'} (${presentCount} classes, ${fees.filter(f => f.status === 'Paid').length} receipts)`);
             }
             return await logAudit(
               { totalStudents: myStudents.length, dueCount, rosterFees: dues },
@@ -724,12 +724,10 @@ export async function executeTool(
           studentId: student.id,
           yearMonth: cyclePeriod,
           amount,
-          isPaid: true,
           status: 'Paid',
           paidDate: today,
           paymentMethod: args.paymentMethod || 'GPAY (8861751000)',
-          receiptNumber: receiptNo,
-          receiptNo
+          receiptNumber: receiptNo
         });
 
         return await logAudit(feeRecord, `✓ **Payment Confirmed & Recorded**: ₹${amount} for **${student.displayName}** (${cyclePeriod}). Receipt Number: **${receiptNo}** (${args.paymentMethod || 'GPAY'}).`, true);

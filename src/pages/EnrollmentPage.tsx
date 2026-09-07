@@ -1,3 +1,4 @@
+import { Modal } from '../components/ui/Modal';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import confetti from 'canvas-confetti';
@@ -1169,13 +1170,14 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
       </form>
 
       {/* Fallback Enrollment Success Modal (only if onSuccess not handled by parent) */}
-      {successModalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm" id="enrollment-success-modal">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border-4 border-emerald-400 text-center space-y-5"
-          >
+      <Modal
+        isOpen={Boolean(successModalData)}
+        onClose={() => setSuccessModalData(null)}
+        size="lg"
+        showCloseButton={true}
+        id="enrollment-success-modal"
+      >
+        <div className="text-center space-y-5">
             <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle className="w-10 h-10" />
             </div>
@@ -1230,9 +1232,8 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                 {enrollmentProperties.modalSuccess.goToAdminRosterBtn}
               </button>
             </div>
-          </motion.div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

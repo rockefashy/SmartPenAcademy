@@ -40,6 +40,35 @@ const sizeStyles: Record<ButtonSize, string> = {
   icon: 'min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] p-2 rounded-xl flex items-center justify-center'
 };
 
+function mergeVariantWithClassName(variantClass: string, customClassName: string): string {
+  if (!customClassName) return variantClass;
+
+  const hasCustomBg = /(?:^|\s)bg-/.test(customClassName);
+  const hasCustomText = /(?:^|\s)text-/.test(customClassName);
+  const hasCustomBorder = /(?:^|\s)border-/.test(customClassName);
+
+  const filteredVariantClasses = variantClass
+    .split(/\s+/)
+    .filter((cls) => {
+      // If caller provides a custom background, strip base variant background classes
+      if (hasCustomBg && (cls.startsWith('bg-') || cls.startsWith('from-') || cls.startsWith('to-') || cls.startsWith('via-')) && !cls.includes(':')) {
+        return false;
+      }
+      // If caller provides a custom text color, strip base variant text color classes
+      if (hasCustomText && cls.startsWith('text-') && !cls.includes(':')) {
+        return false;
+      }
+      // If caller provides a custom border, strip base variant border classes
+      if (hasCustomBorder && cls.startsWith('border') && !cls.includes(':')) {
+        return false;
+      }
+      return true;
+    })
+    .join(' ');
+
+  return `${filteredVariantClasses} ${customClassName}`;
+}
+
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
@@ -83,10 +112,9 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           inline-flex items-center justify-center transition-all cursor-pointer select-none
           touch-manipulation
           disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:active:scale-100
-          ${variantStyles[variant]}
+          ${mergeVariantWithClassName(variantStyles[variant], className)}
           ${sizeStyles[size]}
           ${fullWidth ? 'w-full' : 'w-auto'}
-          ${className}
         `.trim().replace(/\s+/g, ' ')}
         {...props}
       >

@@ -67,32 +67,41 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
       {/* Top Announcement & Direct Contact Strip */}
-      <div className="bg-gradient-to-r from-[#0E3589] via-[#0084F4] to-[#F46E20] text-white text-[11px] sm:text-xs py-1.5 px-3 sm:px-6 font-medium">
+      <div className="bg-gradient-to-r from-[#0E3589] via-[#0084F4] to-[#F46E20] text-white text-[10px] sm:text-xs py-1 sm:py-1.5 px-2.5 sm:px-6 font-medium">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
           {/* Left: Free Demo Class Announcement */}
-          <div className="flex items-center gap-2 overflow-hidden text-ellipsis whitespace-nowrap">
-            <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider shrink-0 text-amber-300">
-              Free Demo Class
-            </span>
-            <span className="font-bold text-white tracking-wide truncate">
+          <div className="flex items-center gap-2 min-w-0">
+            {onOpenDemoBooking ? (
+              <button
+                type="button"
+                onClick={onOpenDemoBooking}
+                className="bg-white/25 hover:bg-white/35 active:scale-95 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 text-amber-300 transition-all cursor-pointer border border-white/20"
+                title="Tap to Book Free Demo Class"
+              >
+                Free Demo Class
+              </button>
+            ) : (
+              <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider shrink-0 text-amber-300">
+                Free Demo Class
+              </span>
+            )}
+            <span className="font-bold text-white tracking-wide truncate hidden sm:inline text-[11px] sm:text-xs">
               Book for a Free Demo Class • All Days (4:00 PM – 7:00 PM)
             </span>
             {onOpenDemoBooking && (
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
                 onClick={onOpenDemoBooking}
-                className="hidden sm:inline-flex ml-1 px-2.5 py-0.5 bg-white text-[#0E3589] hover:bg-amber-100 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xs shrink-0 min-h-[30px]"
+                className="hidden md:inline-flex ml-1 px-2.5 py-1 bg-white text-[#0E3589] hover:bg-amber-100 active:scale-95 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xs shrink-0 cursor-pointer transition-all whitespace-nowrap"
                 id="btn-topstrip-book-demo"
               >
                 BOOK YOUR SLOT NOW →
-              </Button>
+              </button>
             )}
           </div>
 
           {/* Right: Contact Details */}
-          <div className="flex items-center gap-3 sm:gap-4 text-[11px] sm:text-xs whitespace-nowrap shrink-0">
+          <div className="hidden sm:flex items-center gap-3 sm:gap-4 text-[11px] sm:text-xs whitespace-nowrap shrink-0">
             <a
               href={`tel:${commonProperties.contact.phone}`}
               className="flex items-center gap-1 hover:text-amber-200 transition-colors font-bold text-amber-300"
@@ -124,7 +133,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
       </div>
 
       {/* Main Header Area - Logo on top-left, Permanent Enroll Now & Menu button on top-right */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3.5">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-1.5 sm:py-3">
         {/* Top Row */}
         <div className="flex items-center justify-between gap-3">
           {/* SmartPen Academy Logo */}

@@ -916,16 +916,29 @@ export class SupabaseDatabase {
     const firstName = parts[0] || 'User';
     const lastName = parts.slice(1).join(' ') || '';
 
+    // Lookup-first strategy: never overwrite an existing user's role from client-supplied data
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id, email, role, first_name, last_name, username, is_active, student_id, coach_id, display_name, phone_number')
+      .eq('email', userData.email)
+      .maybeSingle();
+
+    if (existingUser) {
+      // User exists — return without modifying role or security fields
+      return mapUserRow(existingUser);
+    }
+
+    // New user — insert with the provided role
     const { data, error } = await supabase
       .from('users')
-      .upsert({
+      .insert({
         id: targetId,
         email: userData.email,
         first_name: firstName,
         last_name: lastName,
         role: targetRole,
         is_active: true
-      }, { onConflict: 'email' })
+      })
       .select()
       .single();
 

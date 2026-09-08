@@ -395,24 +395,37 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     const lastName = coachForm.lastName.trim();
     const calculatedDisplayName = coachForm.displayName.trim() || `${firstName} ${lastName}`.trim();
 
+    const handleCoachValidationError = (msg: string, elementId?: string) => {
+      setCoachFormError(msg);
+      if (elementId) {
+        const el = document.getElementById(elementId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) {
+            el.focus({ preventScroll: true });
+          }
+        }
+      }
+    };
+
     if (!firstName && !calculatedDisplayName) {
-      setCoachFormError('Coach first name and display name are required.');
+      handleCoachValidationError('Coach first name and display name are required.', 'input-coach-first-name');
       return;
     }
     if (!coachForm.email.trim()) {
-      setCoachFormError(adminProperties.messages.coachValidationEmail || 'Coach email address is required.');
+      handleCoachValidationError(adminProperties.messages.coachValidationEmail || 'Coach email address is required.', 'input-coach-email');
       return;
     }
     if (!coachForm.phoneNumber.trim()) {
-      setCoachFormError(adminProperties.messages.coachValidationPhone || 'Primary phone number is required.');
+      handleCoachValidationError(adminProperties.messages.coachValidationPhone || 'Primary phone number is required.', 'input-coach-phone');
       return;
     }
     if (!coachForm.password || coachForm.password.trim().length < 8) {
-      setCoachFormError(adminProperties.messages.coachValidationPasswordLength || 'Initial password must be at least 8 characters.');
+      handleCoachValidationError(adminProperties.messages.coachValidationPasswordLength || 'Initial password must be at least 8 characters.', 'input-coach-password');
       return;
     }
     if (coachForm.dateOfJoining && coachForm.dateOfLeaving && new Date(coachForm.dateOfLeaving) < new Date(coachForm.dateOfJoining)) {
-      setCoachFormError('Date of leaving cannot be earlier than date of joining.');
+      handleCoachValidationError('Date of leaving cannot be earlier than date of joining.', 'input-coach-date-leaving');
       return;
     }
 

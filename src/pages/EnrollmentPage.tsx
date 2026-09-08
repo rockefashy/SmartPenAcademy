@@ -223,68 +223,81 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
     });
   };
 
+  const handleValidationError = (message: string, elementId?: string) => {
+    setErrorMessage(message);
+    if (elementId) {
+      const el = document.getElementById(elementId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) {
+          el.focus({ preventScroll: true });
+        }
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
     const calculatedDisplayName = `${firstName.trim()} ${lastName.trim()}`.trim();
     if (!firstName.trim()) {
-      setErrorMessage(enrollmentProperties.validation?.fullNameRequired || "Student's First Name is required.");
+      handleValidationError(enrollmentProperties.validation?.fullNameRequired || "Student's First Name is required.", "input-student-firstname");
       return;
     }
 
     if (!age || Number(age) <= 0 || isNaN(Number(age))) {
-      setErrorMessage(enrollmentProperties.validation.ageRequired);
+      handleValidationError(enrollmentProperties.validation.ageRequired, "input-student-age");
       return;
     }
 
     if (!parentName.trim()) {
-      setErrorMessage(enrollmentProperties.validation.parentNameRequired);
+      handleValidationError(enrollmentProperties.validation.parentNameRequired, "input-parent-name");
       return;
     }
 
     if (!whatsappMobile.trim() || whatsappMobile.trim().replace(/\D/g, '').length < 10) {
-      setErrorMessage(enrollmentProperties.validation.phoneRequired);
+      handleValidationError(enrollmentProperties.validation.phoneRequired, "input-whatsapp-mobile");
       return;
     }
 
     if (!email.trim() || !email.includes('@')) {
-      setErrorMessage(enrollmentProperties.validation.emailRequired);
+      handleValidationError(enrollmentProperties.validation.emailRequired, "input-email-login");
       return;
     }
 
     if (!isEditMode && !isSiblingEnrollment && (!password || password.length < 8)) {
-      setErrorMessage(enrollmentProperties.validation.passwordRequired);
+      handleValidationError(enrollmentProperties.validation.passwordRequired, "input-password");
       return;
     }
 
     if (isEditMode && password && password.length < 8) {
-      setErrorMessage(enrollmentProperties.validation.passwordMinLength);
+      handleValidationError(enrollmentProperties.validation.passwordMinLength, "input-password");
       return;
     }
 
     if (selectedDays.length !== 2) {
-      setErrorMessage(enrollmentProperties.validation.daysRequired);
+      handleValidationError(enrollmentProperties.validation.daysRequired, "section-4-preferred-schedule");
       return;
     }
 
     if (!preferredSlot) {
-      setErrorMessage(enrollmentProperties.validation.slotRequired);
+      handleValidationError(enrollmentProperties.validation.slotRequired, "select-preferred-slot");
       return;
     }
 
     if (scriptsRequired.length === 0) {
-      setErrorMessage(enrollmentProperties.validation.scriptRequired);
+      handleValidationError(enrollmentProperties.validation.scriptRequired, "section-3-programs-modules");
       return;
     }
 
     if (academicModules.length === 0) {
-      setErrorMessage(enrollmentProperties.validation.moduleRequired);
+      handleValidationError(enrollmentProperties.validation.moduleRequired, "section-3-programs-modules");
       return;
     }
 
     if (diagnosticObservations.length === 0) {
-      setErrorMessage(enrollmentProperties.validation.observationRequired);
+      handleValidationError(enrollmentProperties.validation.observationRequired, "section-5-areas-of-concern");
       return;
     }
 
@@ -984,7 +997,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
           </div>
 
           {/* Slot Selection */}
-          <div className="space-y-2 pt-2">
+          <div className="space-y-2 pt-2" id="select-preferred-slot">
             <label className="block text-xs font-bold text-slate-700">
               {enrollmentProperties.section4.preferredSlot} *
             </label>

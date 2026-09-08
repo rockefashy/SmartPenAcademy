@@ -16,7 +16,7 @@ export const SmartPenLogo: React.FC<LogoProps> = ({
     xs: 'h-8 sm:h-9',
     sm: 'h-10 sm:h-11',
     md: 'h-12 sm:h-14',
-    lg: 'h-14 sm:h-16 md:h-20',
+    lg: 'h-9 sm:h-14 md:h-18',
     xl: 'h-20 sm:h-24 md:h-28',
   }[size];
 

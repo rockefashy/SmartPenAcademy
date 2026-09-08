@@ -444,8 +444,8 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h1 className="text-xl sm:text-3xl font-black text-slate-900">
                 {student.displayName}
               </h1>
               <span
@@ -480,69 +480,64 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       </div>
 
       {/* 5-Section Navigational Tab Pills */}
-      <div className="bg-white p-2 rounded-3xl border border-slate-200 shadow-xs flex flex-wrap gap-2">
+      <div className="bg-white p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex overflow-x-auto no-scrollbar sm:flex-wrap gap-1.5 sm:gap-2">
         <Button
           onClick={() => setActiveTab(1)}
-          variant="ghost"
-          className={`flex-1 min-w-[140px] py-3 px-4 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            activeTab === 1
-              ? 'bg-[#0E3589] text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
+          variant={activeTab === 1 ? 'primary' : 'secondary'}
+          size="sm"
+          className={`shrink-0 sm:flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
+            activeTab === 1 ? 'shadow-md ring-2 ring-blue-300/40 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
           }`}
         >
-          <User className="w-4 h-4" />
+          <User className="w-4 h-4 shrink-0" />
           <span>{studentDetailProperties.header.tabs.section1}</span>
         </Button>
 
         <Button
           onClick={() => setActiveTab(2)}
-          variant="ghost"
-          className={`flex-1 min-w-[140px] py-3 px-4 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            activeTab === 2
-              ? 'bg-[#0E3589] text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
+          variant={activeTab === 2 ? 'primary' : 'secondary'}
+          size="sm"
+          className={`shrink-0 sm:flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
+            activeTab === 2 ? 'shadow-md ring-2 ring-blue-300/40 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
           }`}
         >
-          <Calendar className="w-4 h-4" />
+          <Calendar className="w-4 h-4 shrink-0" />
           <span>{studentDetailProperties.header.tabs.section2}</span>
         </Button>
 
         <Button
           onClick={() => setActiveTab(3)}
-          variant="ghost"
-          className={`flex-1 min-w-[140px] py-3 px-4 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            activeTab === 3
-              ? 'bg-[#0E3589] text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
+          variant={activeTab === 3 ? 'primary' : 'secondary'}
+          size="sm"
+          className={`shrink-0 sm:flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
+            activeTab === 3 ? 'shadow-md ring-2 ring-blue-300/40 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
           }`}
         >
-          <DollarSign className="w-4 h-4" />
+          <DollarSign className="w-4 h-4 shrink-0" />
           <span>{studentDetailProperties.header.tabs.section3}</span>
         </Button>
 
         <Button
           onClick={() => setActiveTab(4)}
-          variant="ghost"
-          className={`flex-1 min-w-[140px] py-3 px-4 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            activeTab === 4
-              ? 'bg-[#0E3589] text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
+          variant={activeTab === 4 ? 'primary' : 'secondary'}
+          size="sm"
+          className={`shrink-0 sm:flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
+            activeTab === 4 ? 'shadow-md ring-2 ring-blue-300/40 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
           }`}
         >
-          <Camera className="w-4 h-4" />
+          <Camera className="w-4 h-4 shrink-0" />
           <span>{studentDetailProperties.header.tabs.section4}</span>
         </Button>
 
         <Button
           onClick={() => setActiveTab(5)}
-          variant="ghost"
-          className={`flex-1 min-w-[140px] py-3 px-4 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            activeTab === 5
-              ? 'bg-[#F46E20] text-white shadow-md'
-              : 'text-slate-600 hover:bg-slate-100'
+          variant={activeTab === 5 ? 'accent' : 'secondary'}
+          size="sm"
+          className={`shrink-0 sm:flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
+            activeTab === 5 ? 'shadow-md ring-2 ring-orange-300/40 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
           }`}
         >
-          <TrendingUp className="w-4 h-4" />
+          <TrendingUp className="w-4 h-4 shrink-0" />
           <span>{studentDetailProperties.header.tabs.section5}</span>
         </Button>
       </div>

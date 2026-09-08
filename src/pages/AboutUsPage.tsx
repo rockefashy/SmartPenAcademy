@@ -28,16 +28,16 @@ interface AboutUsPageProps {
 
 export const AboutUsPage: React.FC<AboutUsPageProps> = ({ onNavigate, onOpenDemoBooking }) => {
   return (
-    <div className="space-y-16 sm:space-y-20 pb-20 overflow-hidden font-sans">
+    <div className="space-y-10 sm:space-y-16 pb-16 sm:pb-20 overflow-hidden font-sans">
       {/* Top Hero Banner */}
-      <section className="relative pt-10 sm:pt-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <section className="relative pt-3 sm:pt-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center space-y-4 max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-blue-50 border border-blue-200 text-[#0E3589] rounded-full text-xs font-bold uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5 text-[#F46E20]" />
             <span>About SmartPen Academy</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-black text-slate-900 leading-tight">
+          <h1 className="text-2xl sm:text-5xl font-black text-slate-900 leading-tight">
             Meet the Founder &amp; <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0E3589] via-[#0084F4] to-[#F46E20]">
               Our Educational Mission

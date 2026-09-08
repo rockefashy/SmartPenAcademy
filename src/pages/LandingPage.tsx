@@ -101,9 +101,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   return (
-    <div className="space-y-16 sm:space-y-24 pb-20 overflow-hidden font-sans">
+    <div className="space-y-10 sm:space-y-20 pb-16 sm:pb-20 overflow-hidden font-sans">
       {/* 1. HERO SECTION (SPLIT 2-COLUMN WITH EMBEDDED AI ASSISTANT WINDOW) */}
-      <section className="relative pt-4 sm:pt-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <section className="relative pt-2 sm:pt-8 px-3 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         {/* Background Subtle Gradient Blobs */}
         <div className="absolute top-10 left-10 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute top-20 right-10 w-96 h-96 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
@@ -114,7 +114,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
-            className="lg:col-span-7 space-y-6 text-left"
+            className="lg:col-span-7 space-y-3.5 sm:space-y-6 text-left"
           >
             {/* Top Category Badge */}
             <div className="flex flex-wrap items-center gap-2">
@@ -125,7 +125,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             {/* Main Headline */}
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 leading-[1.18] tracking-tight">
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 leading-tight tracking-tight">
               {landingProperties.hero.titlePrefix}{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0E3589] via-[#0084F4] to-[#F46E20]">
                 {landingProperties.hero.titleHighlight}
@@ -134,12 +134,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </h1>
 
             {/* Description */}
-            <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-sans max-w-xl">
+            <p className="text-xs sm:text-base text-slate-600 leading-relaxed font-sans max-w-xl">
               {landingProperties.hero.description}
             </p>
 
             {/* Key Pill Tags */}
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2 pt-0.5 sm:pt-1">
               {landingProperties.hero.featuresPill.map((pill, i) => (
                 <span
                   key={i}
@@ -221,7 +221,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* 2. SYLLABUS / CURRICULUM SECTION (7-Step Progressive Training Programme) */}
-      <section id="syllabus-section" className="scroll-mt-24 sm:scroll-mt-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <section id="syllabus-section" className="scroll-mt-16 sm:scroll-mt-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center space-y-3 max-w-3xl mx-auto mb-12">
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-blue-50 border border-blue-200 text-[#0E3589] rounded-full text-xs font-bold uppercase tracking-wider">
             <BookOpen className="w-3.5 h-3.5 text-[#F46E20]" />
@@ -298,7 +298,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* 3. SPECIALIZED WORKSHOPS SECTION */}
-      <section id="workshops-section" className="scroll-mt-24 sm:scroll-mt-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <section id="workshops-section" className="scroll-mt-16 sm:scroll-mt-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="bg-gradient-to-r from-[#0E3589] via-[#0B2A70] to-[#123E99] rounded-3xl p-6 sm:p-10 text-white shadow-2xl relative overflow-hidden">
           {/* Decorative Sparkle Blobs */}
           <div className="absolute top-0 right-0 w-80 h-80 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -427,7 +427,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* 5. TESTIMONIALS SECTION */}
-      <section id="testimonials-section" className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto scroll-mt-24 sm:scroll-mt-28">
+      <section id="testimonials-section" className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto scroll-mt-16 sm:scroll-mt-24">
         <div className="text-center space-y-3 max-w-2xl mx-auto mb-12">
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full text-xs font-bold uppercase tracking-wider">
             <Smile className="w-3.5 h-3.5" />

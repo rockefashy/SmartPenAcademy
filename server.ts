@@ -5,6 +5,8 @@ import fs from 'fs';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import { z } from 'zod';
 import { createServer as createViteServer } from 'vite';
 import { db } from './server/supabaseDb.ts';
 import { handleAIAgentChat } from './server/aiAgent.ts';
@@ -23,12 +25,17 @@ import {
 } from './server/email.ts';
 
 const app = express();
-const PORT = 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'smartpen_academy_jwt_secret_key_2026';
+const PORT = parseInt(process.env.PORT || '3000', 10);
+if (!process.env.JWT_SECRET) {
+  console.error('[FATAL] JWT_SECRET environment variable is not set. Server will not start.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
+app.use(helmet());
 
 // Static directories for folders
 const publicDir = path.join(process.cwd(), 'public');
@@ -110,6 +117,13 @@ const demoBookingRateLimiter = createRateLimiter({
   windowMs: 60 * 1000,
   max: 10,
   message: 'Demo booking rate limit reached. Please try again in a few moments.'
+});
+
+// Auth endpoint rate limiter: 10 attempts per 15 minutes per IP/user
+const authRateLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many authentication attempts. Please wait 15 minutes before trying again.'
 });
 
 // Auth Middleware (supports both httpOnly cookie and Bearer header)
@@ -413,7 +427,21 @@ const issueUserSession = async (user: any, res: Response, targetStudentId?: stri
 };
 
 // 1. Auth API - Unified Login with Multi-Account / Sibling / Role Disambiguation
-app.post('/api/auth/login', async (req, res) => {
+// Zod schema for login
+const loginSchema = z.object({
+  identifier: z.string().optional(),
+  email: z.string().optional(),
+  username: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  password: z.string().min(1, 'Password is required.'),
+  role: z.enum(['admin', 'coach', 'student']).optional(),
+});
+
+app.post('/api/auth/login', authRateLimiter, async (req, res) => {
+  const loginParse = loginSchema.safeParse(req.body);
+  if (!loginParse.success) {
+    return res.status(400).json({ error: loginParse.error.issues[0]?.message || 'Invalid request body.' });
+  }
   const { email, username, phoneNumber, identifier, password, role } = req.body;
   const loginIdentifier = identifier || email || username || phoneNumber;
   try {
@@ -758,7 +786,16 @@ app.post('/api/auth/switch-student', authenticateJwt, async (req: AuthRequest, r
 });
 
 // Request Password Reset Link (via Email with 1-hour secure token)
-app.post('/api/auth/request-reset-link', async (req, res) => {
+// Zod schema for request-reset-link
+const requestResetLinkSchema = z.object({
+  identifier: z.string().min(1, 'Registered email or username is required.'),
+});
+
+app.post('/api/auth/request-reset-link', authRateLimiter, async (req, res) => {
+  const rrlParse = requestResetLinkSchema.safeParse(req.body);
+  if (!rrlParse.success) {
+    return res.status(400).json({ error: rrlParse.error.issues[0]?.message || 'Invalid request body.' });
+  }
   const { identifier } = req.body;
   try {
     if (!identifier) {
@@ -809,7 +846,7 @@ app.post('/api/auth/request-reset-link', async (req, res) => {
       resetLink
     });
 
-    console.log(`[PASSWORD RESET] Link generated for ${user.email}: ${resetLink}`);
+    console.log(`[PASSWORD RESET] Link generated for ${user.email} (token redacted for security).`);
     recordAudit({
       actorId: user.id,
       actorUsername: user.username,
@@ -833,7 +870,17 @@ app.post('/api/auth/request-reset-link', async (req, res) => {
 });
 
 // Reset Password using Token
-app.post('/api/auth/reset-password', async (req, res) => {
+// Zod schema for reset-password
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Reset token is required.'),
+  newPassword: z.string().min(8, 'Password must be at least 8 characters.'),
+});
+
+app.post('/api/auth/reset-password', authRateLimiter, async (req, res) => {
+  const rpParse = resetPasswordSchema.safeParse(req.body);
+  if (!rpParse.success) {
+    return res.status(400).json({ error: rpParse.error.issues[0]?.message || 'Invalid request body.' });
+  }
   try {
     const { token, newPassword } = req.body;
     if (!token || !newPassword) {
@@ -1057,7 +1104,21 @@ app.patch('/api/students/:id/assign-coach', authenticateJwt, requireAdmin, async
   }
 });
 
-app.post('/api/auth/change-password', async (req, res) => {
+// Zod schema for change-password
+const changePasswordSchema = z.object({
+  email: z.string().email('Valid email is required.'),
+  currentPassword: z.string().min(1, 'Current password is required.'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters.'),
+  targetStudentId: z.string().optional(),
+  targetUserId: z.string().optional(),
+  applyToAll: z.boolean().optional(),
+});
+
+app.post('/api/auth/change-password', authenticateJwt, authRateLimiter, async (req, res) => {
+  const cpParse = changePasswordSchema.safeParse(req.body);
+  if (!cpParse.success) {
+    return res.status(400).json({ error: cpParse.error.issues[0]?.message || 'Invalid request body.' });
+  }
   try {
     const { email, currentPassword, newPassword, targetStudentId, targetUserId, applyToAll } = req.body;
     if (!email || !newPassword) {
@@ -1143,7 +1204,22 @@ app.post('/api/auth/family-students', async (req, res) => {
 });
 
 // Exchange/Harmonize Supabase Auth Session with Backend Custom JWT & httpOnly Cookie
+// Zod schema for supabase-session
+const supabaseSessionSchema = z.object({
+  email: z.string().email('Valid email is required.'),
+  displayName: z.string().optional(),
+  fullName: z.string().optional(),
+  role: z.enum(['admin', 'coach', 'student']).optional(),
+  studentId: z.string().optional(),
+  id: z.string().optional(),
+  username: z.string().optional(),
+});
+
 app.post('/api/auth/supabase-session', async (req, res) => {
+  const ssParse = supabaseSessionSchema.safeParse(req.body);
+  if (!ssParse.success) {
+    return res.status(400).json({ error: ssParse.error.issues[0]?.message || 'Invalid request body.' });
+  }
   try {
     const { email, displayName, fullName, role, studentId, id, username } = req.body;
     if (!email) {
@@ -1212,7 +1288,16 @@ app.post('/api/auth/logout', (req, res) => {
   return res.json({ success: true, message: 'Logged out successfully' });
 });
 
-app.post('/api/auth/forgot-password', async (req, res) => {
+// Zod schema for forgot-password
+const forgotPasswordSchema = z.object({
+  identifier: z.string().min(1, 'Please provide username or registered email.'),
+});
+
+app.post('/api/auth/forgot-password', authRateLimiter, async (req, res) => {
+  const fpParse = forgotPasswordSchema.safeParse(req.body);
+  if (!fpParse.success) {
+    return res.status(400).json({ error: fpParse.error.issues[0]?.message || 'Invalid request body.' });
+  }
   try {
     const { identifier } = req.body;
     if (!identifier) {

@@ -429,14 +429,34 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
         </div>
 
         {/* Schedule & Highlights Summary */}
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <div className="flex items-center gap-1.5 text-slate-700 font-semibold bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-2 ring-blue-100"></span>
-            <span>Blue ring = Enrolled Batch Day ({student.preferredDays || 'Mon/Wed/Fri'})</span>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
+          <div className="flex items-center gap-1.5 text-slate-700 font-semibold bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+            <span className="w-4 h-4 rounded-full bg-[#0E3589] text-white text-[9px] font-black flex items-center justify-center ring-2 ring-blue-200">
+              {new Date().getDate()}
+            </span>
+            <span className="text-[11px] sm:text-xs">Today</span>
           </div>
+
+          <div className="flex items-center gap-1.5 text-slate-700 font-semibold bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+            <span className="px-1.5 py-0.2 rounded bg-blue-100 text-[#0E3589] border border-blue-200 text-[9px] font-extrabold">
+              Batch
+            </span>
+            <span className="text-[11px] sm:text-xs">Enrolled Batch ({student.preferredDays || 'Mon/Wed/Fri'})</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-slate-700 font-semibold bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100"></span>
+            <span className="text-[11px] sm:text-xs font-bold text-emerald-800">Attended</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-slate-700 font-semibold bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-amber-100"></span>
+            <span className="text-[11px] sm:text-xs font-bold text-amber-800">Absent</span>
+          </div>
+
           {isAdmin && (
-            <span className="text-[11px] font-bold text-slate-500">
-              💡 Use in-cell buttons to mark, clear, or add notes
+            <span className="text-[11px] font-bold text-slate-500 w-full sm:w-auto mt-1 sm:mt-0">
+              💡 Tap any date cell to mark, edit notes, or clear records
             </span>
           )}
         </div>
@@ -445,7 +465,8 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
       {/* ========================================================================= */}
       {/* CALENDAR MONTH GRID                                                      */}
       {/* ========================================================================= */}
-      <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xs bg-white">
+      <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-xs bg-white">
+        <div className="min-w-[340px] sm:min-w-full">
         {/* Weekday Header Columns */}
         <div className="grid grid-cols-7 bg-slate-100 border-b border-slate-200 text-center text-xs font-extrabold text-slate-700 uppercase tracking-wider py-3">
           {weekDayNames.map((name, idx) => {
@@ -477,7 +498,14 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
             return (
               <div
                 key={idx}
-                className={`min-h-[110px] sm:min-h-[135px] p-2 transition-all flex flex-col justify-between relative group select-none ${
+                onClick={() => {
+                  if (isAdmin && cell.isCurrentMonth) {
+                    handleOpenNoteModal(cell.dateStr);
+                  }
+                }}
+                className={`min-h-[75px] sm:min-h-[115px] md:min-h-[135px] p-1 sm:p-2 transition-all flex flex-col justify-between relative group select-none ${
+                  isAdmin && cell.isCurrentMonth ? 'cursor-pointer hover:shadow-xs' : ''
+                } ${
                   !cell.isCurrentMonth
                     ? 'bg-slate-50/40 text-slate-300 opacity-40'
                     : isPresent
@@ -491,10 +519,10 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                 id={`calendar-cell-${cell.dateStr}`}
               >
                 {/* Top Row: Day Number + Batch Day Indicator */}
-                <div className="flex items-center justify-between gap-1">
+                <div className="flex items-center justify-between gap-0.5 sm:gap-1">
                   <div className="flex items-center gap-1">
                     <span
-                      className={`text-xs sm:text-sm font-black w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                      className={`text-[11px] sm:text-sm font-black w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center transition-all ${
                         cell.isToday
                           ? 'bg-[#0E3589] text-white shadow-2xs ring-2 ring-blue-200'
                           : isPresent
@@ -510,7 +538,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                     </span>
 
                     {cell.isToday && (
-                      <span className="hidden sm:inline-block text-[8px] font-black uppercase text-[#0E3589] bg-blue-50 px-1 py-0.2 rounded border border-blue-200">
+                      <span className="hidden md:inline-block text-[8px] font-black uppercase text-[#0E3589] bg-blue-50 px-1 py-0.2 rounded border border-blue-200">
                         Today
                       </span>
                     )}
@@ -519,7 +547,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                   {/* Scheduled Batch Day Indicator */}
                   {cell.isEnrolledDay && cell.isCurrentMonth && (
                     <span 
-                      className={`text-[8px] sm:text-[9px] font-extrabold px-1 sm:px-1.5 py-0.2 rounded-md ${
+                      className={`text-[7px] sm:text-[9px] font-extrabold px-1 sm:px-1.5 py-0.2 rounded-md ${
                         isPresent 
                           ? 'bg-emerald-200/70 text-emerald-900' 
                           : 'bg-blue-100 text-[#0E3589] border border-blue-200'
@@ -532,133 +560,98 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                 </div>
 
                 {/* Middle Content: Status Badge & Note Preview snippet */}
-                <div className="mt-1 space-y-1">
+                <div className="mt-0.5 sm:mt-1 space-y-0.5 sm:space-y-1">
                   {isPresent ? (
                     <div 
-                      onClick={() => {
-                        if (isAdmin) {
-                          handleMarkStatus(cell.dateStr, 'Absent');
-                        }
-                      }}
-                      className={`bg-emerald-500 text-white rounded-lg sm:rounded-xl px-1.5 py-0.5 sm:py-1 shadow-xs text-center flex items-center justify-center gap-1 ${
-                        isAdmin ? 'cursor-pointer hover:bg-emerald-600' : ''
-                      }`}
-                      title={isAdmin ? 'Click to toggle Absent' : 'Attended'}
+                      className="bg-emerald-500 text-white rounded sm:rounded-xl px-1 py-0.5 sm:py-1 shadow-2xs text-center flex items-center justify-center gap-0.5 sm:gap-1"
+                      title={isAdmin ? 'Attended (Tap to edit)' : 'Attended'}
                     >
-                      <span className="text-[9px] sm:text-xs font-black tracking-tight leading-none">
+                      <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
+                      <span className="text-[8px] sm:text-xs font-black tracking-tight leading-none truncate">
                         Attended
                       </span>
                     </div>
                   ) : isAbsent ? (
                     <div 
-                      onClick={() => {
-                        if (isAdmin) {
-                          handleMarkStatus(cell.dateStr, 'Present');
-                        }
-                      }}
-                      className={`bg-amber-500 text-white rounded-lg px-1.5 py-0.5 text-center shadow-2xs ${
-                        isAdmin ? 'cursor-pointer hover:bg-amber-600' : ''
-                      }`}
-                      title={isAdmin ? 'Click to mark Present' : 'Absent'}
+                      className="bg-amber-500 text-white rounded sm:rounded-lg px-1 py-0.5 text-center shadow-2xs flex items-center justify-center gap-0.5"
+                      title={isAdmin ? 'Absent (Tap to edit)' : 'Absent'}
                     >
-                      <span className="text-[9px] sm:text-[10px] font-bold">Absent</span>
+                      <X className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
+                      <span className="text-[8px] sm:text-[10px] font-bold truncate">Absent</span>
                     </div>
                   ) : cell.isEnrolledDay && cell.isCurrentMonth ? (
                     /* Enrolled Day not yet recorded */
-                    isAdmin ? (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleMarkStatus(cell.dateStr, 'Present')}
-                          disabled={isMutating}
-                          leftIcon={<Plus className="w-2.5 h-2.5" />}
-                          className="flex-1 py-1 px-1 text-[9px] sm:text-[10px] border-blue-200"
-                          title="Mark Attended"
-                        >
-                          Check
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="text-[9px] text-blue-600 font-semibold text-center bg-blue-50/50 py-0.5 rounded border border-blue-100">
-                        Scheduled
-                      </div>
-                    )
-                  ) : isAdmin && cell.isCurrentMonth ? (
-                    /* Non-enrolled day in Admin mode */
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleMarkStatus(cell.dateStr, 'Present', 'Special extra session')}
-                      disabled={isMutating}
-                      leftIcon={<Plus className="w-2 h-2" />}
-                      className="w-full py-0.5 px-1 text-[9px] opacity-0 group-hover:opacity-100"
-                      title="Mark Extra Class"
-                    >
-                      Extra
-                    </Button>
+                    <div className="text-[7px] sm:text-[9px] text-blue-600 font-semibold text-center bg-blue-50/50 py-0.5 rounded border border-blue-100 truncate">
+                      Scheduled
+                    </div>
                   ) : null}
 
                   {/* Note snippet indicator */}
                   {hasNote && (
                     <div 
-                      onClick={() => handleOpenNoteModal(cell.dateStr)}
-                      className="bg-blue-50/90 border border-blue-200 hover:border-blue-300 rounded-md p-1 cursor-pointer transition-colors text-[9px] text-[#0E3589] font-medium leading-tight flex items-start gap-1 line-clamp-1"
-                      title={`Coach Note: ${cell.record?.notes}`}
-                    >
-                      <FileText className="w-2.5 h-2.5 shrink-0 text-[#0E3589] mt-0.5" />
-                      <span className="truncate">{cell.record?.notes}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Bottom Row: IN-CELL ACTIONS FOR ADMIN (Clear & Add/Edit Note) */}
-                {isAdmin && cell.isCurrentMonth && (
-                  <div className="mt-1 pt-1 border-t border-slate-200/60 flex items-center justify-between gap-1">
-                    {/* Add / Edit Note Button */}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpenNoteModal(cell.dateStr);
                       }}
-                      disabled={isMutating}
-                      leftIcon={<Edit3 className="w-2.5 h-2.5" />}
-                      className="text-[9px] px-1.5 py-0.5"
-                      title={hasNote ? 'Edit Note' : 'Add Note'}
-                      id={`btn-note-${cell.dateStr}`}
+                      className="bg-blue-50/90 border border-blue-200 rounded p-0.5 sm:p-1 text-[7px] sm:text-[9px] text-[#0E3589] font-medium leading-tight flex items-start gap-0.5 sm:gap-1 cursor-pointer line-clamp-1"
+                      title={`Coach Note: ${cell.record?.notes}`}
                     >
-                      {hasNote ? 'Edit' : '+ Note'}
-                    </Button>
+                      <FileText className="w-2 h-2 sm:w-2.5 sm:h-2.5 shrink-0 text-[#0E3589] mt-0.5" />
+                      <span className="truncate hidden sm:inline">{cell.record?.notes}</span>
+                    </div>
+                  )}
+                </div>
 
-                    {/* Clear Button (Visible when attendance record exists) */}
-                    {hasRecord && (
-                      <Button
+                {/* Bottom Row: IN-CELL ACTIONS FOR ADMIN */}
+                {isAdmin && cell.isCurrentMonth && (
+                  <>
+                    {/* Desktop View: In-cell buttons */}
+                    <div className="hidden md:flex mt-1 pt-1 border-t border-slate-200/60 items-center justify-between gap-1">
+                      <button
                         type="button"
-                        variant="danger"
-                        size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDeleteRecord(cell.dateStr);
+                          handleOpenNoteModal(cell.dateStr);
                         }}
                         disabled={isMutating}
-                        leftIcon={<Trash2 className="w-2.5 h-2.5" />}
-                        className="text-[9px] px-1.5 py-0.5"
-                        title="Clear attendance record for this date"
-                        id={`btn-clear-${cell.dateStr}`}
+                        className="text-[9px] px-1.5 py-0.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                        title={hasNote ? 'Edit Note' : 'Add Note'}
+                        id={`btn-note-${cell.dateStr}`}
                       >
-                        Clear
-                      </Button>
-                    )}
-                  </div>
+                        <Edit3 className="w-2.5 h-2.5" />
+                        <span>{hasNote ? 'Edit' : '+ Note'}</span>
+                      </button>
+
+                      {hasRecord && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteRecord(cell.dateStr);
+                          }}
+                          disabled={isMutating}
+                          className="text-[9px] px-1.5 py-0.5 text-red-600 hover:bg-red-50 rounded font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                          title="Clear attendance record for this date"
+                          id={`btn-clear-${cell.dateStr}`}
+                        >
+                          <Trash2 className="w-2.5 h-2.5" />
+                          <span>Clear</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Mobile View: Clean Tap Hint */}
+                    <div className="md:hidden mt-0.5 text-center">
+                      <span className="text-[7px] text-slate-400 font-medium group-active:text-[#0E3589]">
+                        {hasRecord ? 'Tap to edit' : '+ Mark'}
+                      </span>
+                    </div>
+                  </>
                 )}
               </div>
             );
           })}
+        </div>
         </div>
       </div>
 
@@ -969,28 +962,51 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveNoteModalDate(null)}
-              >
-                Cancel
-              </Button>
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+              {activeNoteModalDate && attendanceMap.has(activeNoteModalDate) ? (
+                <Button
+                  type="button"
+                  variant="danger"
+                  size="sm"
+                  onClick={() => {
+                    if (activeNoteModalDate) {
+                      handleDeleteRecord(activeNoteModalDate);
+                      setActiveNoteModalDate(null);
+                    }
+                  }}
+                  isLoading={isMutating}
+                  leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                  className="text-xs"
+                >
+                  Clear Record
+                </Button>
+              ) : (
+                <div />
+              )}
 
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={handleSaveModalNote}
-                isLoading={isMutating}
-                loadingText="Saving..."
-                leftIcon={<Check className="w-3.5 h-3.5" />}
-                id="btn-save-modal-note"
-              >
-                Save Note
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActiveNoteModalDate(null)}
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSaveModalNote}
+                  isLoading={isMutating}
+                  loadingText="Saving..."
+                  leftIcon={<Check className="w-3.5 h-3.5" />}
+                  id="btn-save-modal-note"
+                >
+                  Save Note
+                </Button>
+              </div>
             </div>
         </div>
       </Modal>

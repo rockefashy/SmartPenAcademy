@@ -6,11 +6,11 @@ export const studentDetailProperties = {
     badgeActive: "Active Enrolled Student",
     badgeInactive: "Inactive Student Record",
     tabs: {
-      section1: "1. Student Profile & Status",
-      section2: "2. Attendance Tracker",
-      section3: "3. Fee Ledger & Reminders",
-      section4: "4. Camera Writing Capture",
-      section5: "5. Progress Tracker & Report Cards"
+      section1: "Profile",
+      section2: "Attendance",
+      section3: "Fee payments",
+      section4: "Camera Capture",
+      section5: "Progress Tracker"
     }
   },
 

@@ -480,65 +480,80 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       </div>
 
       {/* 5-Section Navigational Tab Pills */}
-      <div className="bg-white p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex overflow-x-auto no-scrollbar sm:flex-wrap gap-1.5 sm:gap-2">
+      <div className="bg-white p-2 sm:p-2.5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-wrap gap-1.5 sm:gap-2">
         <Button
           onClick={() => setActiveTab(1)}
-          variant={activeTab === 1 ? 'primary' : 'secondary'}
+          variant="ghost"
           size="sm"
-          className={`shrink-0 sm:flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeTab === 1 ? 'shadow-md ring-2 ring-blue-300/40 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+          leftIcon={<User className="w-4 h-4 shrink-0" />}
+          className={`flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 1
+              ? 'bg-[#0E3589] hover:bg-[#0E3589] text-white shadow-md ring-2 ring-blue-300/40'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
           }`}
+          id="tab-student-profile"
         >
-          <User className="w-4 h-4 shrink-0" />
-          <span>{studentDetailProperties.header.tabs.section1}</span>
+          {studentDetailProperties.header.tabs.section1}
         </Button>
 
         <Button
           onClick={() => setActiveTab(2)}
-          variant={activeTab === 2 ? 'primary' : 'secondary'}
+          variant="ghost"
           size="sm"
-          className={`shrink-0 sm:flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeTab === 2 ? 'shadow-md ring-2 ring-blue-300/40 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+          leftIcon={<Calendar className="w-4 h-4 shrink-0" />}
+          className={`flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 2
+              ? 'bg-[#0E3589] hover:bg-[#0E3589] text-white shadow-md ring-2 ring-blue-300/40'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
           }`}
+          id="tab-attendance-tracker"
         >
-          <Calendar className="w-4 h-4 shrink-0" />
-          <span>{studentDetailProperties.header.tabs.section2}</span>
+          {studentDetailProperties.header.tabs.section2}
         </Button>
 
         <Button
           onClick={() => setActiveTab(3)}
-          variant={activeTab === 3 ? 'primary' : 'secondary'}
+          variant="ghost"
           size="sm"
-          className={`shrink-0 sm:flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeTab === 3 ? 'shadow-md ring-2 ring-blue-300/40 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+          leftIcon={<DollarSign className="w-4 h-4 shrink-0" />}
+          className={`flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 3
+              ? 'bg-[#0E3589] hover:bg-[#0E3589] text-white shadow-md ring-2 ring-blue-300/40'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
           }`}
+          id="tab-fee-ledger"
         >
-          <DollarSign className="w-4 h-4 shrink-0" />
-          <span>{studentDetailProperties.header.tabs.section3}</span>
+          {studentDetailProperties.header.tabs.section3}
         </Button>
 
         <Button
           onClick={() => setActiveTab(4)}
-          variant={activeTab === 4 ? 'primary' : 'secondary'}
+          variant="ghost"
           size="sm"
-          className={`shrink-0 sm:flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeTab === 4 ? 'shadow-md ring-2 ring-blue-300/40 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+          leftIcon={<Camera className="w-4 h-4 shrink-0" />}
+          className={`flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 4
+              ? 'bg-[#0E3589] hover:bg-[#0E3589] text-white shadow-md ring-2 ring-blue-300/40'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
           }`}
+          id="tab-camera-capture"
         >
-          <Camera className="w-4 h-4 shrink-0" />
-          <span>{studentDetailProperties.header.tabs.section4}</span>
+          {studentDetailProperties.header.tabs.section4}
         </Button>
 
         <Button
           onClick={() => setActiveTab(5)}
-          variant={activeTab === 5 ? 'accent' : 'secondary'}
+          variant="ghost"
           size="sm"
-          className={`shrink-0 sm:flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
-            activeTab === 5 ? 'shadow-md ring-2 ring-orange-300/40 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+          leftIcon={<TrendingUp className="w-4 h-4 shrink-0" />}
+          className={`flex-1 min-w-[130px] sm:min-w-[140px] py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 5
+              ? 'bg-[#F46E20] hover:bg-[#F46E20] text-white shadow-md ring-2 ring-orange-300/40'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
           }`}
+          id="tab-progress-reports"
         >
-          <TrendingUp className="w-4 h-4 shrink-0" />
-          <span>{studentDetailProperties.header.tabs.section5}</span>
+          {studentDetailProperties.header.tabs.section5}
         </Button>
       </div>
 

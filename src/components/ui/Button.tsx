@@ -23,8 +23,8 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-gradient-to-r from-[#0E3589] to-[#0084F4] hover:from-[#092666] hover:to-[#0070d0] text-white shadow-md shadow-blue-900/10 active:scale-[0.99] border border-transparent',
-  accent: 'bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#f07b27] text-white shadow-md shadow-orange-500/20 active:scale-[0.99] border border-transparent',
+  primary: 'bg-[#0E3589] bg-gradient-to-r from-[#0E3589] to-[#0084F4] hover:from-[#092666] hover:to-[#0070d0] hover:bg-[#092666] text-white shadow-md shadow-blue-900/10 active:scale-[0.99] border border-transparent',
+  accent: 'bg-[#F46E20] bg-gradient-to-r from-[#F46E20] to-[#FF8C38] hover:from-[#e05c10] hover:to-[#f07b27] hover:bg-[#e05c10] text-white shadow-md shadow-orange-500/20 active:scale-[0.99] border border-transparent',
   secondary: 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-200 active:scale-[0.99]',
   outline: 'bg-white hover:bg-slate-50 text-slate-700 font-bold border border-slate-300 shadow-2xs active:scale-[0.99]',
   danger: 'bg-red-600 hover:bg-red-700 text-white font-bold shadow-sm shadow-red-600/20 active:scale-[0.99] border border-transparent',

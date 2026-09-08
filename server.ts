@@ -35,7 +35,12 @@ const JWT_SECRET = process.env.JWT_SECRET;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
 
 // Static directories for folders
 const publicDir = path.join(process.cwd(), 'public');
@@ -2962,7 +2967,8 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 
 // ================= VITE INTEGRATION & SERVER LIFECYCLE =================
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
+  const isProductionMode = process.env.NODE_ENV === 'production' || __dirname.includes('dist');
+  if (!isProductionMode) {
     const isHmrDisabled = process.env.DISABLE_HMR === 'true';
     const vite = await createViteServer({
       server: {

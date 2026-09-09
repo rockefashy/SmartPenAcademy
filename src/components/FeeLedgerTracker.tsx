@@ -816,7 +816,8 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
         showCloseButton={false}
         id="modal-delete-fee-confirm"
       >
-        <div className="space-y-5">
+        {feeToDelete && (
+          <div className="space-y-5">
             {/* Header */}
             <div className="flex items-start gap-3.5">
               <div className="w-10 h-10 rounded-2xl bg-rose-100 border border-rose-200 flex items-center justify-center shrink-0 text-rose-600">
@@ -904,7 +905,8 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
                 Delete Record
               </Button>
             </div>
-        </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

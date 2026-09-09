@@ -861,7 +861,8 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
         showCloseButton={false}
         id="modal-attendance-note"
       >
-        <div className="space-y-4">
+        {activeNoteModalDate && (
+          <div className="space-y-4">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
@@ -1008,7 +1009,8 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                 </Button>
               </div>
             </div>
-        </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

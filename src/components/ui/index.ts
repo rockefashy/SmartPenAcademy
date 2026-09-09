@@ -8,3 +8,5 @@ export { Textarea } from './Textarea';
 export type { TextareaProps } from './Textarea';
 export { FormField } from './FormField';
 export { Modal } from './Modal';
+export { StatCard } from './StatCard';
+export type { StatCardProps } from './StatCard';

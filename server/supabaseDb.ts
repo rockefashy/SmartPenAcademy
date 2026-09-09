@@ -17,10 +17,9 @@ import {
 } from '../src/types';
 import { serverSupabase, isServerSupabaseConfigured } from './supabase.ts';
 
-export interface PaginationParams {
-  page?: number;
-  limit?: number;
-}
+import { PaginationParams, applyOffsetPagination, applyRowCeiling, applyQueryPagination } from './pagination';
+export type { PaginationParams };
+
 
 export interface StoredUser extends User {
   passwordHash?: string;
@@ -167,10 +166,10 @@ function mapStudentRow(row: any, userRow?: any, resolvedCoachName?: string | nul
     relationship,
     modeOfLearning: row.mode_of_learning || 'In-person',
     email: userRow?.email || row.parent_email || row.email || '',
-    whatsappMobile: userRow?.phone || row.whatsapp_mobile || row.parent_phone || row.emergency_contact_phone || '',
+    whatsappMobile: userRow?.phone || row.emergency_contact_phone || '',
     emergencyContactName: row.emergency_contact_name || undefined,
-    emergencyContactPhone: row.emergency_contact_phone || row.emergency_phone || userRow?.phone || undefined,
-    emergencyPhone: row.emergency_contact_phone || row.emergency_phone || userRow?.phone || undefined,
+    emergencyContactPhone: row.emergency_contact_phone || undefined,
+    emergencyPhone: row.emergency_contact_phone || undefined,
     enrollmentDate: row.enrollment_date || row.created_at?.split('T')[0] || undefined,
     status: row.status || 'Active',
     dateOfLeaving: dateOfLeaving || undefined,
@@ -382,14 +381,11 @@ function mapFeeReminderRow(row: any): FeeReminder {
 }
 
 function mapDemoBookingRow(row: any): DemoBooking {
-  const rawAge = row.student_age !== undefined && row.student_age !== null 
-    ? row.student_age 
-    : (row.child_age !== undefined && row.child_age !== null ? row.child_age : '');
-  const cleanAge = String(rawAge).replace(/\s*(years?|yrs)\b/gi, '').trim();
+  const cleanAge = String(row.student_age !== undefined && row.student_age !== null ? row.student_age : '').replace(/\s*(years?|yrs)\b/gi, '').trim();
 
   return {
     id: row.id,
-    studentName: row.student_name || row.child_name || '',
+    studentName: row.student_name || '',
     parentName: row.parent_name || '',
     age: cleanAge,
     contactNumber: row.parent_phone || '',
@@ -420,14 +416,14 @@ function mapTestimonialRow(row: any): Testimonial {
     studentId: row.student_id || '',
     studentName: row.student_name || '',
     parentName: row.parent_name || '',
-    grade: row.grade || row.student_grade || undefined,
+    grade: row.grade || undefined,
     schoolName: undefined,
     relationship: 'Parent',
     rating: row.rating !== undefined && row.rating !== null ? Number(row.rating) : 0,
     title: row.title || undefined,
-    review: row.review || row.review_text || '',
+    review: row.review || '',
     beforeAfterTag: row.before_after_tag || undefined,
-    image: row.after_image || row.before_image || undefined,
+    image: row.image || undefined,
     mediaConsent: Boolean(row.media_consent),
     status: (row.status || 'Published') as any,
     createdAt: row.created_at || ''
@@ -439,6 +435,11 @@ function mapToolAuditLogRow(row: any): ToolAuditLog {
     id: row.id,
     userId: row.user_id || row.actor_id || '',
     userRole: row.user_role || row.actor_role || '',
+    actorId: row.user_id || row.actor_id || '',
+    actorUsername: row.actor_username || undefined,
+    actorRole: (row.user_role || row.actor_role || undefined) as any,
+    actorStudentId: row.actor_student_id || undefined,
+    executionMode: row.execution_mode || undefined,
     toolName: row.tool_name,
     arguments: row.arguments || row.input_payload || {},
     result: row.result || row.output_result || {},
@@ -644,8 +645,8 @@ export class SupabaseDatabase {
       .maybeSingle();
 
     if (error) {
-      console.warn(`[SupabaseDatabase] Error querying admin user from users table: ${error.message}`);
-      return null;
+      console.error(`[SupabaseDatabase] Error querying admin user from users table: ${error.message}`);
+      throw new Error(`Failed to query admin user: ${error.message}`);
     }
     return data ? mapUserRow(data) : null;
   }
@@ -954,16 +955,7 @@ export class SupabaseDatabase {
     const supabase = getSupabase();
     let query = supabase.from('students').select('*');
 
-    if (options?.page && options?.limit) {
-      const page = Math.max(1, options.page);
-      const limit = Math.min(Math.max(1, options.limit), 5000);
-      const from = (page - 1) * limit;
-      const to = from + limit - 1;
-      query = query.range(from, to);
-    } else {
-      // Explicit ceiling: 0..4999 to eliminate PostgREST default 1000 row clamp
-      query = query.range(0, 4999);
-    }
+    query = applyQueryPagination(query, options);
 
     const { data: students, error } = await query;
 
@@ -971,10 +963,9 @@ export class SupabaseDatabase {
       throw new Error(`Failed to fetch students from database: ${error.message}`);
     }
 
-    const { data: users } = await supabase
-      .from('users')
-      .select('*')
-      .range(0, 4999);
+    const { data: users } = await applyRowCeiling(
+      supabase.from('users').select('*')
+    );
 
     const userMap = new Map();
     (users || []).forEach((u: any) => {
@@ -982,10 +973,9 @@ export class SupabaseDatabase {
     });
 
     // Build coach map to dynamically pick coach name from coach/user table
-    const { data: coaches } = await supabase
-      .from('coaches')
-      .select('id, first_name, last_name, user_id')
-      .range(0, 4999);
+    const { data: coaches } = await applyRowCeiling(
+      supabase.from('coaches').select('id, first_name, last_name, user_id')
+    );
 
     const coachMap = new Map<string, string>();
     (coaches || []).forEach((c: any) => {
@@ -1034,36 +1024,25 @@ export class SupabaseDatabase {
       query = query.in('coach_id', targetIds);
     }
 
-    if (options?.page && options?.limit) {
-      const page = Math.max(1, options.page);
-      const limit = Math.min(Math.max(1, options.limit), 5000);
-      const from = (page - 1) * limit;
-      const to = from + limit - 1;
-      query = query.range(from, to);
-    } else {
-      // Explicit ceiling: 0..4999 to eliminate PostgREST default 1000 row clamp
-      query = query.range(0, 4999);
-    }
+    query = applyQueryPagination(query, options);
 
     const { data: students, error } = await query;
     if (error) {
       throw new Error(`Failed to fetch coach students: ${error.message}`);
     }
 
-    const { data: users } = await supabase
-      .from('users')
-      .select('*')
-      .range(0, 4999);
+    const { data: users } = await applyRowCeiling(
+      supabase.from('users').select('*')
+    );
 
     const userMap = new Map();
     (users || []).forEach((u: any) => {
       if (u.id) userMap.set(u.id, u);
     });
 
-    const { data: coaches } = await supabase
-      .from('coaches')
-      .select('id, first_name, last_name, user_id')
-      .range(0, 4999);
+    const { data: coaches } = await applyRowCeiling(
+      supabase.from('coaches').select('id, first_name, last_name, user_id')
+    );
 
     const coachMap = new Map<string, string>();
     (coaches || []).forEach((c: any) => {
@@ -1588,28 +1567,35 @@ export class SupabaseDatabase {
     const supabase = getSupabase();
 
     // 1. Fetch coaches from dedicated `coaches` table using explicit projection
-    const { data: coachesData, error: coachError } = await supabase
-      .from('coaches')
-      .select('id, user_id, first_name, last_name, email, phone, address, date_of_joining, status, date_of_leaving, educational_qualification, designation, specializations, emergency_contact_name, emergency_contact_phone, notes, created_at, updated_at')
-      .order('created_at', { ascending: false })
-      .range(0, 4999);
+    const { data: coachesData, error: coachError } = await applyRowCeiling(
+      supabase
+        .from('coaches')
+        .select('id, user_id, first_name, last_name, email, phone, address, date_of_joining, status, date_of_leaving, educational_qualification, designation, specializations, emergency_contact_name, emergency_contact_phone, notes, created_at, updated_at')
+        .order('created_at', { ascending: false })
+    );
 
     if (coachError) {
-      console.warn(`[SupabaseDatabase] Warning fetching from coaches table: ${coachError.message}`);
+      console.error(`[SupabaseDatabase] Error fetching from coaches table: ${coachError.message}`);
+      throw new Error(`Failed to fetch coaches from database: ${coachError.message}`);
     }
 
     // 2. Fetch coach users from users table using explicit projection
-    const { data: coachUsers } = await supabase
-      .from('users')
-      .select('id, email, first_name, last_name, phone, role, is_active, created_at')
-      .eq('role', 'coach')
-      .range(0, 4999);
+    const { data: coachUsers, error: userError } = await applyRowCeiling(
+      supabase
+        .from('users')
+        .select('id, email, first_name, last_name, phone, role, is_active, created_at')
+        .eq('role', 'coach')
+    );
+
+    if (userError) {
+      console.error(`[SupabaseDatabase] Error fetching coach users from users table: ${userError.message}`);
+    }
 
     const { data: students } = await supabase
       .from('students')
       .select('id, coach_id');
 
-    const coachesMap = new Map<string, any>();
+    const coachesList = coachesData || [];
     const userLookupByUserId = new Map<string, any>();
 
     (coachUsers || []).forEach((u: any) => {
@@ -1617,40 +1603,21 @@ export class SupabaseDatabase {
       if (u.email) userLookupByUserId.set(u.email.toLowerCase(), u);
     });
 
-    // Add records from coaches table
-    (coachesData || []).forEach((c: any) => {
-      coachesMap.set(c.id, c);
-    });
-
-    // Populate any legacy coach users not yet in coaches table
+    // Data integrity validation: Detect and LOG orphaned coach users who lack a coaches table record.
+    // In accordance with Section 3 (NO MOCK / NO FALLBACK DATA), we NEVER synthesize fake records.
     if (coachUsers && coachUsers.length > 0) {
       for (const u of coachUsers) {
-        const existing = coachesMap.get(u.id);
-
-        if (!existing) {
-          const firstName = u.first_name || 'Coach';
-          const lastName = u.last_name || '';
-          const coachId = u.id;
-          const syntheticCoach = {
-            id: coachId,
-            user_id: u.id,
-            first_name: firstName,
-            last_name: lastName,
-            status: u.is_active !== false ? 'Active' : 'Inactive',
-            designation: (u as any).designation || 'Principal Coach',
-            specializations: ['Cursive Writing', 'Speed Enhancement', 'Print Script Mastery'],
-            created_at: u.created_at || new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-          coachesMap.set(syntheticCoach.id, syntheticCoach);
+        const matchesCoach = coachesList.some(
+          (c: any) => c.id === u.id || c.user_id === u.id || (c.email && u.email && c.email.toLowerCase() === u.email.toLowerCase())
+        );
+        if (!matchesCoach) {
+          console.error(`[DATA_INTEGRITY_ANOMALY] User "${u.id}" (${u.email}) has role='coach' in users table but no corresponding profile exists in the coaches table.`);
         }
       }
     }
 
-    // Deduplicate unique coaches by id
-    const uniqueCoaches = Array.from(coachesMap.values());
-
-    return uniqueCoaches.map((c: any) => {
+    // Return real coach records from coaches table (single source of truth)
+    return coachesList.map((c: any) => {
       const assignedCount = (students || []).filter((s: any) => s.coach_id === c.id).length;
       const linkedUser = (c.user_id && userLookupByUserId.get(c.user_id)) || userLookupByUserId.get(c.id) || (c.email ? userLookupByUserId.get(c.email.toLowerCase()) : null);
       return mapCoachRow(c, assignedCount, linkedUser);
@@ -1680,14 +1647,14 @@ export class SupabaseDatabase {
           firstName: c.first_name || undefined,
           lastName: c.last_name || undefined,
           displayName: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Coach',
-          designation: c.designation || 'Principal Coach',
-          specializations: Array.isArray(c.specializations) ? c.specializations : ['Cursive Writing', 'Speed Enhancement', 'Print Script Mastery'],
+          designation: c.designation || '',
+          specializations: Array.isArray(c.specializations) ? c.specializations : [],
           educationalQualification: c.educational_qualification || undefined,
           status: c.status || 'Active'
         }));
       }
-    } catch {
-      // Fallback to direct table query
+    } catch (err: any) {
+      console.error('[SupabaseDatabase] Notice querying public_coaches view:', err?.message || err);
     }
 
     // 2. Direct table query strictly projecting public fields
@@ -1696,15 +1663,18 @@ export class SupabaseDatabase {
       .select('id, first_name, last_name, designation, specializations, educational_qualification, status')
       .eq('status', 'Active');
 
-    if (error || !data) return [];
+    if (error) {
+      console.error(`[SupabaseDatabase] Error fetching public coaches from coaches table: ${error.message}`);
+      throw new Error(`Failed to fetch public coaches: ${error.message}`);
+    }
 
-    return data.map((c: any) => ({
+    return (data || []).map((c: any) => ({
       id: c.id,
       firstName: c.first_name || undefined,
       lastName: c.last_name || undefined,
       displayName: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Coach',
-      designation: c.designation || 'Principal Coach',
-      specializations: Array.isArray(c.specializations) ? c.specializations : ['Cursive Writing', 'Speed Enhancement', 'Print Script Mastery'],
+      designation: c.designation || '',
+      specializations: Array.isArray(c.specializations) ? c.specializations : [],
       educationalQualification: c.educational_qualification || undefined,
       status: c.status || 'Active'
     }));
@@ -2158,7 +2128,7 @@ export class SupabaseDatabase {
       })
       .eq('id', studentId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       throw new Error(`Failed to assign coach: ${error.message}`);
@@ -2210,14 +2180,7 @@ export class SupabaseDatabase {
       }
     }
 
-    if (options?.page && options?.limit) {
-      const page = Math.max(1, options.page);
-      const limit = Math.min(Math.max(1, options.limit), 5000);
-      query = query.range((page - 1) * limit, page * limit - 1);
-    } else {
-      // Explicit ceiling: 0..4999 to eliminate PostgREST default 1000 row clamp
-      query = query.range(0, 4999);
-    }
+    query = applyQueryPagination(query, options);
 
     const { data, error } = await query;
 
@@ -2235,14 +2198,7 @@ export class SupabaseDatabase {
       .eq('student_id', studentId)
       .order('date', { ascending: true });
 
-    if (options?.page && options?.limit) {
-      const page = Math.max(1, options.page);
-      const limit = Math.min(Math.max(1, options.limit), 5000);
-      query = query.range((page - 1) * limit, page * limit - 1);
-    } else {
-      // Explicit ceiling: 0..4999 to eliminate PostgREST default 1000 row clamp
-      query = query.range(0, 4999);
-    }
+    query = applyQueryPagination(query, options);
 
     const { data, error } = await query;
 
@@ -2315,21 +2271,30 @@ export class SupabaseDatabase {
   }
 
   // ================= FEES =================
-  async getFeesByMonth(yearMonth: string, options?: PaginationParams): Promise<FeeRecord[]> {
+  async getFeesByMonth(
+    yearMonth: string,
+    options?: PaginationParams & { studentIds?: string[] }
+  ): Promise<FeeRecord[]> {
     const supabase = getSupabase();
+    if (options?.studentIds && options.studentIds.length === 0) {
+      return [];
+    }
+
     let query = supabase
       .from('fees')
       .select('*')
       .or(`year_month.eq.${yearMonth},date.gte.${yearMonth}-01,paid_date.gte.${yearMonth}-01`);
 
-    if (options?.page && options?.limit) {
-      const page = Math.max(1, options.page);
-      const limit = Math.min(Math.max(1, options.limit), 5000);
-      query = query.range((page - 1) * limit, page * limit - 1);
-    } else {
-      // Explicit ceiling: 0..4999 to eliminate PostgREST default 1000 row clamp
-      query = query.range(0, 4999);
+    // Database-level scoping for coach assigned students
+    if (options?.studentIds && options.studentIds.length > 0) {
+      if (options.studentIds.length === 1) {
+        query = query.eq('student_id', options.studentIds[0]);
+      } else {
+        query = query.in('student_id', options.studentIds);
+      }
     }
+
+    query = applyQueryPagination(query, options);
 
     const { data, error } = await query;
 
@@ -2347,14 +2312,7 @@ export class SupabaseDatabase {
       .eq('student_id', studentId)
       .order('paid_date', { ascending: false });
 
-    if (options?.page && options?.limit) {
-      const page = Math.max(1, options.page);
-      const limit = Math.min(Math.max(1, options.limit), 5000);
-      query = query.range((page - 1) * limit, page * limit - 1);
-    } else {
-      // Explicit ceiling: 0..4999 to eliminate PostgREST default 1000 row clamp
-      query = query.range(0, 4999);
-    }
+    query = applyQueryPagination(query, options);
 
     const { data, error } = await query;
 
@@ -2362,6 +2320,20 @@ export class SupabaseDatabase {
       throw new Error(`Failed to fetch fees for student ${studentId}: ${error.message}`);
     }
     return (data || []).map(mapFeeRow);
+  }
+
+  async findFeeById(id: string): Promise<FeeRecord | null> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('fees')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to find fee record ${id}: ${error.message}`);
+    }
+    return data ? mapFeeRow(data) : null;
   }
 
   async saveFeeRecord(fee: Partial<FeeRecord>): Promise<FeeRecord> {
@@ -2463,7 +2435,7 @@ export class SupabaseDatabase {
       .update(updateData)
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       throw new Error(`Failed to update fee record ${id}: ${error.message}`);
@@ -2495,8 +2467,8 @@ export class SupabaseDatabase {
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.warn(`[SupabaseDatabase] Warning fetching progress trackers: ${error.message}`);
-      return [];
+      console.error(`[SupabaseDatabase] Error fetching progress trackers for student ${studentId}: ${error.message}`);
+      throw new Error(`Failed to fetch progress trackers: ${error.message}`);
     }
     return (data || []).map(mapProgressTrackerRow);
   }
@@ -2780,11 +2752,12 @@ export class SupabaseDatabase {
   // ================= FREE DEMO CLASS BOOKINGS =================
   async getDemoBookings(): Promise<DemoBooking[]> {
     const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from('demo_bookings')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(0, 4999);
+    const { data, error } = await applyRowCeiling(
+      supabase
+        .from('demo_bookings')
+        .select('*')
+        .order('created_at', { ascending: false })
+    );
 
     if (error) {
       throw new Error(`Failed to fetch demo bookings: ${error.message}`);
@@ -2923,11 +2896,12 @@ export class SupabaseDatabase {
   // ================= ADMIN ALERTS =================
   async getAlerts(): Promise<AdminAlert[]> {
     const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from('alerts')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(0, 4999);
+    const { data, error } = await applyRowCeiling(
+      supabase
+        .from('alerts')
+        .select('*')
+        .order('created_at', { ascending: false })
+    );
 
     if (error) {
       throw new Error(`Failed to fetch alerts: ${error.message}`);
@@ -2986,7 +2960,9 @@ export class SupabaseDatabase {
       query = query.eq('status', status);
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false }).range(0, 4999);
+    const { data, error } = await applyRowCeiling(
+      query.order('created_at', { ascending: false })
+    );
     if (error) {
       throw new Error(`Failed to fetch testimonials: ${error.message}`);
     }
@@ -3071,22 +3047,44 @@ export class SupabaseDatabase {
     const rawUserId = log.userId || log.actorId;
     const userId = (!rawUserId || rawUserId === 'system') ? 'anonymous' : rawUserId;
 
-    const row = {
+    const row: any = {
       id,
       user_id: userId,
+      user_role: log.actorRole || log.userRole || 'student',
+      actor_student_id: log.actorStudentId || null,
+      execution_mode: log.executionMode || 'remote_gemini',
       tool_name: log.toolName || log.action || 'system_action',
       action_summary: log.actionSummary || log.summary || '',
+      arguments: log.arguments || {},
       input_payload: log.arguments || {},
+      result: log.result || {},
       output_result: log.result || {},
       status: log.status || (log.success !== false ? 'success' : 'failed'),
       created_at: new Date().toISOString()
     };
+    if (log.actorUsername) {
+      row.actor_username = log.actorUsername;
+    }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('tool_audit_logs')
       .insert(row)
       .select()
       .single();
+
+    // If actor_username column is not yet present on tool_audit_logs (prior to migration 006 execution), retry without actor_username
+    if (error && error.message && error.message.includes('actor_username')) {
+      console.warn('[SupabaseDatabase] Warning: public.tool_audit_logs.actor_username column missing in database; falling back to schema-compatible row without actor_username. Run migration 006 to enable actor_username recording.');
+      const fallbackRow = { ...row };
+      delete fallbackRow.actor_username;
+      const retryResult = await supabase
+        .from('tool_audit_logs')
+        .insert(fallbackRow)
+        .select()
+        .single();
+      data = retryResult.data;
+      error = retryResult.error;
+    }
 
     if (error) {
       console.error(`[SupabaseDatabase] Fatal error recording tool audit log: ${error.message}`);
@@ -3104,13 +3102,10 @@ export class SupabaseDatabase {
       .order('created_at', { ascending: false });
 
     if (typeof options === 'object' && options !== null && options.page && options.limit) {
-      const page = Math.max(1, options.page);
-      const limit = Math.min(Math.max(1, options.limit), 5000);
-      query = query.range((page - 1) * limit, page * limit - 1);
+      query = applyOffsetPagination(query, options.page, options.limit);
     } else {
-      const limit = typeof options === 'number' ? Math.min(options, 5000) : (options?.limit ? Math.min(options.limit, 5000) : 50);
-      // Explicit ceiling: up to 5000 rows
-      query = query.range(0, Math.min(limit - 1, 4999));
+      const limit = typeof options === 'number' ? options : (options?.limit || 50);
+      query = applyOffsetPagination(query, 1, limit);
     }
 
     const { data, error } = await query;
@@ -3159,12 +3154,23 @@ export class SupabaseDatabase {
     return count || 0;
   }
 
-  async getFeesCountByMonth(yearMonth: string): Promise<number> {
+  async getFeesCountByMonth(yearMonth: string, studentIds?: string[]): Promise<number> {
+    if (studentIds && studentIds.length === 0) return 0;
     const supabase = getSupabase();
-    const { count, error } = await supabase
+    let query = supabase
       .from('fees')
       .select('*', { count: 'exact', head: true })
       .or(`year_month.eq.${yearMonth},date.gte.${yearMonth}-01,paid_date.gte.${yearMonth}-01`);
+
+    if (studentIds && studentIds.length > 0) {
+      if (studentIds.length === 1) {
+        query = query.eq('student_id', studentIds[0]);
+      } else {
+        query = query.in('student_id', studentIds);
+      }
+    }
+
+    const { count, error } = await query;
     if (error) return 0;
     return count || 0;
   }

@@ -1,4 +1,4 @@
-import { Modal, Button, Input, Select, Textarea, FormField } from '../components/ui';
+import { Modal, Button, Input, Select, Textarea, FormField, StatCard } from '../components/ui';
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
@@ -835,6 +835,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 setActiveTab('coachEnrollment');
               }}
               variant="primary"
+              size="sm"
               id="btn-admin-enroll-coach"
             >
               <UserPlus className="w-4 h-4 text-orange-400" />
@@ -847,6 +848,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 setActiveTab('studentEnrollment');
               }}
               variant="accent"
+              size="sm"
               id="btn-admin-enroll"
             >
               <UserPlus className="w-4 h-4" />
@@ -896,20 +898,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
       {/* Module Navigation Tabs (Roster vs Coach Assignment vs Coach Enrollment vs Alerts) */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-2">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <Button
             onClick={() => setActiveTab('roster')}
             variant="ghost"
-            className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all cursor-pointer w-full sm:w-auto ${
               activeTab === 'roster'
                 ? 'bg-[#0E3589] text-white shadow-md'
                 : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
             }`}
             id="tab-btn-student-roster"
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-4 h-4 shrink-0" />
             <span>{isCoach ? 'My Assigned Students' : 'Student Roster'}</span>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold shrink-0 ${
               activeTab === 'roster' ? 'bg-white/20 text-white' : 'bg-blue-100 text-[#0E3589]'
             }`}>
               {students.length}
@@ -921,28 +923,30 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               <Button
                 onClick={() => setActiveTab('assignment')}
                 variant="ghost"
-                className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all cursor-pointer ${
+                className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all cursor-pointer w-full sm:w-auto ${
                   activeTab === 'assignment'
                     ? 'bg-[#0E3589] text-white shadow-md'
                     : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
                 }`}
                 id="tab-btn-coach-assignment"
               >
-                <Layers className="w-4 h-4 text-emerald-400" />
-                <span>Coach Assignment</span>
-                {unassignedStudentsCount > 0 ? (
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-extrabold ${
-                    activeTab === 'assignment' ? 'bg-amber-400 text-slate-900' : 'bg-amber-100 text-amber-900 border border-amber-300'
-                  }`}>
-                    {unassignedStudentsCount} Unassigned
-                  </span>
-                ) : (
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                    activeTab === 'assignment' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
-                  }`}>
-                    All Assigned
-                  </span>
-                )}
+                <Layers className="w-4 h-4 text-emerald-400 shrink-0" />
+                <div className="flex flex-col items-center sm:items-start leading-tight">
+                  <span>Coach Assignment</span>
+                  {unassignedStudentsCount > 0 ? (
+                    <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full mt-0.5 ${
+                      activeTab === 'assignment' ? 'bg-amber-400 text-slate-900' : 'bg-amber-100 text-amber-900 border border-amber-300'
+                    }`}>
+                      {unassignedStudentsCount} Unassigned
+                    </span>
+                  ) : (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 ${
+                      activeTab === 'assignment' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      All Assigned
+                    </span>
+                  )}
+                </div>
               </Button>
 
               <Button
@@ -951,16 +955,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   loadCoaches();
                 }}
                 variant="ghost"
-                className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all cursor-pointer ${
+                className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all cursor-pointer w-full sm:w-auto ${
                   activeTab === 'coaches'
                     ? 'bg-[#0E3589] text-white shadow-md'
                     : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
                 }`}
                 id="tab-btn-coach-directory"
               >
-                <ShieldCheck className="w-4 h-4 text-[#F46E20]" />
+                <ShieldCheck className="w-4 h-4 text-[#F46E20] shrink-0" />
                 <span>Coach Directory</span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold shrink-0 ${
                   activeTab === 'coaches' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
                 }`}>
                   {coaches.length}
@@ -973,17 +977,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   loadAlertsAndBookings();
                 }}
                 variant="ghost"
-                className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all cursor-pointer relative ${
+                className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all cursor-pointer relative w-full sm:w-auto ${
                   activeTab === 'alerts'
                     ? 'bg-[#F46E20] text-white shadow-md'
                     : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
                 }`}
                 id="tab-btn-admin-alerts"
               >
-                <BellRing className="w-4 h-4" />
+                <BellRing className="w-4 h-4 shrink-0" />
                 <span>Alerts &amp; Demos</span>
                 {(unreadAlertsCount > 0 || newBookingsCount > 0) && (
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-extrabold animate-pulse ${
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-extrabold animate-pulse shrink-0 ${
                     activeTab === 'alerts' ? 'bg-white text-[#F46E20]' : 'bg-red-500 text-white'
                   }`}>
                     {newBookingsCount > 0 ? `${newBookingsCount} New` : unreadAlertsCount}
@@ -1438,36 +1442,25 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       {activeTab === 'assignment' && (
         <div className="space-y-6">
           {/* Workload Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-blue-100 text-[#0E3589] flex items-center justify-center font-bold">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-2xl font-black text-slate-900">{coaches.length}</p>
-                <p className="text-xs font-bold text-slate-500">Registered Coaches</p>
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-xs flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                <UserCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-2xl font-black text-emerald-700">{assignedStudentsCount}</p>
-                <p className="text-xs font-bold text-slate-500">Students Assigned to Coaches</p>
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-2xl border border-amber-200 shadow-xs flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
-                <BadgeAlert className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-2xl font-black text-amber-800">{unassignedStudentsCount}</p>
-                <p className="text-xs font-bold text-slate-500">Students Pending Assignment</p>
-              </div>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+            <StatCard
+              icon={<ShieldCheck className="w-4 h-4" />}
+              value={coaches.length}
+              label="Registered Coaches"
+              colorScheme="blue"
+            />
+            <StatCard
+              icon={<UserCheck className="w-4 h-4" />}
+              value={assignedStudentsCount}
+              label="Students Assigned to Coaches"
+              colorScheme="emerald"
+            />
+            <StatCard
+              icon={<BadgeAlert className="w-4 h-4" />}
+              value={unassignedStudentsCount}
+              label="Students Pending Assignment"
+              colorScheme="amber"
+            />
           </div>
 
           {/* Assignment Search & Filter Toolbar */}
@@ -2564,73 +2557,56 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       {activeTab === 'alerts' && (
         <div className="space-y-6">
           {/* Alerts Header & Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-2xl border-2 border-orange-200 shadow-xs flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-100 text-[#F46E20] flex items-center justify-center font-bold">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xl font-black text-[#F46E20]">{demoBookings.length}</p>
-                <p className="text-[11px] font-bold text-slate-500">{adminProperties.alertsModule.stats.totalBookings}</p>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-red-200 shadow-xs flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center font-bold">
-                <AlertCircle className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xl font-black text-red-600">{newBookingsCount}</p>
-                <p className="text-[11px] font-bold text-slate-500">{adminProperties.alertsModule.stats.newBookings}</p>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-blue-200 shadow-xs flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 text-[#0E3589] flex items-center justify-center font-bold">
-                <CalendarCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xl font-black text-[#0E3589]">
-                  {demoBookings.filter(b => b.status === 'Scheduled').length}
-                </p>
-                <p className="text-[11px] font-bold text-slate-500">{adminProperties.alertsModule.stats.scheduled}</p>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-xs flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                <CheckCircle className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xl font-black text-emerald-700">
-                  {demoBookings.filter(b => b.status === 'Enrolled').length}
-                </p>
-                <p className="text-[11px] font-bold text-slate-500">{adminProperties.alertsModule.stats.enrolled}</p>
-              </div>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+            <StatCard
+              icon={<Clock className="w-4 h-4" />}
+              value={demoBookings.length}
+              label={adminProperties.alertsModule.stats.totalBookings}
+              colorScheme="orange"
+            />
+            <StatCard
+              icon={<AlertCircle className="w-4 h-4" />}
+              value={newBookingsCount}
+              label={adminProperties.alertsModule.stats.newBookings}
+              colorScheme="red"
+            />
+            <StatCard
+              icon={<CalendarCheck className="w-4 h-4" />}
+              value={demoBookings.filter(b => b.status === 'Scheduled').length}
+              label={adminProperties.alertsModule.stats.scheduled}
+              colorScheme="blue"
+            />
+            <StatCard
+              icon={<CheckCircle className="w-4 h-4" />}
+              value={demoBookings.filter(b => b.status === 'Enrolled').length}
+              label={adminProperties.alertsModule.stats.enrolled}
+              colorScheme="emerald"
+            />
           </div>
 
           {/* Quick Filter & Actions Toolbar */}
-          <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             {/* Filter Pills */}
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-col gap-2 w-full md:w-auto">
               <span className="text-xs font-bold text-slate-500">Filter Inquiries:</span>
-              {(['All', 'New', 'Contacted', 'Scheduled', 'Enrolled'] as const).map((filterOpt) => (
-                <Button
-                  key={filterOpt}
-                  type="button"
-                  variant={alertFilter === filterOpt ? 'primary' : 'secondary'}
-                  size="sm"
-                  onClick={() => setAlertFilter(filterOpt)}
-                  className={`rounded-xl text-xs font-bold ${
-                    alertFilter === filterOpt
-                      ? 'bg-[#0E3589] text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {filterOpt}
-                </Button>
-              ))}
+              <div className="flex items-center gap-1 sm:gap-2 flex-nowrap w-full sm:w-auto">
+                {(['All', 'New', 'Contacted', 'Scheduled', 'Enrolled'] as const).map((filterOpt) => (
+                  <Button
+                    key={filterOpt}
+                    type="button"
+                    variant={alertFilter === filterOpt ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => setAlertFilter(filterOpt)}
+                    className={`rounded-xl text-[11px] sm:text-xs font-bold !px-1.5 sm:!px-3 py-1 sm:py-1.5 flex-1 sm:flex-initial text-center justify-center ${
+                      alertFilter === filterOpt
+                        ? 'bg-[#0E3589] text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {filterOpt}
+                  </Button>
+                ))}
+              </div>
             </div>
 
             {/* Actions */}

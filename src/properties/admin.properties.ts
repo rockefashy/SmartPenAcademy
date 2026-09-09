@@ -5,7 +5,7 @@ export const adminProperties = {
     academyInfo: "SmartPen Academy Management Portal • Founded by Mrs. Deepthy Rock",
     exportExcelBtn: "Export Roster (CSV)",
     newCoachEnrollBtn: "+ Enroll Coach",
-    newStudentEnrollBtn: "+ Enroll New Student",
+    newStudentEnrollBtn: "+ Enroll Student",
     quickStats: {
       totalEnrolled: "Total Students",
       activeStudents: "Active Learners",

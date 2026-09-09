@@ -109,7 +109,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         aria-busy={isLoading}
         onClick={handleClick}
         className={`
-          inline-flex items-center justify-center transition-all cursor-pointer select-none
+          inline-flex flex-row flex-nowrap items-center justify-center transition-all cursor-pointer select-none whitespace-nowrap
           touch-manipulation
           disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:active:scale-100
           ${mergeVariantWithClassName(variantStyles[variant], className)}
@@ -121,13 +121,13 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {isLoading ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-            {loadingText ? <span>{loadingText}</span> : children ? <span>{children}</span> : null}
+            {loadingText ? <span>{loadingText}</span> : children ? <span className="inline-flex flex-row flex-nowrap items-center gap-1.5 whitespace-nowrap">{children}</span> : null}
           </>
         ) : (
           <>
-            {leftIcon && <span className="shrink-0">{leftIcon}</span>}
-            {children && <span>{children}</span>}
-            {rightIcon && <span className="shrink-0">{rightIcon}</span>}
+            {leftIcon && <span className="shrink-0 inline-flex items-center">{leftIcon}</span>}
+            {children && <span className="inline-flex flex-row flex-nowrap items-center gap-1.5 whitespace-nowrap">{children}</span>}
+            {rightIcon && <span className="shrink-0 inline-flex items-center">{rightIcon}</span>}
           </>
         )}
       </button>

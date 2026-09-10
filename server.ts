@@ -9,6 +9,7 @@ import helmet from 'helmet';
 import { z } from 'zod';
 import { createServer as createViteServer } from 'vite';
 import { sendPaginated } from './server/pagination.ts';
+import { AuditExecutionMode } from './src/types.ts';
 import { db } from './server/supabaseDb.ts';
 import { handleAIAgentChat } from './server/aiAgent.ts';
 import { Logger } from './server/logger.ts';
@@ -310,7 +311,7 @@ export async function recordAudit(params: {
   arguments?: Record<string, any>;
   result?: Record<string, any> | null;
   status?: 'success' | 'failed';
-  executionMode?: 'remote_gemini' | 'local_agent' | 'direct_api';
+  executionMode?: AuditExecutionMode;
 }) {
   // Sanitize sensitive fields from arguments to protect user credentials
   const sanitizedArgs: Record<string, any> = {};
@@ -1190,22 +1191,35 @@ app.patch('/api/students/:id/assign-coach', authenticateJwt, requireAdmin, async
     throw new ValidationError(parsed.error.issues[0]?.message || 'Invalid coach assignment payload');
   }
   const { coachId } = parsed.data;
-  const updatedStudent = await db.assignCoachToStudent(req.params.id, coachId || null);
-  if (!updatedStudent) {
-    throw new NotFoundError('Student not found.');
+  try {
+    const updatedStudent = await db.assignCoachToStudent(req.params.id, coachId || null);
+    if (!updatedStudent) {
+      throw new NotFoundError('Student not found.');
+    }
+
+    recordAudit({
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
+      action: 'student_assign_coach',
+      summary: `Assigned coach ${coachId || 'None'} to student ${updatedStudent.displayName} (${req.params.id})`,
+      arguments: { studentId: req.params.id, coachId },
+      result: { studentId: req.params.id, coachId, assignmentChanged: updatedStudent.assignmentChanged }
+    });
+
+    return res.json(updatedStudent);
+  } catch (err: any) {
+    if (err.message === 'Student not found') {
+      throw new NotFoundError('Student not found.');
+    }
+    if (err.message === 'Coach not found') {
+      throw new NotFoundError('Coach not found.');
+    }
+    if (err.message?.includes('Cannot assign')) {
+      throw new ValidationError(err.message);
+    }
+    throw err;
   }
-
-  recordAudit({
-    actorId: req.user?.id,
-    actorUsername: req.user?.username,
-    actorRole: req.user?.role,
-    action: 'student_assign_coach',
-    summary: `Assigned coach ${coachId || 'None'} to student ${updatedStudent.displayName} (${req.params.id})`,
-    arguments: { studentId: req.params.id, coachId },
-    result: { studentId: req.params.id, coachId }
-  });
-
-  return res.json(updatedStudent);
 }));
 
 // Zod schema for change-password
@@ -2094,7 +2108,7 @@ const createFeeSchema = z.object({
   paidDate: z.string().optional(),
   yearMonth: z.string().optional(),
   milestone: z.string().optional(),
-  status: z.enum(['Paid', 'Pending', 'Overdue']).optional(),
+  status: z.enum(['Paid', 'Pending', 'Overdue', 'Waived']).optional(),
   receiptNumber: z.string().optional(),
   paymentMethod: z.string().optional(),
   notes: z.string().optional()
@@ -2107,7 +2121,7 @@ const updateFeeSchema = z.object({
   paidDate: z.string().optional(),
   yearMonth: z.string().optional(),
   milestone: z.string().optional(),
-  status: z.enum(['Paid', 'Pending', 'Overdue']).optional(),
+  status: z.enum(['Paid', 'Pending', 'Overdue', 'Waived']).optional(),
   receiptNumber: z.string().optional(),
   paymentMethod: z.string().optional(),
   notes: z.string().optional()

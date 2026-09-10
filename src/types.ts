@@ -141,7 +141,7 @@ export interface FeeRecord {
   milestone?: string;
   period?: string;
   cycleNumber?: number;
-  status: 'Paid' | 'Pending' | 'Overdue';
+  status: 'Paid' | 'Pending' | 'Overdue' | 'Waived';
   paidDate?: string; // YYYY-MM-DD
   amount: number;
   paymentMethod?: string;
@@ -308,6 +308,8 @@ export interface Testimonial {
   updatedAt?: string;
 }
 
+export type AuditExecutionMode = 'remote_gemini' | 'local_agent' | 'direct_api';
+
 export interface ToolAuditLog {
   id: string;
   timestamp?: string;
@@ -324,7 +326,7 @@ export interface ToolAuditLog {
   actionSummary?: string;
   status?: string;
   success?: boolean;
-  executionMode?: 'remote_gemini' | 'local_agent' | 'direct_api';
+  executionMode?: AuditExecutionMode;
   ipAddress?: string;
   createdAt?: string;
 }

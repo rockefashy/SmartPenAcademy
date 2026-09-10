@@ -18,7 +18,7 @@ import { StudentDetailPage } from './pages/StudentDetailPage';
 import { ParentPortalPage } from './pages/ParentPortalPage';
 import { AIAgentChatWidget } from './components/AIAgentChatWidget';
 import { ChatMessage } from './components/SmartPenAIAgentCore';
-import { ShieldCheck, Lock, GraduationCap, ArrowRight, UserCheck, Sparkles, Loader2 } from 'lucide-react';
+import { Lock, Loader2 } from 'lucide-react';
 
 function MainApp() {
   const { 
@@ -44,13 +44,23 @@ function MainApp() {
         } catch {}
       }
       const qView = params.get('view');
-      if (qView && ['landing', 'about', 'enroll', 'admin', 'parentPortal'].includes(qView)) {
+      if (qView && ['landing', 'about', 'enroll'].includes(qView)) {
         return qView;
+      }
+      if (qView && ['admin', 'parentPortal'].includes(qView)) {
+        const storedToken = localStorage.getItem('smartpen_token');
+        if (storedToken) return qView;
+        return 'landing';
       }
       if (window.location.hash) {
         const hash = window.location.hash.replace('#', '');
-        if (['landing', 'about', 'enroll', 'admin', 'parentPortal'].includes(hash)) {
+        if (['landing', 'about', 'enroll'].includes(hash)) {
           return hash;
+        }
+        if (['admin', 'parentPortal'].includes(hash)) {
+          const storedToken = localStorage.getItem('smartpen_token');
+          if (storedToken) return hash;
+          return 'landing';
         }
       }
     }
@@ -61,13 +71,33 @@ function MainApp() {
   React.useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['landing', 'about', 'enroll', 'admin', 'parentPortal'].includes(hash)) {
+      if (['landing', 'about', 'enroll'].includes(hash)) {
         setCurrentView(hash);
+      } else if (['admin', 'parentPortal'].includes(hash)) {
+        const storedToken = localStorage.getItem('smartpen_token');
+        if (storedToken) {
+          setCurrentView(hash);
+        } else {
+          setCurrentView('landing');
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
       }
     };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  // Proactively redirect to landing if user logs out or session is unauthenticated while on protected view
+  React.useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      if (['admin', 'studentDetail', 'parentPortal'].includes(currentView)) {
+        setCurrentView('landing');
+        if (window.location.hash) {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }
+    }
+  }, [isLoading, isAuthenticated, currentView]);
   const [selectedStudentId, setSelectedStudentId] = useState<string | undefined>(undefined);
   const [studentDetailSection, setStudentDetailSection] = useState<number>(1);
   const [adminInitialTab, setAdminInitialTab] = useState<'roster' | 'assignment' | 'coaches' | 'coachEnrollment' | 'studentEnrollment' | 'alerts'>('roster');
@@ -89,6 +119,14 @@ function MainApp() {
 
   // Sync route on hash change if user uses browser back/forward or deep link
   const handleNavigate = (view: string, extraId?: string, defaultSection?: any, prefillData?: any) => {
+    if (view === 'landing') {
+      setCurrentView('landing');
+      if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     if (view === 'enroll') {
       setCurrentView('admin');
       setAdminInitialTab('studentEnrollment');
@@ -174,49 +212,17 @@ function MainApp() {
         );
 
       case 'admin':
-        // JWT Auth Guard: Must be signed in as Admin
+        // Auth Guard: Must be signed in as Admin/Coach
         if (!isAuthenticated || !token) {
           return (
-            <div className="max-w-xl mx-auto px-4 py-16 sm:py-24 text-center">
-              <div className="bg-white rounded-3xl p-8 sm:p-10 border-2 border-blue-200 shadow-xl shadow-blue-900/5 space-y-6">
-                <div className="w-16 h-16 bg-blue-50 border-2 border-blue-200 rounded-2xl flex items-center justify-center mx-auto text-[#0E3589] shadow-inner">
-                  <ShieldCheck className="w-8 h-8" />
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-800 rounded-full text-xs font-extrabold border border-amber-200">
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>JWT Protected Route</span>
-                  </div>
-                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                    Admin Portal Sign In Required
-                  </h1>
-                  <p className="text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
-                    The Administrator Dashboard is restricted to authorized Academy Staff. A valid JWT session is required to manage student registrations, batch schedules, attendance, and fee ledgers.
-                  </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                  <Button
-                    onClick={() => openLoginModal()}
-                    variant="primary"
-                    size="md"
-                    rightIcon={<ArrowRight className="w-4 h-4" />}
-                    className="w-full sm:w-auto"
-                  >
-                    Sign In
-                  </Button>
-                  <Button
-                    onClick={() => handleNavigate('landing')}
-                    variant="secondary"
-                    size="md"
-                    className="w-full sm:w-auto"
-                  >
-                    Back to Home
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <LandingPage
+              onNavigate={handleNavigate}
+              onOpenLogin={openLoginModal}
+              onOpenDemoBooking={() => setIsDemoModalOpen(true)}
+              currentUser={user}
+              messages={chatMessages}
+              setMessages={setChatMessages}
+            />
           );
         }
 
@@ -276,35 +282,14 @@ function MainApp() {
         // Guard student detail: Must be admin, coach, or authenticated
         if (!isAuthenticated || !token) {
           return (
-            <div className="max-w-xl mx-auto px-4 py-16 sm:py-24 text-center">
-              <div className="bg-white rounded-3xl p-8 border-2 border-blue-200 shadow-xl space-y-5">
-                <div className="w-14 h-14 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-center mx-auto text-[#0E3589]">
-                  <Lock className="w-7 h-7" />
-                </div>
-                <h1 className="text-xl font-extrabold text-slate-900">
-                  Authentication Required
-                </h1>
-                <p className="text-xs text-slate-600">
-                  Please log in with verified staff credentials to review or edit this student file.
-                </p>
-                <div className="flex justify-center gap-3">
-                  <Button
-                    onClick={() => openLoginModal()}
-                    variant="primary"
-                    size="sm"
-                  >
-                    Sign In
-                  </Button>
-                  <Button
-                    onClick={() => handleNavigate('landing')}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    Home
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <LandingPage
+              onNavigate={handleNavigate}
+              onOpenLogin={openLoginModal}
+              onOpenDemoBooking={() => setIsDemoModalOpen(true)}
+              currentUser={user}
+              messages={chatMessages}
+              setMessages={setChatMessages}
+            />
           );
         }
 
@@ -345,53 +330,17 @@ function MainApp() {
         );
 
       case 'parentPortal':
-        // JWT Auth Guard: Must be signed in as Student (or Admin previewing)
+        // Auth Guard: Must be signed in as Student (or Admin previewing)
         if (!isAuthenticated || !token) {
           return (
-            <div className="max-w-xl mx-auto px-4 py-16 sm:py-24 text-center">
-              <div className="bg-white rounded-3xl p-8 sm:p-10 border-2 border-orange-200 shadow-xl shadow-orange-900/5 space-y-6">
-                <div className="w-16 h-16 bg-orange-50 border-2 border-orange-200 rounded-2xl flex items-center justify-center mx-auto text-[#F46E20] shadow-inner">
-                  <GraduationCap className="w-8 h-8" />
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-[#0E3589] rounded-full text-xs font-extrabold border border-blue-200">
-                    <UserCheck className="w-3.5 h-3.5" />
-                    <span>Student Portal</span>
-                  </div>
-                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                    Sign In Required
-                  </h1>
-                  <p className="text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
-                    Please log in to access your handwriting evaluation reports, homework worksheets, practice gallery, attendance history, and fee payment receipts.
-                  </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                  <Button
-                    onClick={() => openLoginModal()}
-                    variant="accent"
-                    size="md"
-                    rightIcon={<ArrowRight className="w-4 h-4" />}
-                    className="w-full sm:w-auto"
-                  >
-                    Sign In to Portal
-                  </Button>
-                  <Button
-                    onClick={() => setIsDemoModalOpen(true)}
-                    variant="outline"
-                    size="md"
-                    className="w-full sm:w-auto bg-blue-50 hover:bg-blue-100 text-[#0E3589] border-blue-200"
-                  >
-                    Book Free Demo Class
-                  </Button>
-                </div>
-
-                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-500 font-medium">
-                  💡 Credentials were sent to parent email upon student enrollment. For assistance, contact Academy Admin.
-                </div>
-              </div>
-            </div>
+            <LandingPage
+              onNavigate={handleNavigate}
+              onOpenLogin={openLoginModal}
+              onOpenDemoBooking={() => setIsDemoModalOpen(true)}
+              currentUser={user}
+              messages={chatMessages}
+              setMessages={setChatMessages}
+            />
           );
         }
 

@@ -1,3 +1,4 @@
+import { api } from '../services/api';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import React, { useState, useRef, useEffect } from 'react';
@@ -5,7 +6,6 @@ import {
   Bot, 
   Sparkles, 
   Send, 
-  Settings, 
   RotateCcw, 
   Maximize2, 
   Minimize2, 
@@ -19,7 +19,6 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { User, StudentProfile } from '../types';
-import { AIChatSettingsModal } from './AIChatSettingsModal';
 
 export interface ChatMessage {
   id: string;
@@ -56,7 +55,6 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
 }) => {
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const quickActionsRef = useRef<HTMLDivElement>(null);
@@ -105,46 +103,25 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
     if (!textToSend) setInputMessage('');
     setIsTyping(true);
 
-    const lowerText = text.toLowerCase();
+    try {
+      const history = [...messages, userMsg].map((m) => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.text,
+      }));
 
-    // Contextual responses & intent recognition
-    setTimeout(async () => {
-      let botReply = '';
+      const res = await api.sendAIChat(history);
+
       let actionType: ChatMessage['actionType'];
-
-      if (lowerText.includes('demo') || lowerText.includes('trial') || lowerText.includes('slot') || lowerText.includes('book')) {
-        botReply = "🎉 **Free Demo Class Available!**\n\nMrs. Deepthy Rock conducts 1:1 personalized demo classes across all 7 days (4:00 PM – 7:00 PM).\n\nWould you like to open the Free Demo Booking form now?";
-        actionType = 'demo';
-      } else if (lowerText.includes('gpay') || lowerText.includes('fee') || lowerText.includes('payment') || lowerText.includes('pay') || lowerText.includes('1600') || lowerText.includes('1,600')) {
-        botReply = "💳 **Fee & Payment Details**\n\n• **Course Fee:** ₹1,600 for the complete 8-class mastery course.\n• **Payment Method:** Google Pay (GPAY) directly to Head Coach Mrs. Deepthy Rock.\n• **Contact / GPAY ID:** `8861751000`\n\nClick below to view the official GPAY QR Code & payment details:";
-        actionType = 'gpay';
-      } else if (lowerText.includes('enroll') || lowerText.includes('register') || lowerText.includes('admission') || lowerText.includes('join')) {
-        botReply = "📝 **Fast Online Enrollment**\n\nYou can register your child in under 2 minutes. We offer customized batches for Kids (Ages 5–9), Juniors (Ages 10–14), and Teens & Adults.\n\nClick below to open the Enrollment page:";
-        actionType = 'enroll';
-      } else if (lowerText.includes('syllabus') || lowerText.includes('curriculum') || lowerText.includes('classes') || lowerText.includes('levels')) {
-        botReply = "📚 **7-Step Handwriting Mastery Curriculum**\n\n1. Posture & 3-Point Grip\n2. Basic Strokes & Letter Geometry\n3. Cursive & Print Letter Formation\n4. Letter Joining & Word Flow\n5. Spacing & Margin Alignment\n6. Speed Writing & Exam Prep\n7. Final Assessment & Star Achiever Certificate";
-        actionType = 'syllabus';
-      } else if (lowerText.includes('attendance') || lowerText.includes('status') || lowerText.includes('summary') || lowerText.includes('progress')) {
-        const attended = currentStudent?.classesAttended ?? 3;
-        botReply = `📊 **Attendance & Fee Status for ${displayName}**\n\n• **Classes Completed:** ${attended} / 8 classes\n• **Classes Remaining:** ${8 - attended} classes\n• **Fee Status:** ✅ Paid (₹1,600)\n\nWould you like to open your Parent Portal for detailed reports?`;
-        actionType = 'portal';
-      } else {
-        try {
-          const res = await fetch('/api/ai/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              message: text,
-              context: {
-                user: displayName,
-                role: currentUser?.role || 'student',
-              },
-            }),
-          });
-          const data = await res.json();
-          botReply = data.reply || "I am here to assist with any questions about handwriting courses, batch slots (4:00 PM – 7:00 PM), or Mrs. Deepthy Rock's coaching.";
-        } catch {
-          botReply = "I am here to help you book free demo slots, check batch availability (4:00 PM – 7:00 PM), or enroll in our 8-class course.";
+      if (res.toolResults && res.toolResults.length > 0) {
+        for (const tr of res.toolResults) {
+          if (tr.toolName === 'navigateToPage' && tr.result?.target) {
+            const t = String(tr.result.target).toLowerCase();
+            if (t.includes('demo')) actionType = 'demo';
+            else if (t.includes('enroll')) actionType = 'enroll';
+            else if (t.includes('gpay')) actionType = 'gpay';
+            else if (t.includes('syllabus')) actionType = 'syllabus';
+            else if (t.includes('portal') || t.includes('parent')) actionType = 'portal';
+          }
         }
       }
 
@@ -153,13 +130,25 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
         {
           id: `bot-${Date.now()}`,
           sender: 'bot',
-          text: botReply,
+          text: res.reply || "I've processed your request.",
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           actionType,
         },
       ]);
+    } catch (err: any) {
+      console.error('AI Chat request failed:', err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `bot-${Date.now()}`,
+          sender: 'bot',
+          text: err.message || "Sorry, I encountered an issue connecting to the AI Assistant. Please try again.",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+    } finally {
       setIsTyping(false);
-    }, 350);
+    }
   };
 
   const quickActions = [
@@ -236,17 +225,6 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
 
         {/* Top-Right Control Buttons */}
         <div className="flex items-center gap-0.5 text-blue-100">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-1.5 hover:bg-white/10 text-white/80 hover:text-white rounded-lg min-h-[30px] min-w-[30px]"
-            title="AI Settings & System Directives"
-            id="btn-chat-settings"
-          >
-            <Settings className="w-3.5 h-3.5" />
-          </Button>
           <Button
             type="button"
             variant="ghost"
@@ -542,12 +520,6 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
         </Button>
       </form>
 
-      {/* AI Settings Modal */}
-      <AIChatSettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        onSaveDirectives={() => {}}
-      />
     </div>
   );
 };

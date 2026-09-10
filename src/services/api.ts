@@ -512,7 +512,6 @@ export const api = {
       status,
       paidDate: feeData.paidDate || (isPaid ? new Date().toISOString().split('T')[0] : undefined),
       paymentMethod: feeData.paymentMethod || 'Cash / In-Person Reception',
-      receiptNumber: `REC-${Date.now().toString().slice(-6)}`,
     };
     return this.saveFee(payload);
   },

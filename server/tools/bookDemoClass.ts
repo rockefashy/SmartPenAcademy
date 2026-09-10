@@ -1,6 +1,8 @@
 import { Type, FunctionDeclaration } from '@google/genai';
 import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
 import { db } from '../supabaseDb.ts';
+import { sendDemoBookingAlert } from '../email.ts';
+import { createDemoBookingSchema } from '../schemas.ts';
 
 export const bookDemoClassDeclaration: FunctionDeclaration = {
   name: 'bookDemoClass',
@@ -55,9 +57,9 @@ export const bookDemoClassTool: AgentTool = {
       const targetDate = preferredDate || new Date(Date.now() + 86400000).toISOString().split('T')[0];
       const targetSlot = preferredTimeSlot || '04:00 PM';
       const ageVal = parseInt(String(childAge || '8').replace(/\D/g, ''), 10) || 8;
-
       const sName = String(childName || (args as any)?.studentName || '').trim();
-      const { booking } = await db.createDemoBooking({
+
+      const bookingPayload = {
         studentName: sName,
         age: ageVal,
         parentName: String(parentName).trim(),
@@ -66,6 +68,31 @@ export const bookDemoClassTool: AgentTool = {
         preferredTimeSlot: targetSlot,
         modeOfLearning: modeOfLearning === 'Online' ? 'Online' : 'In-person',
         notes: notes ? String(notes).trim() : 'Booked via SmartPen AI Assistant'
+      };
+
+      // Authoritative Zod schema validation (parity with POST /api/demo-bookings)
+      const parsed = createDemoBookingSchema.safeParse(bookingPayload);
+      if (!parsed.success) {
+        return {
+          result: null,
+          summary: `Validation Error: ${parsed.error.issues[0]?.message || 'Invalid demo booking payload.'}`,
+          success: false
+        };
+      }
+
+      const { booking } = await db.createDemoBooking(parsed.data);
+
+      // Fire & forget Resend email alert to Admin (parity with POST /api/demo-bookings)
+      sendDemoBookingAlert({
+        studentName: booking.studentName,
+        parentName: booking.parentName,
+        age: booking.age,
+        contactNumber: booking.contactNumber,
+        preferredDate: booking.preferredDate,
+        preferredTimeSlot: booking.preferredTimeSlot,
+        notes: booking.notes
+      }).catch(err => {
+        console.warn('[Resend Background Notice] AI Demo booking alert dispatch failed:', err.message || err);
       });
 
       return {

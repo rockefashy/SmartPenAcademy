@@ -204,8 +204,8 @@ function mapAttendanceRow(row: any): AttendanceRecord {
 }
 
 function mapFeeRow(row: any): FeeRecord {
-  const status: 'Paid' | 'Pending' | 'Overdue' = 
-    (row.status === 'Paid' || row.status === 'Pending' || row.status === 'Overdue')
+  const status: 'Paid' | 'Pending' | 'Overdue' | 'Waived' = 
+    (row.status === 'Paid' || row.status === 'Pending' || row.status === 'Overdue' || row.status === 'Waived')
       ? row.status
       : (row.is_paid ? 'Paid' : 'Pending');
 
@@ -2103,27 +2103,61 @@ export class SupabaseDatabase {
     return true;
   }
 
-  async assignCoachToStudent(studentId: string, coachId: string | null): Promise<StudentProfile | null> {
+  async assignCoachToStudent(
+    studentId: string,
+    coachId: string | null
+  ): Promise<(StudentProfile & { assignmentChanged: boolean }) | null> {
     const supabase = getSupabase();
-    let coachName: string | null = null;
 
+    // 1. Student existence and status check
+    const { data: studentRow, error: studentErr } = await supabase
+      .from('students')
+      .select('id, coach_id, status')
+      .eq('id', studentId)
+      .maybeSingle();
+
+    if (studentErr) {
+      throw new Error(`Failed to lookup student: ${studentErr.message}`);
+    }
+    if (!studentRow) {
+      throw new Error('Student not found');
+    }
+    if (studentRow.status !== 'Active') {
+      throw new Error('Cannot assign a coach to an inactive student.');
+    }
+
+    // 2. Coach existence and status check (when coachId is non-null)
+    let coachName: string | null = null;
     if (coachId) {
-      // Lookup coach in coaches table
-      const { data: coachData } = await supabase
+      const { data: coachData, error: coachErr } = await supabase
         .from('coaches')
-        .select('first_name, last_name')
+        .select('id, first_name, last_name, status')
         .eq('id', coachId)
         .maybeSingle();
 
-      if (coachData) {
-        coachName = `${coachData.first_name || ''} ${coachData.last_name || ''}`.trim() || null;
+      if (coachErr) {
+        throw new Error(`Failed to lookup coach: ${coachErr.message}`);
       }
+      if (!coachData) {
+        throw new Error('Coach not found');
+      }
+      if (coachData.status !== 'Active') {
+        throw new Error('Cannot assign an inactive coach to a student.');
+      }
+
+      coachName = `${coachData.first_name || ''} ${coachData.last_name || ''}`.trim() || null;
     }
 
+    // 3. Idempotency check
+    const currentCoachId = studentRow.coach_id || null;
+    const targetCoachId = coachId || null;
+    const assignmentChanged = currentCoachId !== targetCoachId;
+
+    // 4. Update student record
     const { data, error } = await supabase
       .from('students')
       .update({
-        coach_id: coachId || null,
+        coach_id: targetCoachId,
         updated_at: new Date().toISOString()
       })
       .eq('id', studentId)
@@ -2144,7 +2178,13 @@ export class SupabaseDatabase {
       user = uData;
     }
 
-    return data ? mapStudentRow(data, user, coachName) : null;
+    if (!data) return null;
+
+    const mapped = mapStudentRow(data, user, coachName);
+    return {
+      ...mapped,
+      assignmentChanged
+    };
   }
 
   // ================= ATTENDANCE =================
@@ -2356,13 +2396,13 @@ export class SupabaseDatabase {
       throw new Error("Cannot save fee record without a valid year_month.");
     }
 
-    const status = (fee.status === 'Paid' || fee.status === 'Pending' || fee.status === 'Overdue')
+    const status = (fee.status === 'Paid' || fee.status === 'Pending' || fee.status === 'Overdue' || fee.status === 'Waived')
       ? fee.status
       : ((fee as any).isPaid ? 'Paid' : 'Pending');
     const isPaid = status === 'Paid';
     const paidDate = safeIsoDate(fee.paidDate) || (isPaid ? effectiveDate : null);
 
-    const row = {
+    const row: any = {
       id: feeId,
       student_id: fee.studentId,
       date: effectiveDate,
@@ -2371,7 +2411,6 @@ export class SupabaseDatabase {
       status,
       paid_date: paidDate,
       amount: Number(fee.amount),
-      receipt_number: fee.receiptNumber || (fee as any).receiptNo || null,
       payment_method: fee.paymentMethod || null,
       notes: fee.notes || null,
       created_at: (fee as any).createdAt || new Date().toISOString()
@@ -2425,7 +2464,7 @@ export class SupabaseDatabase {
       updateData.amount = Number(updates.amount);
     }
     if (updates.receiptNumber !== undefined || (updates as any).receiptNo !== undefined) {
-      updateData.receipt_number = updates.receiptNumber || (updates as any).receiptNo || null;
+      throw new Error("receipt_number is immutable and cannot be updated.");
     }
     if (updates.paymentMethod !== undefined) updateData.payment_method = updates.paymentMethod;
     if (updates.notes !== undefined) updateData.notes = updates.notes;

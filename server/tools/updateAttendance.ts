@@ -2,6 +2,7 @@ import { Type, FunctionDeclaration } from '@google/genai';
 import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
 import { findStudent, verifyToolStudentAccess } from './helpers.ts';
 import { db } from '../supabaseDb.ts';
+import { attendanceBatchSchema } from '../schemas.ts';
 
 export const updateAttendanceDeclaration: FunctionDeclaration = {
   name: 'updateAttendance',
@@ -88,9 +89,25 @@ export const updateAttendanceTool: AgentTool = {
       }
     }
 
-    if (recordsToSave.length > 0) {
-      await db.saveAttendanceBatch(recordsToSave);
+    if (recordsToSave.length === 0) {
+      return {
+        result: { updatedCount: 0, notFound, unauthorized },
+        summary: `No matching students found to update attendance.${unauthorized.length > 0 ? ` (Unauthorized: ${unauthorized.join(', ')})` : ''}`,
+        success: false
+      };
     }
+
+    // Authoritative Zod schema validation (parity with POST /api/attendance/batch)
+    const parsed = attendanceBatchSchema.safeParse({ records: recordsToSave });
+    if (!parsed.success) {
+      return {
+        result: null,
+        summary: `Validation Error: ${parsed.error.issues[0]?.message || 'Invalid attendance batch format'}`,
+        success: false
+      };
+    }
+
+    await db.saveAttendanceBatch(parsed.data.records as any);
 
     const namesStr = updatedStudents.map(s => s.name).join(', ');
     let summary = `✓ Successfully marked attendance as **${status}** for ${updatedStudents.length} student(s): **${namesStr}** on **${targetDate}**.`;

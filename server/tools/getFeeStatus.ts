@@ -1,6 +1,6 @@
 import { Type, FunctionDeclaration } from '@google/genai';
 import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
-import { findStudent, verifyToolStudentAccess } from './helpers.ts';
+import { findStudent, verifyToolStudentAccess, validateWithSchema, toolLimitSchema, applyFilterOrLimit } from './helpers.ts';
 import { db } from '../supabaseDb.ts';
 import { StudentProfile } from '../../src/types.ts';
 
@@ -13,6 +13,14 @@ export const getFeeStatusDeclaration: FunctionDeclaration = {
       studentNameOrId: {
         type: Type.STRING,
         description: 'Name or ID of student to check fee status for.'
+      },
+      dueOnly: {
+        type: Type.BOOLEAN,
+        description: 'Optional filter to return only students with pending fee dues across the roster.'
+      },
+      limit: {
+        type: Type.INTEGER,
+        description: 'Maximum records to return when results are within ceiling (default 20, max 20).'
       }
     }
   }
@@ -26,6 +34,18 @@ export const getFeeStatusTool: AgentTool = {
   rateLimit: { maxCalls: 30, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
     const { user } = context;
+
+    // Validate optional limit using shared Zod schema
+    const limitValidation = validateWithSchema(toolLimitSchema, args?.limit);
+    if (!limitValidation.success) {
+      return {
+        result: limitValidation.error,
+        summary: limitValidation.summary,
+        success: false
+      };
+    }
+    const requestedLimit = limitValidation.data;
+
     let student: StudentProfile | undefined;
 
     if (user?.role === 'student') {
@@ -51,6 +71,7 @@ export const getFeeStatusTool: AgentTool = {
       student = await findStudent(args.studentNameOrId);
     }
 
+    // 1. Single student query
     if (student) {
       if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
         return {
@@ -82,43 +103,92 @@ export const getFeeStatusTool: AgentTool = {
         summary: `💳 **Fee Status for ${student.displayName}**:\n• Status: **${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ No pending Fee'}**\n• Classes Attended: ${presentCount} (${completedCycles} completed 8-class cycles)\n• Paid Receipts: ${fees.filter(f => f.status === 'Paid').length}\n• Direct GPAY Payment: **8861751000**`,
         success: true
       };
-    } else {
-      if (user?.role === 'coach') {
-        const coachKey = user.coachId || user.id;
-        const coachAlt = user.coachId ? user.id : undefined;
-        const myStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
-        const dues: string[] = [];
-        let dueCount = 0;
-        for (const s of myStudents) {
-          const attendanceRecs = await db.getAttendanceByStudent(s.id);
-          const presentCount = attendanceRecs.filter(r => r.status === 'Present').length;
-          const fees = await db.getFeesByStudent(s.id);
-          const completedCycles = Math.floor(presentCount / 8);
-          const isFeeDue = completedCycles > 0 && fees.filter(f => f.status === 'Paid').length < completedCycles;
-          if (isFeeDue) dueCount++;
-          dues.push(`• **${s.displayName}**: ${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ Paid up to date'} (${presentCount} classes, ${fees.filter(f => f.status === 'Paid').length} receipts)`);
-        }
-        return {
-          result: { totalStudents: myStudents.length, dueCount, rosterFees: dues },
-          summary: `💳 **Fee Status for Your Assigned Students (${myStudents.length} students, ${dueCount} with dues)**:\n${dues.length === 0 ? 'No students currently assigned.' : dues.join('\n')}`,
-          success: true
-        };
+    }
+
+    // 2. Coach roster broad query
+    if (user?.role === 'coach') {
+      const coachKey = user.coachId || user.id;
+      const coachAlt = user.coachId ? user.id : undefined;
+      let myStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
+
+      // Pre-evaluate dues for each student to allow dueOnly filtering
+      const studentDues: Array<{ student: StudentProfile; isFeeDue: boolean; summaryLine: string }> = [];
+      let totalDueCount = 0;
+      for (const s of myStudents) {
+        const attendanceRecs = await db.getAttendanceByStudent(s.id);
+        const presentCount = attendanceRecs.filter(r => r.status === 'Present').length;
+        const fees = await db.getFeesByStudent(s.id);
+        const completedCycles = Math.floor(presentCount / 8);
+        const isFeeDue = completedCycles > 0 && fees.filter(f => f.status === 'Paid').length < completedCycles;
+        if (isFeeDue) totalDueCount++;
+        studentDues.push({
+          student: s,
+          isFeeDue,
+          summaryLine: `• **${s.displayName}**: ${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ Paid up to date'} (${presentCount} classes, ${fees.filter(f => f.status === 'Paid').length} receipts)`
+        });
       }
 
-      if (user?.role !== 'admin') {
-        return {
-          result: null,
-          summary: 'Access Denied: Only administrators and coaches can view fee summaries.',
-          success: false
-        };
+      const effectiveList = args?.dueOnly ? studentDues.filter(d => d.isFeeDue) : studentDues;
+
+      const filteredResult = applyFilterOrLimit({
+        items: effectiveList,
+        requestedLimit,
+        entityLabel: args?.dueOnly ? 'students with pending dues on your roster' : 'students on your coaching roster',
+        suggestedFilters: [
+          'A specific student: e.g. "Show fee status for Arjun"',
+          'Filter to pending dues: e.g. dueOnly=true'
+        ]
+      });
+
+      if (filteredResult.isOversized) {
+        return filteredResult.toolResult;
       }
 
-      const alerts = (await db.getAlerts()).filter(a => a.type === 'fee_due' && !a.isRead);
+      const duesLines = filteredResult.items.map(d => d.summaryLine);
       return {
-        result: { pendingAlerts: alerts },
-        summary: `💳 **Pending Fee Alerts (${alerts.length})**:\n${alerts.length === 0 ? '✓ No pending fee dues at this moment.' : alerts.map(a => `• **${a.title}**: ${a.message}`).join('\n')}`,
+        result: {
+          totalStudents: myStudents.length,
+          returnedCount: filteredResult.items.length,
+          dueCount: totalDueCount,
+          rosterFees: duesLines
+        },
+        summary: `💳 **Fee Status for Your Assigned Students (${filteredResult.items.length} students displayed, ${totalDueCount} with dues)**:\n${duesLines.length === 0 ? 'No students match your criteria.' : duesLines.join('\n')}`,
         success: true
       };
     }
+
+    // 3. Admin fee alerts broad query
+    if (user?.role !== 'admin') {
+      return {
+        result: null,
+        summary: 'Access Denied: Only administrators and coaches can view fee summaries.',
+        success: false
+      };
+    }
+
+    const alerts = (await db.getAlerts()).filter(a => a.type === 'fee_due' && !a.isRead);
+
+    const filteredResult = applyFilterOrLimit({
+      items: alerts,
+      requestedLimit,
+      entityLabel: 'pending fee alerts',
+      suggestedFilters: [
+        'A specific student name to inspect individual fee status'
+      ]
+    });
+
+    if (filteredResult.isOversized) {
+      return filteredResult.toolResult;
+    }
+
+    return {
+      result: {
+        totalAlerts: alerts.length,
+        returnedCount: filteredResult.items.length,
+        pendingAlerts: filteredResult.items
+      },
+      summary: `💳 **Pending Fee Alerts (${filteredResult.items.length} of ${alerts.length})**:\n${filteredResult.items.length === 0 ? '✓ No pending fee dues at this moment.' : filteredResult.items.map(a => `• **${a.title}**: ${a.message}`).join('\n')}`,
+      success: true
+    };
   }
 };

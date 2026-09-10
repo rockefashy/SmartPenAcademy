@@ -247,7 +247,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                       type="button"
                       variant="ghost"
                       size="icon"
-                      onClick={logout}
+                      onClick={() => {
+                        logout();
+                        handleNavClick('landing');
+                      }}
                       className="p-1 sm:p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 min-h-[32px] min-w-[32px] ml-0.5"
                       title={commonProperties.nav.logout}
                       id="btn-logout"
@@ -455,6 +458,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                   onClick={() => {
                     logout();
                     setIsMobileMenuOpen(false);
+                    handleNavClick('landing');
                   }}
                   leftIcon={<LogOut className="w-3.5 h-3.5" />}
                   className="text-xs text-red-600 bg-red-50 hover:bg-red-100 border-red-200"

@@ -135,7 +135,6 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
         milestone: cleanMilestone,
         amount: numAmount,
         status: formStatus,
-        receiptNumber: formReceiptNumber.trim() || undefined,
         paymentMethod: formMethod,
         paidDate: isPaid ? formDate : undefined,
         notes: formNotes.trim() || undefined
@@ -154,7 +153,7 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
           studentName: student.displayName,
           amount: numAmount,
           milestone: cleanMilestone,
-          receiptNumber: formReceiptNumber.trim() || undefined
+          receiptNumber: savedFee.receiptNumber || undefined
         });
 
         if (reminderResult?.whatsappUrl) {
@@ -397,16 +396,12 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
                 />
               </div>
 
-              {/* 3. Receipt Number */}
+              {/* 3. Receipt Number (System Generated) */}
               <div className="space-y-1">
-                <Input
-                  label="Receipt Number"
-                  type="text"
-                  value={formReceiptNumber}
-                  onChange={(e) => setFormReceiptNumber(e.target.value)}
-                  placeholder="e.g. REC-101-AUG26"
-                  id="input-raise-fee-receipt"
-                />
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Receipt Number</label>
+                <div className="px-3 py-2 text-xs font-mono font-medium text-slate-500 bg-slate-100 border border-slate-200 rounded-lg">
+                  Auto-generated on save: REC-{student.displayName.split(' ')[0]}-YYYYMMDD-seq
+                </div>
               </div>
 
               {/* 4. Amount */}
@@ -569,15 +564,9 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
                             />
                           </td>
 
-                          {/* 3. Receipt */}
-                          <td className="py-3 px-3">
-                            <Input
-                              type="text"
-                              value={editFormData.receiptNumber}
-                              onChange={(e) => setEditFormData({ ...editFormData, receiptNumber: e.target.value })}
-                              placeholder="Receipt #"
-                              id={`input-inline-receipt-${fee.id}`}
-                            />
+                          {/* 3. Receipt (Immutable) */}
+                          <td className="py-3 px-3 font-mono text-xs font-semibold text-slate-600">
+                            {fee.receiptNumber || '—'}
                           </td>
 
                           {/* 4. Amount */}

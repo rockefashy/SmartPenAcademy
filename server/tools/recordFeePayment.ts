@@ -2,6 +2,7 @@ import { Type, FunctionDeclaration } from '@google/genai';
 import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
 import { findStudent, verifyToolStudentAccess } from './helpers.ts';
 import { db } from '../supabaseDb.ts';
+import { createFeeSchema } from '../schemas.ts';
 
 export const recordFeePaymentDeclaration: FunctionDeclaration = {
   name: 'recordFeePayment',
@@ -80,21 +81,30 @@ export const recordFeePaymentTool: AgentTool = {
       };
     }
 
-    const receiptNo = `REC-${Date.now().toString().slice(-4)}`;
-
-    const feeRecord = await db.saveFeeRecord({
+    const feePayload = {
       studentId: student.id,
       yearMonth: cyclePeriod,
       amount,
-      status: 'Paid',
+      status: 'Paid' as const,
       paidDate: today,
-      paymentMethod: args?.paymentMethod || 'GPAY (8861751000)',
-      receiptNumber: receiptNo
-    });
+      paymentMethod: args?.paymentMethod || 'GPAY (8861751000)'
+    };
+
+    // Authoritative Zod schema validation (parity with POST /api/fees)
+    const parsed = createFeeSchema.safeParse(feePayload);
+    if (!parsed.success) {
+      return {
+        result: null,
+        summary: `Validation Error: ${parsed.error.issues[0]?.message || 'Invalid fee payment record.'}`,
+        success: false
+      };
+    }
+
+    const feeRecord = await db.saveFeeRecord(parsed.data as any);
 
     return {
       result: feeRecord,
-      summary: `✓ **Payment Confirmed & Recorded**: ₹${amount} for **${student.displayName}** (${cyclePeriod}). Receipt Number: **${receiptNo}** (${args?.paymentMethod || 'GPAY'}).`,
+      summary: `✓ **Payment Confirmed & Recorded**: ₹${amount} for **${student.displayName}** (${cyclePeriod}). Receipt Number: **${feeRecord.receiptNumber || 'N/A'}** (${args?.paymentMethod || 'GPAY'}).`,
       success: true
     };
   }

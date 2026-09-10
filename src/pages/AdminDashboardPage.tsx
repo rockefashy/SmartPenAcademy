@@ -368,7 +368,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         amount: Number(quickFeeAmount) || 1600,
         status: 'Paid',
         paidDate: new Date().toISOString().split('T')[0],
-        receiptNumber: quickFeeReceiptNo || `REC-${quickFeeStudent.id.replace('std-', '')}-${Date.now().toString().slice(-4)}`,
+        // receiptNumber is generated server-side upon record creation
         paymentMethod: 'In-Person Reception Card/UPI',
         notes: quickFeeNotes.trim() || undefined,
       });
@@ -3228,13 +3228,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Receipt Number</label>
-                <Input
-                  type="text"
-                  value={quickFeeReceiptNo}
-                  onChange={(e) => setQuickFeeReceiptNo(e.target.value)}
-                  placeholder="e.g. REC-101-C1"
-                  className="font-mono"
-                />
+                <div className="px-3 py-2 text-xs font-mono font-medium text-slate-500 bg-slate-100 border border-slate-200 rounded-lg">
+                  Auto-generated upon save (REC-Name-YYYYMMDD-seq)
+                </div>
               </div>
 
               <div>

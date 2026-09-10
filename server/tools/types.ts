@@ -1,9 +1,9 @@
 import { FunctionDeclaration } from '@google/genai';
-import { User } from '../../src/types';
+import { User, AuditExecutionMode } from '../../src/types';
 
 export interface AgentToolContext {
   user: User | null;
-  executionMode: 'remote_gemini' | 'local_agent' | 'direct_api';
+  executionMode: AuditExecutionMode;
   today: string;
 }
 
@@ -17,6 +17,7 @@ export interface AgentTool {
   name: string;
   declaration: FunctionDeclaration;
   allowedRoles?: ('admin' | 'coach' | 'student')[];
+  selfServiceOnly?: boolean;
   accessDeniedMessage?: string;
   rateLimit: {
     maxCalls: number;

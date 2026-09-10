@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 import { db } from './supabaseDb.ts';
-import { User, StudentProfile } from '../src/types';
+import { User, StudentProfile, AuditExecutionMode } from '../src/types';
 import { sendFeeReminderEmail } from './email.ts';
 import { landingProperties } from '../src/properties/landing.properties.ts';
 import { ALL_TOOLS, PUBLIC_TOOLS, getToolsForRole, toolRegistry } from './tools/registry.ts';
@@ -50,11 +50,25 @@ export async function executeTool(
   name: string, 
   args: any, 
   userContext: User | null, 
-  executionMode: 'remote_gemini' | 'local_agent' | 'direct_api' = 'remote_gemini'
+  executionMode: AuditExecutionMode = 'remote_gemini'
 ): Promise<ToolCallResult> {
   const today = new Date().toISOString().split('T')[0];
 
   const logAudit = async (result: any, summary: string, success: boolean): Promise<ToolCallResult> => {
+    // Redact sensitive password fields from arguments to prevent credential leakage
+    const sanitizedArgs: Record<string, any> = {};
+    if (args && typeof args === 'object') {
+      for (const [key, value] of Object.entries(args)) {
+        if (key.toLowerCase().includes('password')) {
+          sanitizedArgs[key] = '[REDACTED]';
+        } else if (typeof value === 'string' && value.startsWith('data:image/')) {
+          sanitizedArgs[key] = value.substring(0, 40) + '...[BASE64_IMAGE_DATA]';
+        } else {
+          sanitizedArgs[key] = value;
+        }
+      }
+    }
+
     try {
       await db.recordToolAuditLog({
         actorId: userContext?.id || 'anonymous',
@@ -62,7 +76,7 @@ export async function executeTool(
         actorRole: userContext?.role || 'student',
         actorStudentId: userContext?.studentId,
         toolName: name,
-        arguments: args || {},
+        arguments: sanitizedArgs,
         result: result ? (typeof result === 'object' ? result : { data: result }) : null,
         summary,
         success,
@@ -74,7 +88,7 @@ export async function executeTool(
 
     return {
       toolName: name,
-      args,
+      args: sanitizedArgs,
       result,
       summary,
       success
@@ -167,10 +181,22 @@ export async function runLocalAgent(
       targetNames = ['all'];
     }
 
+    // Extract date from previous message or prompt
+    let followUpDate = 'today';
+    const prevDateMatchIso = (prevContent + ' ' + prompt).match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+    const prevDateMatchSlash = (prevContent + ' ' + prompt).match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+    if (prevDateMatchIso) {
+      const [, y, m, d] = prevDateMatchIso;
+      followUpDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    } else if (prevDateMatchSlash) {
+      const [, m, d, y] = prevDateMatchSlash;
+      followUpDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+
     const result = await executeTool('updateAttendance', {
       studentNames: targetNames,
       status,
-      date: 'today'
+      date: followUpDate
     }, userContext, 'local_agent');
 
     toolResults.push(result);
@@ -223,7 +249,7 @@ export async function runLocalAgent(
   }
 
   // 1. Navigation intents: Enroll, Book a demo, GPAY payment, syllabus, about
-  if (p.includes('enroll') || p.includes('register') || p.includes('join') || p.includes('admission') || p.includes('sign up')) {
+  if ((userContext?.role !== 'admin' || p.includes('open enroll') || p.includes('go to enroll') || p.includes('navigate to enroll')) && (p.includes('enroll') || p.includes('register') || p.includes('join') || p.includes('admission') || p.includes('sign up'))) {
     const result = await executeTool('navigateToPage', { target: 'enroll', reason: 'Student Registration / Enrollment' }, userContext, 'local_agent');
     toolResults.push(result);
     return {
@@ -253,7 +279,7 @@ export async function runLocalAgent(
   }
 
   // Attendance update pattern: e.g. "update attendance for student 1, 2, 3 for today" or "mark attendance for aryan as present"
-  if (p.includes('attendance') && (p.includes('update') || p.includes('mark') || p.includes('present') || p.includes('absent') || p.includes('save') || p.includes('record'))) {
+  if (p.includes('attendance') && (p.includes('update') || p.includes('mark') || p.includes('present') || p.includes('absent') || p.includes('save') || p.includes('record') || p.includes('set'))) {
     if (userContext?.role !== 'admin' && userContext?.role !== 'coach') {
       return {
         reply: `⚠️ **Permission Denied**: Student and parent accounts cannot record or update attendance records. Only Head Coach / Administrator **Mrs. Deepthy Rock** has permission to officially mark attendance. You can view your current attendance count by asking *"What is my attendance?"*.`,
@@ -319,10 +345,22 @@ export async function runLocalAgent(
       };
     }
 
+    // Extract date if specified in prompt, e.g. "on 9/9/2026", "9/9/2026", "2026-09-09"
+    let targetDate = 'today';
+    const dateMatchIso = prompt.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+    const dateMatchSlash = prompt.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+    if (dateMatchIso) {
+      const [, y, m, d] = dateMatchIso;
+      targetDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    } else if (dateMatchSlash) {
+      const [, m, d, y] = dateMatchSlash;
+      targetDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+
     const result = await executeTool('updateAttendance', {
       studentNames: targetNames,
       status,
-      date: 'today'
+      date: targetDate
     }, userContext, 'local_agent');
 
     toolResults.push(result);
@@ -557,27 +595,6 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
   const { messages, userContext, settings } = reqBody;
   const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
   const userPrompt = (lastUserMessage?.content || '').trim();
-  const p = userPrompt.toLowerCase();
-
-  // =========================================================================
-  // 🚀 FAST-PATH OPTIMIZATION: Instant (< 30ms) Zero-Latency Direct Execution
-  // If the user triggered an unambiguous navigation or common action, execute
-  // immediately without stalling for a cloud LLM roundtrip.
-  // =========================================================================
-  const isDirectNavOrAction = 
-    // Enrollment / Register
-    p.includes('enroll') || p.includes('register') || p.includes('join') || p.includes('admission') ||
-    // Book Demo / Trial
-    p.includes('book demo') || p.includes('free demo') || p.includes('book a demo') || p.includes('trial class') ||
-    // GPAY / Fee payment link
-    p.includes('gpay') || p.includes('google pay') || p.includes('pay fee') || p.includes('pay money') || p.includes('pay coach') || p.includes('upi') ||
-    // Attendance quick action
-    (p.includes('attendance') && (p.includes('update') || p.includes('mark') || p.includes('present') || p.includes('absent')));
-
-  if (isDirectNavOrAction) {
-    return await runLocalAgent(userPrompt, userContext, messages);
-  }
-
   const apiKey = settings?.apiKey || process.env.GEMINI_API_KEY;
   const preferredModel = settings?.model || 'gemini-2.5-flash';
 

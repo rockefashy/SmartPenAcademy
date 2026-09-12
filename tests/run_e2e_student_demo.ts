@@ -13,7 +13,9 @@ async function runE2EDemo() {
   const adminUser: User = {
     id: `admin-e2e-${ts}`,
     role: 'admin',
-    displayName: 'Headmaster Admin',
+    firstName: 'Headmaster Admin',
+    lastName: 'Admin',
+    isActive: true,
     email: 'admin@smartpenacademy.com'
   };
 
@@ -26,11 +28,11 @@ async function runE2EDemo() {
   // ---------------------------------------------------------------------------
   console.log('=== STEP 1: ENROLL NEW STUDENT ===');
   const enrollInput = {
-    studentName: 'Demo Student E2E',
+    studentName: `Demo Student E2E ${ts}`,
     age: 10,
     parentName: 'Demo Parent',
     parentEmail: `demo-e2e-${ts}@smartpen.test`,
-    parentPhone: '9999988888',
+    parentPhone: `9${String(ts).slice(-9)}`,
     gradeClass: 'Grade 5',
     schoolName: 'Demo School',
     isSibling: false,
@@ -51,7 +53,7 @@ async function runE2EDemo() {
   }
 
   studentId = enrollRes.result.student.id;
-  studentDisplayName = enrollRes.result.student.displayName || enrollInput.studentName;
+  studentDisplayName = enrollRes.result.student.firstName || enrollInput.studentName;
   console.log(`Captured New Student ID: ${studentId}\n`);
 
   // ---------------------------------------------------------------------------
@@ -67,7 +69,7 @@ async function runE2EDemo() {
     return;
   }
 
-  assignedCoachName = activeCoach.displayName;
+  assignedCoachName = activeCoach.firstName;
   const assignInput = {
     studentNameOrId: studentId,
     coachNameOrId: activeCoach.id
@@ -95,14 +97,14 @@ async function runE2EDemo() {
   console.log('Structured Result:');
   console.log('  - Student Profile:', {
     id: explainRes.result?.student?.id,
-    name: explainRes.result?.student?.displayName,
+    name: explainRes.result?.student?.firstName,
     grade: explainRes.result?.student?.gradeClass,
     status: explainRes.result?.student?.status,
     coachId: explainRes.result?.student?.coachId
   });
   console.log('  - Coach Assigned:', explainRes.result?.coach ? {
     id: explainRes.result.coach.id,
-    name: explainRes.result.coach.displayName,
+    name: explainRes.result.coach.firstName,
     designation: explainRes.result.coach.designation
   } : 'None');
   console.log('  - Attendance Stats:', explainRes.result?.attendanceSummary);

@@ -44,7 +44,7 @@ export const sendFeeReminderTool: AgentTool = {
     if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
       return {
         result: null,
-        summary: `Privacy Scoping: As a coach, you can only dispatch fee reminders to your assigned students. "${student.displayName}" is not assigned to your coaching roster.`,
+        summary: `Privacy Scoping: As a coach, you can only dispatch fee reminders to your assigned students. "${student.firstName}" is not assigned to your coaching roster.`,
         success: false
       };
     }
@@ -56,7 +56,7 @@ export const sendFeeReminderTool: AgentTool = {
       studentId: student.id,
       parentEmail: student.email,
       parentName: student.parentName,
-      studentName: student.displayName,
+      studentName: student.firstName,
       amount,
       month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
       gpayLink,
@@ -67,7 +67,7 @@ export const sendFeeReminderTool: AgentTool = {
       sendFeeReminderEmail({
         toEmail: student.email,
         parentName: student.parentName,
-        studentName: student.displayName,
+        studentName: student.firstName,
         amount,
         gpayLink
       }).catch(err => {
@@ -77,7 +77,7 @@ export const sendFeeReminderTool: AgentTool = {
 
     return {
       result: reminder,
-      summary: `📲 Dispatched Fee Reminder of **₹${amount}** to **${student.parentName}** (${student.email}) for student **${student.displayName}** with Google Pay UPI link to **8861751000**.`,
+      summary: `📲 Dispatched Fee Reminder of **₹${amount}** to **${student.parentName}** (${student.email}) for student **${student.firstName}** with Google Pay UPI link to **8861751000**.`,
       success: true
     };
   }

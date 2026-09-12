@@ -61,12 +61,12 @@ export const getStudentProfileTool: AgentTool = {
     if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
       return {
         result: null,
-        summary: `Privacy Scoping: Coach access is restricted to assigned students. "${student.displayName}" is not assigned to your coaching roster.`,
+        summary: `Privacy Scoping: Coach access is restricted to assigned students. "${student.firstName}" is not assigned to your coaching roster.`,
         success: false
       };
     }
 
-    const summary = `📋 **Student Profile: ${student.displayName}** (${student.status})\n• **Coach**: ${student.coachName || 'Unassigned'}\n• **Grade & School**: ${student.gradeClass} at ${student.schoolName}\n• **Hand / Script**: ${student.dominantHand} Hand • ${student.scriptsRequired.join(', ')}\n• **Batch Schedule**: ${student.preferredDays} at **${student.preferredSlot}**\n• **Parent Contact**: ${student.parentName} (${student.whatsappMobile}, ${student.email})\n• **Baseline Speed**: ${student.baselineSpeedWpm || 16} WPM`;
+    const summary = `📋 **Student Profile: ${student.firstName}** (${student.status})\n• **Coach**: ${student.coachName || 'Unassigned'}\n• **Grade & School**: ${student.gradeClass} at ${student.schoolName}\n• **Hand / Script**: ${student.dominantHand} Hand • ${student.scriptsRequired.join(', ')}\n• **Batch Schedule**: ${student.preferredDays} at **${student.preferredSlot}**\n• **Parent Contact**: ${student.parentName} (${student.whatsappMobile}, ${student.email})\n• **Baseline Speed**: ${student.baselineSpeedWpm || 16} WPM`;
 
     return {
       result: student,

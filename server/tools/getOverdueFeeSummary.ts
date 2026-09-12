@@ -84,7 +84,7 @@ export const getOverdueFeeSummaryTool: AgentTool = {
       }
 
       for (const s of assignedStudents) {
-        studentNameMap.set(s.id, s.displayName);
+        studentNameMap.set(s.id, s.firstName);
       }
 
       const studentIds = assignedStudents.map(s => s.id);
@@ -94,7 +94,7 @@ export const getOverdueFeeSummaryTool: AgentTool = {
       fees = await db.getFeesByMonth(targetMonth);
       const allStudents = await db.getAllStudents();
       for (const s of allStudents) {
-        studentNameMap.set(s.id, s.displayName);
+        studentNameMap.set(s.id, s.firstName);
       }
     }
 

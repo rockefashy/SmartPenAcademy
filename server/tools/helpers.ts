@@ -160,16 +160,16 @@ export async function findStudent(query?: string): Promise<StudentProfile | unde
   if (match) return match;
 
   // Exact Name
-  match = students.find(s => s.displayName.toLowerCase() === cleanQ);
+  match = students.find(s => s.firstName.toLowerCase() === cleanQ);
   if (match) return match;
 
   // Partial Name Match
-  match = students.find(s => s.displayName.toLowerCase().includes(cleanQ) || cleanQ.includes(s.displayName.toLowerCase()));
+  match = students.find(s => s.firstName.toLowerCase().includes(cleanQ) || cleanQ.includes(s.firstName.toLowerCase()));
   if (match) return match;
 
   // First name match
   match = students.find(s => {
-    const firstName = s.displayName.toLowerCase().split(' ')[0];
+    const firstName = s.firstName.toLowerCase().split(' ')[0];
     return cleanQ.includes(firstName) || firstName.includes(cleanQ);
   });
   if (match) return match;
@@ -199,16 +199,16 @@ export async function findCoach(query?: string): Promise<CoachProfile | undefine
   if (match) return match;
 
   // Exact Name
-  match = coaches.find(c => c.displayName.toLowerCase() === cleanQ);
+  match = coaches.find(c => c.firstName.toLowerCase() === cleanQ);
   if (match) return match;
 
   // Partial Name Match
-  match = coaches.find(c => c.displayName.toLowerCase().includes(cleanQ) || cleanQ.includes(c.displayName.toLowerCase()));
+  match = coaches.find(c => c.firstName.toLowerCase().includes(cleanQ) || cleanQ.includes(c.firstName.toLowerCase()));
   if (match) return match;
 
   // First name match
   match = coaches.find(c => {
-    const firstName = c.displayName.toLowerCase().split(' ')[0];
+    const firstName = c.firstName.toLowerCase().split(' ')[0];
     return cleanQ.includes(firstName) || firstName.includes(cleanQ);
   });
   if (match) return match;

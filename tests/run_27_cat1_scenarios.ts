@@ -50,7 +50,6 @@ async function runLiveTests() {
     const coach1 = await db.createCoach({
       firstName: 'Cat1Coach',
       lastName: `One${ts}`,
-      displayName: `Cat1Coach One${ts}`,
       email: `cat1coach1_${ts}@smartpen.test`,
       phoneNumber: '9876544001',
       designation: 'Senior Coach',
@@ -64,7 +63,6 @@ async function runLiveTests() {
     const coach2 = await db.createCoach({
       firstName: 'Cat1Coach',
       lastName: `Two${ts}`,
-      displayName: `Cat1Coach Two${ts}`,
       email: `cat1coach2_${ts}@smartpen.test`,
       phoneNumber: '9876544002',
       designation: 'Staff Coach',
@@ -78,7 +76,6 @@ async function runLiveTests() {
     const coach3 = await db.createCoach({
       firstName: 'AvailableCoach',
       lastName: `Three${ts}`,
-      displayName: `AvailableCoach Three${ts}`,
       email: `availcoach_${ts}@smartpen.test`,
       phoneNumber: '9876544003',
       designation: 'Junior Coach',
@@ -92,7 +89,6 @@ async function runLiveTests() {
     const inactiveCoach = await db.createCoach({
       firstName: 'InactiveCoach',
       lastName: `Four${ts}`,
-      displayName: `InactiveCoach Four${ts}`,
       email: `inactcoach_${ts}@smartpen.test`,
       phoneNumber: '9876544004',
       designation: 'Former Coach',
@@ -108,7 +104,6 @@ async function runLiveTests() {
       studentName: `StudentOne Cat1Tester${ts}`,
       firstName: 'StudentOne',
       lastName: `Cat1Tester${ts}`,
-      displayName: `StudentOne Cat1Tester${ts}`,
       parentName: 'Parent One',
       email: `cat1student1_${ts}@smartpen.test`,
       whatsappMobile: '9876544011',
@@ -128,7 +123,6 @@ async function runLiveTests() {
       studentName: `StudentTwo Cat1Tester${ts}`,
       firstName: 'StudentTwo',
       lastName: `Cat1Tester${ts}`,
-      displayName: `StudentTwo Cat1Tester${ts}`,
       parentName: 'Parent Two',
       email: `cat1student2_${ts}@smartpen.test`,
       whatsappMobile: '9876544012',
@@ -148,9 +142,9 @@ async function runLiveTests() {
     const att1_2 = `att-c1-2-${ts}`;
     const att1_3 = `att-c1-3-${ts}`;
     await db.saveAttendanceBatch([
-      { id: att1_1, studentId: student1.id, date: '2026-09-02', status: 'Present', coachNotes: 'Good start' },
-      { id: att1_2, studentId: student1.id, date: '2026-09-05', status: 'Absent', coachNotes: 'Sick leave' },
-      { id: att1_3, studentId: student1.id, date: '2026-09-08', status: 'Absent', coachNotes: 'Missed session' }
+      { id: att1_1, studentId: student1.id, classNumber: 1, date: '2026-09-02', status: 'Present', coachNotes: 'Good start' },
+      { id: att1_2, studentId: student1.id, classNumber: 2, date: '2026-09-05', status: 'Absent', coachNotes: 'Sick leave' },
+      { id: att1_3, studentId: student1.id, classNumber: 3, date: '2026-09-08', status: 'Absent', coachNotes: 'Missed session' }
     ]);
     createdAttendanceIds.push(att1_1, att1_2, att1_3);
 
@@ -159,9 +153,9 @@ async function runLiveTests() {
     const att2_2 = `att-c2-2-${ts}`;
     const att2_3 = `att-c2-3-${ts}`;
     await db.saveAttendanceBatch([
-      { id: att2_1, studentId: student2.id, date: '2026-09-02', status: 'Present', coachNotes: 'On time' },
-      { id: att2_2, studentId: student2.id, date: '2026-09-05', status: 'Present', coachNotes: 'Excellent slant' },
-      { id: att2_3, studentId: student2.id, date: '2026-09-08', status: 'Present', coachNotes: 'Completed sheet' }
+      { id: att2_1, studentId: student2.id, classNumber: 1, date: '2026-09-02', status: 'Present', coachNotes: 'On time' },
+      { id: att2_2, studentId: student2.id, classNumber: 2, date: '2026-09-05', status: 'Present', coachNotes: 'Excellent slant' },
+      { id: att2_3, studentId: student2.id, classNumber: 3, date: '2026-09-08', status: 'Present', coachNotes: 'Completed sheet' }
     ]);
     createdAttendanceIds.push(att2_1, att2_2, att2_3);
 
@@ -220,7 +214,9 @@ async function runLiveTests() {
     // Context Users
     const adminUser: User = {
       id: 'admin-live-test',
-      displayName: 'Master Admin',
+      firstName: 'Master Admin',
+      lastName: 'User',
+      isActive: true,
       role: 'admin',
       email: 'admin@smartpen.com'
     };
@@ -228,7 +224,9 @@ async function runLiveTests() {
     const coachUser1: User = {
       id: coach1.id,
       coachId: coach1.id,
-      displayName: coach1.displayName,
+      firstName: coach1.firstName,
+      lastName: coach1.lastName || 'Coach',
+      isActive: true,
       role: 'coach',
       email: coach1.email
     };
@@ -236,7 +234,9 @@ async function runLiveTests() {
     const coachUser2: User = {
       id: coach2.id,
       coachId: coach2.id,
-      displayName: coach2.displayName,
+      firstName: coach2.firstName,
+      lastName: coach2.lastName || 'Coach',
+      isActive: true,
       role: 'coach',
       email: coach2.email
     };
@@ -244,7 +244,9 @@ async function runLiveTests() {
     const studentUser1: User = {
       id: student1.id,
       studentId: student1.id,
-      displayName: student1.displayName,
+      firstName: student1.firstName,
+      lastName: student1.lastName || 'Student',
+      isActive: true,
       role: 'student',
       email: student1.email
     };
@@ -252,7 +254,9 @@ async function runLiveTests() {
     const studentUser2: User = {
       id: student2.id,
       studentId: student2.id,
-      displayName: student2.displayName,
+      firstName: student2.firstName,
+      lastName: student2.lastName || 'Student',
+      isActive: true,
       role: 'student',
       email: student2.email
     };
@@ -299,7 +303,7 @@ async function runLiveTests() {
       const res = await executeTool('explainStudentStatus', input, adminUser);
       const hasCycle = res.result?.attendance?.cycleProgress?.includes('/ 8 classes');
       const hasFee = res.result?.fees?.latestRecord?.amount === 1600;
-      const hasCoach = res.result?.coach?.name === coach1.displayName;
+      const hasCoach = res.result?.coach?.name === coach1.firstName;
       const hasMilestone = res.result?.latestMilestone?.title === 'Module 2: Lower Loops';
       const passed = res.success === true && hasCycle && hasFee && hasCoach && hasMilestone && res.summary.includes('Student 360° Overview');
       record(5, 'explainStudentStatus: Happy path (Admin) - Returns complete 360 overview', input, passed, res.summary);
@@ -307,7 +311,7 @@ async function runLiveTests() {
 
     // Scenario 6: Happy path (Coach scoped) - Coach inspects assigned student
     {
-      const input = { studentNameOrId: student1.displayName };
+      const input = { studentNameOrId: student1.firstName };
       const res = await executeTool('explainStudentStatus', input, coachUser1);
       const passed = res.success === true && res.result?.student?.id === student1.id && res.summary.includes('Student 360° Overview');
       record(6, 'explainStudentStatus: Happy path (Coach scoped) - Assigned coach permitted', input, passed, res.summary);

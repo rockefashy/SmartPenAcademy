@@ -43,7 +43,6 @@ async function runScenario26() {
     const coach1 = await db.createCoach({
       firstName: 'Scen26Coach',
       lastName: `One${ts}`,
-      displayName: `Scen26Coach One${ts}`,
       email: `scen26_coach1_${ts}@smartpen.test`,
       phoneNumber: '9876543081',
       designation: 'Senior Coach',
@@ -58,7 +57,6 @@ async function runScenario26() {
     const coach2 = await db.createCoach({
       firstName: 'Scen26Coach',
       lastName: `Two${ts}`,
-      displayName: `Scen26Coach Two${ts}`,
       email: `scen26_coach2_${ts}@smartpen.test`,
       phoneNumber: '9876543082',
       designation: 'Staff Coach',
@@ -75,7 +73,6 @@ async function runScenario26() {
       studentName: `StudentTwo Scen26Tester${ts}`,
       firstName: 'StudentTwo',
       lastName: `Scen26Tester${ts}`,
-      displayName: `StudentTwo Scen26Tester${ts}`,
       parentName: 'Parent Two',
       email: `s26_student2_${ts}@smartpen.test`,
       whatsappMobile: '9876543084',
@@ -93,7 +90,9 @@ async function runScenario26() {
       id: coach1.userId || `usr-coach1-${ts}`,
       role: 'coach',
       coachId: coach1.id,
-      displayName: `${coach1.firstName} ${coach1.lastName}`,
+      firstName: coach1.firstName,
+      lastName: coach1.lastName || 'Coach',
+      isActive: true,
       email: coach1.email
     };
 

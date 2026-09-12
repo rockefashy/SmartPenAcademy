@@ -76,7 +76,7 @@ export const getFeeStatusTool: AgentTool = {
       if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
         return {
           result: null,
-          summary: `Privacy Scoping: As a coach, you can only view fee status for students assigned to your coaching roster. "${student.displayName}" is not assigned to you.`,
+          summary: `Privacy Scoping: As a coach, you can only view fee status for students assigned to your coaching roster. "${student.firstName}" is not assigned to you.`,
           success: false
         };
       }
@@ -91,7 +91,7 @@ export const getFeeStatusTool: AgentTool = {
 
       return {
         result: {
-          studentName: student.displayName,
+          studentName: student.firstName,
           studentId: student.id,
           classesAttended: presentCount,
           completedCycles,
@@ -100,7 +100,7 @@ export const getFeeStatusTool: AgentTool = {
           gpayNumber: '8861751000',
           gpayLink
         },
-        summary: `💳 **Fee Status for ${student.displayName}**:\n• Status: **${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ No pending Fee'}**\n• Classes Attended: ${presentCount} (${completedCycles} completed 8-class cycles)\n• Paid Receipts: ${fees.filter(f => f.status === 'Paid').length}\n• Direct GPAY Payment: **8861751000**`,
+        summary: `💳 **Fee Status for ${student.firstName}**:\n• Status: **${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ No pending Fee'}**\n• Classes Attended: ${presentCount} (${completedCycles} completed 8-class cycles)\n• Paid Receipts: ${fees.filter(f => f.status === 'Paid').length}\n• Direct GPAY Payment: **8861751000**`,
         success: true
       };
     }
@@ -124,7 +124,7 @@ export const getFeeStatusTool: AgentTool = {
         studentDues.push({
           student: s,
           isFeeDue,
-          summaryLine: `• **${s.displayName}**: ${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ Paid up to date'} (${presentCount} classes, ${fees.filter(f => f.status === 'Paid').length} receipts)`
+          summaryLine: `• **${s.firstName}**: ${isFeeDue ? '⚠️ Fee Due (₹1,600)' : '✓ Paid up to date'} (${presentCount} classes, ${fees.filter(f => f.status === 'Paid').length} receipts)`
         });
       }
 

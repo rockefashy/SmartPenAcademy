@@ -60,7 +60,7 @@ export const getStudentWorkSamplesTool: AgentTool = {
       if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
         return {
           result: null,
-          summary: `Privacy Scoping: As a coach, you can only view work samples for students on your coaching roster. "${student.displayName}" is not assigned to you.`,
+          summary: `Privacy Scoping: As a coach, you can only view work samples for students on your coaching roster. "${student.firstName}" is not assigned to you.`,
           success: false
         };
       }
@@ -73,7 +73,7 @@ export const getStudentWorkSamplesTool: AgentTool = {
       const filteredResult = applyFilterOrLimit({
         items: works,
         requestedLimit,
-        entityLabel: `work samples for ${student.displayName}`,
+        entityLabel: `work samples for ${student.firstName}`,
         suggestedFilters: [
           'A category filter: e.g. "Assessment", "Homework", or "Classwork"'
         ]
@@ -89,13 +89,13 @@ export const getStudentWorkSamplesTool: AgentTool = {
 
       return {
         result: {
-          studentName: student.displayName,
+          studentName: student.firstName,
           studentId: student.id,
           count: filteredResult.items.length,
           totalCount: filteredResult.totalCount,
           samples: filteredResult.items
         },
-        summary: `📸 **Work Samples for ${student.displayName} (${filteredResult.totalCount} total)**:\n${filteredResult.items.length === 0 ? 'No matching work samples found.' : list}`,
+        summary: `📸 **Work Samples for ${student.firstName} (${filteredResult.totalCount} total)**:\n${filteredResult.items.length === 0 ? 'No matching work samples found.' : list}`,
         success: true
       };
     }
@@ -110,7 +110,7 @@ export const getStudentWorkSamplesTool: AgentTool = {
       const stWorks = await db.getStudentWorks(st.id);
       for (const w of stWorks) {
         if (!categoryFilter || (w.category || '').toLowerCase() === categoryFilter) {
-          allWorks.push({ studentName: st.displayName, studentId: st.id, work: w });
+          allWorks.push({ studentName: st.firstName, studentId: st.id, work: w });
         }
       }
     }

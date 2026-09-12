@@ -54,8 +54,8 @@ export const submitTestimonialTool: AgentTool = {
 
     const payload = {
       studentId: student.id,
-      studentName: student.displayName,
-      parentName: student.parentName || user.displayName || 'Parent',
+      studentName: student.firstName,
+      parentName: student.parentName || user.firstName || 'Parent',
       grade: student.gradeClass || '',
       schoolName: student.schoolName || '',
       rating: Number(args?.rating) || 5,
@@ -77,7 +77,7 @@ export const submitTestimonialTool: AgentTool = {
 
     return {
       result: saved,
-      summary: `🎉 **Thank you for your feedback!** Your ${saved.rating}-star review for **${student.displayName}** has been submitted and is pending coach approval for the website!`,
+      summary: `🎉 **Thank you for your feedback!** Your ${saved.rating}-star review for **${student.firstName}** has been submitted and is pending coach approval for the website!`,
       success: true
     };
   }

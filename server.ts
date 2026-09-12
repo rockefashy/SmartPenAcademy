@@ -48,7 +48,6 @@ import {
   sendEmail,
   sendEnrollmentEmails,
   sendStudentUpdatedEmails,
-  sendForgotPasswordEmail,
   sendPasswordResetLinkEmail,
   sendPasswordChangedEmail,
   sendDemoBookingAlert,
@@ -203,14 +202,15 @@ interface AuthRequest extends Request {
     role: 'admin' | 'coach' | 'student';
     studentId?: string;
     coachId?: string;
-    displayName: string;
+    firstName: string;
+    lastName?: string;
     email: string;
     phoneNumber?: string;
     designation?: string;
   };
 }
 
-const authenticateJwt = (req: AuthRequest, res: Response, next: NextFunction): void => {
+const authenticateJwt = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   let token: string | undefined;
 
   // 1. Check secure httpOnly cookie first
@@ -231,10 +231,9 @@ const authenticateJwt = (req: AuthRequest, res: Response, next: NextFunction): v
     return;
   }
 
+  let decoded: any;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
-    req.user = decoded;
-    next();
+    decoded = jwt.verify(token, JWT_SECRET) as any;
   } catch (err: any) {
     res.status(401).json({ 
       error: 'Session expired or invalid token. Please log in again to continue.', 
@@ -243,6 +242,29 @@ const authenticateJwt = (req: AuthRequest, res: Response, next: NextFunction): v
     });
     return;
   }
+
+  // Validate token_version: if the user changed their password after this token was issued,
+  // the token_version in the DB will be higher than what is stored in the JWT claim.
+  // This ensures password changes immediately invalidate all older tokens.
+  if (decoded.id && decoded.tokenVersion !== undefined) {
+    try {
+      const currentVersion = await db.findUserTokenVersion(decoded.id);
+      if (currentVersion !== null && currentVersion > decoded.tokenVersion) {
+        res.status(401).json({
+          error: 'Session invalidated. Your password was changed — please log in again.',
+          code: 'SESSION_INVALIDATED',
+          requireLogin: true
+        });
+        return;
+      }
+    } catch {
+      // Non-fatal: if the version check fails (e.g. DB transient error), allow the request through.
+      // The JWT signature has already been verified; this is a defence-in-depth check only.
+    }
+  }
+
+  req.user = decoded;
+  next();
 };
 
 const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
@@ -408,7 +430,7 @@ app.get('/api/email/status', asyncHandler(async (req: Request, res: Response) =>
     apiKeyMasked: hasApiKey ? `${process.env.RESEND_API_KEY!.substring(0, 5)}...` : null,
     fromSender: sender,
     adminNotificationEmail: adminEmail || null,
-    adminUser: adminUser ? { id: adminUser.id, email: adminUser.email, displayName: adminUser.displayName, role: adminUser.role } : null
+    adminUser: adminUser ? { id: adminUser.id, email: adminUser.email, firstName: adminUser.firstName, role: adminUser.role } : null
   });
 }));
 
@@ -428,7 +450,7 @@ app.post('/api/email/test', asyncHandler(async (req: Request, res: Response) => 
 
   if (type === 'enrollment') {
     const results = await sendEnrollmentEmails({
-      displayName: studentName,
+      firstName: studentName,
       parentName,
       age: 8,
       gender: 'Male',
@@ -475,13 +497,15 @@ app.post('/api/email/test', asyncHandler(async (req: Request, res: Response) => 
 const issueUserSession = async (user: any, res: Response, targetStudentId?: string) => {
   let siblingStudents: any = undefined;
   let activeStudentId = targetStudentId || user.studentId;
-  let activeDisplayName = user.displayName;
+  let activeFirstName = user.firstName;
+  let activeLastName = user.lastName;
 
   if (user.role === 'student') {
     const rawSiblings = await db.getSiblingStudentsForUser(user);
     siblingStudents = rawSiblings.map(s => ({
       id: s.id,
-      displayName: s.displayName || `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Student',
+      firstName: s.firstName || 'Student',
+      lastName: s.lastName || undefined,
       age: s.age,
       gradeClass: s.gradeClass,
       schoolName: s.schoolName
@@ -490,11 +514,13 @@ const issueUserSession = async (user: any, res: Response, targetStudentId?: stri
     if (activeStudentId) {
       const activeSibling = rawSiblings.find(s => s.id === activeStudentId);
       if (activeSibling) {
-        activeDisplayName = activeSibling.displayName || `${activeSibling.firstName || ''} ${activeSibling.lastName || ''}`.trim() || activeDisplayName;
+        activeFirstName = activeSibling.firstName || activeFirstName;
+        activeLastName = activeSibling.lastName || activeLastName;
       }
     } else if (rawSiblings.length === 1) {
       activeStudentId = rawSiblings[0].id;
-      activeDisplayName = rawSiblings[0].displayName || `${rawSiblings[0].firstName || ''} ${rawSiblings[0].lastName || ''}`.trim() || activeDisplayName;
+      activeFirstName = rawSiblings[0].firstName || activeFirstName;
+      activeLastName = rawSiblings[0].lastName || activeLastName;
     }
   }
 
@@ -504,11 +530,14 @@ const issueUserSession = async (user: any, res: Response, targetStudentId?: stri
     role: user.role,
     studentId: activeStudentId,
     coachId: user.coachId || user.coach_id,
-    displayName: activeDisplayName,
+    firstName: activeFirstName,
+    lastName: activeLastName,
     email: user.email,
     phoneNumber: user.phoneNumber,
     designation: user.designation,
-    siblingStudents
+    siblingStudents,
+    // Embed the current token_version so authenticateJwt can detect post-password-change tokens
+    tokenVersion: typeof user.tokenVersion === 'number' ? user.tokenVersion : (typeof user.token_version === 'number' ? user.token_version : 0)
   };
 
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
@@ -619,9 +648,9 @@ app.post('/api/auth/login', authRateLimiter, asyncHandler(async (req: Request, r
         actorRole: loggedUser.role,
         actorStudentId: loggedUser.studentId,
         action: 'auth_login',
-        summary: `User ${loggedUser.displayName} (${loggedUser.username || loggedUser.email}) logged in successfully as ${loggedUser.role}`,
+        summary: `User ${loggedUser.firstName} (${loggedUser.username || loggedUser.email}) logged in successfully as ${loggedUser.role}`,
         arguments: { identifier: loginIdentifier, role: loggedUser.role },
-        result: { userId: loggedUser.id, role: loggedUser.role, displayName: loggedUser.displayName },
+        result: { userId: loggedUser.id, role: loggedUser.role, firstName: loggedUser.firstName },
         status: 'success'
       });
       return await issueUserSession(loggedUser, res);
@@ -651,7 +680,8 @@ app.post('/api/auth/login', authRateLimiter, asyncHandler(async (req: Request, r
             id: s?.id || u.studentId || u.id,
             studentId: s?.id || u.studentId || u.id,
             userId: u.id,
-            displayName: s?.displayName || `${s?.firstName || u.firstName || ''} ${s?.lastName || u.lastName || ''}`.trim() || u.displayName || 'Student',
+            firstName: s?.firstName || u.firstName || 'Student',
+            lastName: s?.lastName || u.lastName || undefined,
             status: s?.status || 'Active',
             dateOfLeaving: s?.dateOfLeaving,
             age: s?.age,
@@ -688,7 +718,8 @@ app.post('/api/auth/login', authRateLimiter, asyncHandler(async (req: Request, r
       if (matched) {
         targetStudentId = matched.id;
         primaryUser.studentId = matched.id;
-        primaryUser.displayName = matched.displayName || `${matched.firstName || ''} ${matched.lastName || ''}`.trim() || primaryUser.displayName;
+        primaryUser.firstName = matched.firstName || primaryUser.firstName;
+        primaryUser.lastName = matched.lastName || primaryUser.lastName;
       }
     }
 
@@ -698,9 +729,9 @@ app.post('/api/auth/login', authRateLimiter, asyncHandler(async (req: Request, r
       actorRole: 'student',
       actorStudentId: primaryUser.studentId,
       action: 'auth_login',
-      summary: `Student/Parent ${primaryUser.displayName} logged in directly (read-only archive enabled if inactive)`,
+      summary: `Student/Parent ${primaryUser.firstName} logged in directly (read-only archive enabled if inactive)`,
       arguments: { identifier: loginIdentifier, role: primaryUser.role, studentId: primaryUser.studentId },
-      result: { userId: primaryUser.id, role: primaryUser.role, displayName: primaryUser.displayName, studentId: primaryUser.studentId },
+      result: { userId: primaryUser.id, role: primaryUser.role, firstName: primaryUser.firstName, studentId: primaryUser.studentId },
       status: 'success'
     });
     return await issueUserSession(primaryUser, res, primaryUser.studentId);
@@ -730,9 +761,9 @@ app.post('/api/auth/login', authRateLimiter, asyncHandler(async (req: Request, r
     actorRole: matchedUser.role,
     actorStudentId: matchedUser.studentId,
     action: 'auth_login',
-    summary: `User ${matchedUser.displayName} (${matchedUser.username || matchedUser.email}) logged in successfully as ${matchedUser.role}`,
+    summary: `User ${matchedUser.firstName} (${matchedUser.username || matchedUser.email}) logged in successfully as ${matchedUser.role}`,
     arguments: { identifier: loginIdentifier, role: matchedUser.role },
-    result: { userId: matchedUser.id, role: matchedUser.role, displayName: matchedUser.displayName },
+    result: { userId: matchedUser.id, role: matchedUser.role, firstName: matchedUser.firstName },
     status: 'success'
   });
   return await issueUserSession(matchedUser, res);
@@ -773,7 +804,7 @@ app.post('/api/auth/select-role', asyncHandler(async (req: Request, res: Respons
     actorUsername: chosenUser.username,
     actorRole: chosenUser.role,
     action: 'auth_select_role',
-    summary: `User ${chosenUser.displayName} completed dual-role selection and entered workspace as ${selectedRole}`,
+    summary: `User ${chosenUser.firstName} completed dual-role selection and entered workspace as ${selectedRole}`,
     arguments: { selectedRole },
     result: { userId: chosenUser.id, role: chosenUser.role }
   });
@@ -833,7 +864,7 @@ app.post('/api/auth/select-student', asyncHandler(async (req: Request, res: Resp
     if (studentUser) effectiveUser = studentUser;
   }
 
-  const activeDisplayName = chosenStudent.displayName || `${chosenStudent.firstName || ''} ${chosenStudent.lastName || ''}`.trim() || effectiveUser.displayName;
+  const activeFirstName = chosenStudent.firstName || effectiveUser.firstName;
 
   recordAudit({
     actorId: effectiveUser.id,
@@ -841,7 +872,7 @@ app.post('/api/auth/select-student', asyncHandler(async (req: Request, res: Resp
     actorRole: 'student',
     actorStudentId: chosenStudent.id,
     action: 'auth_select_student',
-    summary: `Parent selected student profile: ${activeDisplayName} (ID: ${chosenStudent.id})`,
+    summary: `Parent selected student profile: ${activeFirstName} (ID: ${chosenStudent.id})`,
     arguments: { selectedStudentId: chosenStudent.id },
     result: { studentId: chosenStudent.id }
   });
@@ -876,7 +907,7 @@ app.post('/api/auth/switch-student', authenticateJwt, asyncHandler(async (req: A
     throw new AuthorizationError('Selected student profile is not linked to your family account.');
   }
 
-  const targetDisplayName = targetSibling.displayName || `${targetSibling.firstName || ''} ${targetSibling.lastName || ''}`.trim() || currentStoredUser.displayName;
+  const targetFirstName = targetSibling.firstName || currentStoredUser.firstName;
 
   recordAudit({
     actorId: req.user.id,
@@ -884,7 +915,7 @@ app.post('/api/auth/switch-student', authenticateJwt, asyncHandler(async (req: A
     actorRole: 'student',
     actorStudentId: targetSibling.id,
     action: 'auth_switch_student',
-    summary: `Switched active student profile to sibling ${targetDisplayName} (Student ID: ${targetSibling.id})`,
+    summary: `Switched active student profile to sibling ${targetFirstName} (Student ID: ${targetSibling.id})`,
     arguments: { fromStudentId: req.user.studentId, toStudentId: targetSibling.id },
     result: { newStudentId: targetSibling.id }
   });
@@ -944,7 +975,7 @@ app.post('/api/auth/request-reset-link', authRateLimiter, asyncHandler(async (re
   const resetLink = `${origin}?resetToken=${resetData.token}#reset-password`;
 
   const emailResult = await sendPasswordResetLinkEmail(user.email, {
-    displayName: user.displayName,
+    firstName: user.firstName,
     resetLink
   });
 
@@ -1009,10 +1040,8 @@ app.post('/api/auth/reset-password', authRateLimiter, asyncHandler(async (req: R
 // ================= COACHES & ADMINISTRATION SCHEMAS & API (BATCH 2) =================
 
 const createCoachSchema = z.object({
-  firstName: z.string().optional().default(''),
-  lastName: z.string().optional().default(''),
-  displayName: z.string().optional(),
-  fullName: z.string().optional(),
+  firstName: z.string().trim().min(1, 'Coach first name is required'),
+  lastName: z.string().trim().optional().default(''),
   email: z.string().email('Valid coach email address is required'),
   phoneNumber: z.string().min(10, 'A valid 10-digit phone number is required'),
   password: z.string().min(8, 'Coach initial password must be at least 8 characters'),
@@ -1037,9 +1066,8 @@ const createCoachSchema = z.object({
 });
 
 const updateCoachSchema = z.object({
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  displayName: z.string().optional(),
+  firstName: z.string().trim().optional(),
+  lastName: z.string().trim().optional(),
   email: z.string().email('Valid coach email address is required').optional(),
   phoneNumber: z.string().optional(),
   address: z.string().optional(),
@@ -1067,11 +1095,6 @@ const assignCoachSchema = z.object({
 });
 
 // Coaches API
-// Deliberately Public Coaches Endpoint (Unauthenticated)
-app.get('/api/coaches/public', asyncHandler(async (req: Request, res: Response) => {
-  const publicCoaches = await db.getPublicCoaches();
-  return res.json(publicCoaches);
-}));
 
 // Authenticated Coaches Directory:
 // - Administrators receive full coach operational profiles.
@@ -1090,7 +1113,6 @@ app.get('/api/coaches', authenticateJwt, asyncHandler(async (req: AuthRequest, r
       id: c.id,
       firstName: c.firstName,
       lastName: c.lastName,
-      displayName: c.displayName,
       designation: c.designation,
       specializations: c.specializations,
       educationalQualification: c.educationalQualification,
@@ -1106,15 +1128,9 @@ app.post('/api/coaches', authenticateJwt, requireAdmin, asyncHandler(async (req:
     throw new ValidationError(parsed.error.issues[0]?.message || 'Invalid coach registration data');
   }
   const data = parsed.data;
-  const derivedDisplayName = (data.displayName || data.fullName || `${data.firstName || ''} ${data.lastName || ''}`).trim();
-  if (!derivedDisplayName) {
-    throw new ValidationError('Coach display name (or first & last name) is required.');
-  }
-
   const coach = await db.createCoach({
-    firstName: data.firstName?.trim(),
-    lastName: data.lastName?.trim(),
-    displayName: derivedDisplayName,
+    firstName: data.firstName.trim(),
+    lastName: data.lastName?.trim() || '',
     email: data.email.toLowerCase().trim(),
     phoneNumber: data.phoneNumber.trim(),
     address: data.address?.trim(),
@@ -1135,8 +1151,8 @@ app.post('/api/coaches', authenticateJwt, requireAdmin, asyncHandler(async (req:
     actorUsername: req.user?.username,
     actorRole: req.user?.role,
     action: 'coach_create',
-    summary: `Administrator ${req.user?.displayName || req.user?.username} onboarded new Coach: ${coach.displayName} (${coach.email})`,
-    arguments: { displayName: coach.displayName, email: coach.email, phoneNumber: coach.phoneNumber, designation: coach.designation },
+    summary: `Administrator ${req.user?.firstName || req.user?.username} onboarded new Coach: ${coach.firstName} (${coach.email})`,
+    arguments: { firstName: coach.firstName, email: coach.email, phoneNumber: coach.phoneNumber, designation: coach.designation },
     result: { coachId: coach.id, email: coach.email }
   });
 
@@ -1159,9 +1175,9 @@ app.put('/api/coaches/:id', authenticateJwt, requireAdmin, asyncHandler(async (r
     actorUsername: req.user?.username,
     actorRole: req.user?.role,
     action: 'coach_update',
-    summary: `Administrator ${req.user?.displayName || req.user?.username} updated Coach profile: ${updatedCoach.displayName} (${coachId})`,
+    summary: `Administrator ${req.user?.firstName || req.user?.username} updated Coach profile: ${updatedCoach.firstName} (${coachId})`,
     arguments: { coachId, updates: req.body },
-    result: { coachId, displayName: updatedCoach.displayName }
+    result: { coachId, firstName: updatedCoach.firstName }
   });
 
   return res.json(updatedCoach);
@@ -1176,7 +1192,7 @@ app.delete('/api/coaches/:id', authenticateJwt, requireAdmin, asyncHandler(async
     actorUsername: req.user?.username,
     actorRole: req.user?.role,
     action: 'coach_deactivate',
-    summary: `Administrator ${req.user?.displayName || req.user?.username} deactivated Coach (soft delete): ${coachId}`,
+    summary: `Administrator ${req.user?.firstName || req.user?.username} deactivated Coach (soft delete): ${coachId}`,
     arguments: { coachId },
     result: { success: true, softDelete: true }
   });
@@ -1202,7 +1218,7 @@ app.patch('/api/students/:id/assign-coach', authenticateJwt, requireAdmin, async
       actorUsername: req.user?.username,
       actorRole: req.user?.role,
       action: 'student_assign_coach',
-      summary: `Assigned coach ${coachId || 'None'} to student ${updatedStudent.displayName} (${req.params.id})`,
+      summary: `Assigned coach ${coachId || 'None'} to student ${updatedStudent.firstName} (${req.params.id})`,
       arguments: { studentId: req.params.id, coachId },
       result: { studentId: req.params.id, coachId, assignmentChanged: updatedStudent.assignmentChanged }
     });
@@ -1257,7 +1273,7 @@ app.post('/api/auth/change-password', authenticateJwt, authRateLimiter, asyncHan
   }
 
   const user = await db.findUserByEmailOrUsername(email);
-  sendPasswordChangedEmail(email, { displayName: user?.displayName }).catch(err => {
+  sendPasswordChangedEmail(email, { firstName: user?.firstName }).catch(err => {
     console.warn('[Resend Background Notice] Password changed email dispatch:', err.message || err);
   });
 
@@ -1301,15 +1317,13 @@ app.post('/api/auth/family-students', asyncHandler(async (req: Request, res: Res
   }
   const target = (parsed.data.email || parsed.data.identifier || '').trim();
   const siblings = await db.getFamilyStudentsByEmailOrPhone(target);
+  // Only return the minimum needed for sibling-selector UI: id + first name.
+  // Age, grade, school and userId are omitted — this endpoint is unauthenticated.
   return res.json({
     students: siblings.map(s => ({
       id: s.id,
       studentId: s.id,
-      userId: s.userId,
-      displayName: s.displayName || `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Student',
-      age: s.age,
-      gradeClass: s.gradeClass,
-      schoolName: s.schoolName
+      firstName: s.firstName || 'Student'
     }))
   });
 }));
@@ -1317,8 +1331,8 @@ app.post('/api/auth/family-students', asyncHandler(async (req: Request, res: Res
 // Exchange/Harmonize Supabase Auth Session with Backend Custom JWT & httpOnly Cookie
 const supabaseSessionSchema = z.object({
   email: z.string().email('Valid email is required for session synchronization.'),
-  displayName: z.string().optional(),
-  fullName: z.string().optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
   role: z.enum(['admin', 'coach', 'student']).optional(),
   studentId: z.string().optional(),
   id: z.string().optional(),
@@ -1330,11 +1344,12 @@ app.post('/api/auth/supabase-session', asyncHandler(async (req: Request, res: Re
   if (!ssParse.success) {
     throw new ValidationError(ssParse.error.issues[0]?.message || 'Invalid request body.');
   }
-  const { email, displayName, fullName, role, studentId, id, username } = ssParse.data;
+  const { email, firstName, lastName, role, studentId, id, username } = ssParse.data;
 
   const user = await db.upsertUserFromSupabase({
     email,
-    displayName: displayName || fullName,
+    firstName,
+    lastName,
     role,
     studentId,
     id,
@@ -1346,7 +1361,8 @@ app.post('/api/auth/supabase-session', asyncHandler(async (req: Request, res: Re
     username: user.username,
     role: user.role,
     studentId: user.studentId,
-    displayName: user.displayName,
+    firstName: user.firstName,
+    lastName: user.lastName,
     email: user.email
   };
 
@@ -1366,7 +1382,7 @@ app.post('/api/auth/supabase-session', asyncHandler(async (req: Request, res: Re
     actorRole: user.role,
     actorStudentId: user.studentId,
     action: 'auth_supabase_sync_session',
-    summary: `Harmonized Supabase OAuth / Auth session for ${user.displayName} (${user.email})`,
+    summary: `Harmonized Supabase OAuth / Auth session for ${user.firstName} (${user.email})`,
     arguments: { email: user.email, role: user.role },
     result: { userId: user.id, role: user.role }
   });
@@ -1419,24 +1435,37 @@ app.post('/api/auth/forgot-password', authRateLimiter, asyncHandler(async (req: 
     throw new AuthorizationError('Admin account password cannot be reset via email. Password changes happen only via direct backend access.');
   }
 
-  // Real-time Resend Email Dispatch
-  const emailResult = await sendForgotPasswordEmail(user.email, user);
+  // Generate a secure, single-use, 1-hour reset token and dispatch via email link.
+  // Passwords are one-way bcrypt hashes and are never sent in plaintext.
+  const resetData = await db.createPasswordResetToken(user.email);
+  if (!resetData || 'error' in resetData) {
+    throw new DatabaseError((resetData && 'error' in resetData) ? resetData.error : 'Failed to generate reset link.');
+  }
 
-  console.log(`[EMAIL DISPATCH] Sent password retrieval notification to ${user.email} for username: ${user.username}. (Resend status: ${emailResult.success ? 'Delivered' : 'Failed: ' + emailResult.error})`);
+  const origin = req.headers.origin || 'http://localhost:3000';
+  const resetLink = `${origin}?resetToken=${resetData.token}#reset-password`;
+
+  const emailResult = await sendPasswordResetLinkEmail(user.email, {
+    firstName: user.firstName,
+    resetLink
+  });
+
+  authLogger.info(`Password reset link dispatched (token redacted)`, { email: user.email });
 
   recordAudit({
     actorId: user.id,
     actorUsername: user.username,
     actorRole: user.role,
+    actorStudentId: user.studentId,
     action: 'auth_forgot_password',
-    summary: `Dispatched password retrieval notification to registered email: ${user.email}`,
+    summary: `Dispatched 1-hour secure password reset link to registered email: ${user.email}`,
     arguments: { identifier, email: user.email },
     result: { email: user.email, deliveryStatus: emailResult.success ? 'sent' : 'simulated' }
   });
 
   return res.json({
     success: true,
-    message: `Password has been sent to registered email: ${user.email}`,
+    message: `Password reset link dispatched to ${user.email}. Link valid for 60 minutes.`,
     email: user.email,
     deliveryStatus: emailResult.success ? 'sent' : 'simulated'
   });
@@ -1449,13 +1478,15 @@ app.get('/api/auth/me', authenticateJwt, asyncHandler(async (req: AuthRequest, r
 
   let siblingStudents: any = undefined;
   let activeStudentId = req.user.studentId || user.studentId;
-  let displayName = user.displayName;
+  let activeFirstName = user.firstName;
+  let activeLastName = user.lastName;
 
   if (user.role === 'student') {
     const rawSiblings = await db.getSiblingStudentsForUser(user);
     siblingStudents = rawSiblings.map(s => ({
       id: s.id,
-      displayName: s.displayName || `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Student',
+      firstName: s.firstName || 'Student',
+      lastName: s.lastName || undefined,
       age: s.age,
       gradeClass: s.gradeClass,
       schoolName: s.schoolName
@@ -1464,11 +1495,13 @@ app.get('/api/auth/me', authenticateJwt, asyncHandler(async (req: AuthRequest, r
     if (activeStudentId) {
       const activeSibling = rawSiblings.find(s => s.id === activeStudentId);
       if (activeSibling) {
-        displayName = activeSibling.displayName || `${activeSibling.firstName || ''} ${activeSibling.lastName || ''}`.trim() || displayName;
+        activeFirstName = activeSibling.firstName || activeFirstName;
+        activeLastName = activeSibling.lastName || activeLastName;
       }
     } else if (rawSiblings.length === 1) {
       activeStudentId = rawSiblings[0].id;
-      displayName = rawSiblings[0].displayName || `${rawSiblings[0].firstName || ''} ${rawSiblings[0].lastName || ''}`.trim() || displayName;
+      activeFirstName = rawSiblings[0].firstName || activeFirstName;
+      activeLastName = rawSiblings[0].lastName || activeLastName;
     }
   }
 
@@ -1477,7 +1510,8 @@ app.get('/api/auth/me', authenticateJwt, asyncHandler(async (req: AuthRequest, r
     username: user.username,
     role: user.role,
     studentId: activeStudentId,
-    displayName,
+    firstName: activeFirstName,
+    lastName: activeLastName,
     email: user.email,
     phoneNumber: user.phoneNumber,
     designation: user.designation,
@@ -1486,8 +1520,8 @@ app.get('/api/auth/me', authenticateJwt, asyncHandler(async (req: AuthRequest, r
 }));
 
 const patchMeSchema = z.object({
-  displayName: z.string().optional(),
-  fullName: z.string().optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
   phoneNumber: z.string().optional(),
   avatarUrl: z.string().optional()
 });
@@ -1533,9 +1567,10 @@ app.patch('/api/auth/me', authenticateJwt, asyncHandler(async (req: AuthRequest,
     throw new ValidationError(parsed.error.issues[0]?.message || 'Invalid profile update parameters.');
   }
 
-  const { displayName, fullName, phoneNumber, avatarUrl } = parsed.data;
+  const { firstName, lastName, phoneNumber, avatarUrl } = parsed.data;
   const result = await db.updateUserSelfProfile(req.user.id, {
-    displayName: displayName || fullName,
+    firstName,
+    lastName,
     phoneNumber,
     avatarUrl
   });
@@ -1549,7 +1584,8 @@ app.patch('/api/auth/me', authenticateJwt, asyncHandler(async (req: AuthRequest,
     message: 'Profile updated successfully.',
     user: {
       id: result.user.id,
-      displayName: result.user.displayName,
+      firstName: result.user.firstName,
+      lastName: result.user.lastName,
       email: result.user.email,
       phoneNumber: result.user.phoneNumber,
       role: result.user.role,
@@ -1570,10 +1606,8 @@ const studentIdParamSchema = z.object({
 });
 
 const enrollStudentSchema = z.object({
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  displayName: z.string().optional(),
-  fullName: z.string().optional(),
+  firstName: z.string().trim().min(1, 'Student first name is required.'),
+  lastName: z.string().trim().optional(),
   parentName: z.string().min(1, 'Parent/Guardian name is required.'),
   email: z.string().email('Valid parent contact email is required.'),
   age: z.coerce.number().int().min(4, 'Student age must be a valid number between 4 and 18.').max(18, 'Student age must be a valid number between 4 and 18.'),
@@ -1595,9 +1629,8 @@ const enrollStudentSchema = z.object({
 }).passthrough();
 
 const updateStudentSchema = z.object({
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  displayName: z.string().optional(),
+  firstName: z.string().trim().optional(),
+  lastName: z.string().trim().optional(),
   parentName: z.string().optional(),
   email: z.string().email().optional(),
   age: z.coerce.number().int().min(4).max(18).optional(),
@@ -1668,13 +1701,8 @@ app.post('/api/students/enroll', asyncHandler(async (req: Request, res: Response
     throw new ValidationError(parsed.error.issues[0]?.message || 'Invalid student enrollment data.');
   }
   const data = parsed.data;
-  const firstName = data.firstName?.trim() || '';
-  const lastName = data.lastName?.trim() || '';
-  const displayName = data.displayName?.trim() || data.fullName?.trim() || `${firstName} ${lastName}`.trim();
-
-  if (!displayName && !firstName) {
-    throw new ValidationError('Student display name is required.');
-  }
+  const firstName = data.firstName.trim();
+  const lastName = (data.lastName || '').trim();
 
   const rawPhone = (data.whatsappMobile || data.phoneNumber || data.phone || '').trim();
   const digitsOnly = rawPhone.replace(/\D/g, '');
@@ -1704,7 +1732,6 @@ app.post('/api/students/enroll', asyncHandler(async (req: Request, res: Response
   const isDuplicate = await db.checkStudentDuplicate({
     firstName,
     lastName,
-    displayName,
     phoneNumber,
     email: data.email,
     age: data.age
@@ -1713,8 +1740,8 @@ app.post('/api/students/enroll', asyncHandler(async (req: Request, res: Response
     recordAudit({
       actorId: 'anonymous',
       action: 'student_enroll_duplicate_blocked',
-      summary: `Enrollment blocked: Student ${displayName} is already enrolled.`,
-      arguments: { displayName, firstName, lastName, phoneNumber, email: data.email, age: data.age },
+      summary: `Enrollment blocked: Student ${firstName} is already enrolled.`,
+      arguments: { firstName, lastName, phoneNumber, email: data.email, age: data.age },
       status: 'failed'
     });
     throw new ConflictError('Student is already enrolled.');
@@ -1726,9 +1753,8 @@ app.post('/api/students/enroll', asyncHandler(async (req: Request, res: Response
 
   const newStudent = {
     ...data,
-    firstName: firstName || undefined,
+    firstName,
     lastName: lastName || undefined,
-    displayName,
     modeOfLearning: data.modeOfLearning || 'In-person',
     parentName: data.parentName.trim(),
     email: data.email.toLowerCase().trim(),
@@ -1751,10 +1777,10 @@ app.post('/api/students/enroll', asyncHandler(async (req: Request, res: Response
   await recordAudit({
     actorId: 'anonymous',
     action: 'student_enroll',
-    summary: `Enrolled new student: ${newStudent.displayName} (Age: ${data.age}, Grade: ${(newStudent as any).gradeClass || 'N/A'}, Parent: ${newStudent.parentName}, Phone: ${phoneNumber})`,
+    summary: `Enrolled new student: ${created.firstName} (Age: ${data.age}, Grade: ${(newStudent as any).gradeClass || 'N/A'}, Parent: ${newStudent.parentName}, Phone: ${phoneNumber})`,
     arguments: {
       studentId: created.id,
-      displayName: newStudent.displayName,
+      firstName: created.firstName,
       age: data.age,
       gradeClass: (newStudent as any).gradeClass,
       parentName: newStudent.parentName,
@@ -1819,9 +1845,9 @@ app.put('/api/students/:id', authenticateJwt, requireCoachOrAdmin, verifyStudent
     actorRole: req.user?.role,
     actorStudentId: studentId,
     action: 'student_update',
-    summary: `${req.user?.role === 'coach' ? 'Coach' : 'Administrator'} ${req.user?.displayName || req.user?.username} updated profile for student ${updated.displayName} (${studentId})`,
+    summary: `${req.user?.role === 'coach' ? 'Coach' : 'Administrator'} ${req.user?.firstName || req.user?.username} updated profile for student ${updated.firstName} (${studentId})`,
     arguments: { studentId, updates: updateData },
-    result: { studentId, displayName: updated.displayName }
+    result: { studentId, firstName: updated.firstName }
   });
 
   sendStudentUpdatedEmails(updated, updateData).catch(err => {
@@ -1849,8 +1875,8 @@ app.delete('/api/students/:id', authenticateJwt, requireAdmin, asyncHandler(asyn
     actorRole: req.user?.role,
     actorStudentId: id,
     action: 'student_deactivate',
-    summary: `Administrator ${req.user?.displayName || req.user?.username} deactivated student profile (soft delete): ${student?.displayName || id}`,
-    arguments: { studentId: id, studentName: student?.displayName },
+    summary: `Administrator ${req.user?.firstName || req.user?.username} deactivated student profile (soft delete): ${student?.firstName || id}`,
+    arguments: { studentId: id, studentName: student?.firstName },
     result: { success: true, softDelete: true }
   });
 
@@ -2010,7 +2036,7 @@ app.post('/api/attendance/batch', authenticateJwt, requireCoachOrAdmin, attendan
     actorUsername: req.user?.username,
     actorRole: req.user?.role,
     action: 'attendance_batch_save',
-    summary: `${req.user?.displayName || req.user?.username} (${req.user?.role}) saved/updated ${records.length} attendance records`,
+    summary: `${req.user?.firstName || req.user?.username} (${req.user?.role}) saved/updated ${records.length} attendance records`,
     arguments: { recordCount: records.length, sampleRecord: records[0] },
     result: { count: records.length, success: true }
   });
@@ -2426,7 +2452,7 @@ app.post('/api/progress-trackers', authenticateJwt, requireCoachOrAdmin, verifyS
     actorRole: req.user?.role,
     actorStudentId: tracker.studentId,
     action: 'progress_tracker_save',
-    summary: `${req.user?.displayName || req.user?.username} recorded progress metric evaluation for student ${tracker.studentId} (${tracker.evaluationDate})`,
+    summary: `${req.user?.firstName || req.user?.username} recorded progress metric evaluation for student ${tracker.studentId} (${tracker.evaluationDate})`,
     arguments: { studentId: tracker.studentId, evaluationDate: tracker.evaluationDate, overallScore: tracker.overallScore },
     result: { trackerId: saved.id, studentId: tracker.studentId }
   });
@@ -2514,7 +2540,7 @@ app.post('/api/student-works/upload', authenticateJwt, verifyStudentAccess('stud
     actorRole: req.user?.role,
     actorStudentId: studentId,
     action: 'student_work_upload',
-    summary: `${req.user?.displayName || req.user?.username} uploaded handwriting sample (${category || 'Practice Sheet'}) for student ${studentId}`,
+    summary: `${req.user?.firstName || req.user?.username} uploaded handwriting sample (${category || 'Practice Sheet'}) for student ${studentId}`,
     arguments: { studentId, category: category || 'Practice Sheet', captureDate: captureDate || 'today', comments },
     result: { workId: saved.id, imagePath: finalImagePath }
   });
@@ -2598,7 +2624,7 @@ app.post('/api/student-works/bulk-delete', authenticateJwt, requireCoachOrAdmin,
     actorUsername: req.user?.username,
     actorRole: req.user?.role,
     action: 'student_works_bulk_delete',
-    summary: `${req.user?.displayName || req.user?.username} bulk deleted ${deletedCount} work samples`,
+    summary: `${req.user?.firstName || req.user?.username} bulk deleted ${deletedCount} work samples`,
     arguments: { requestedCount: ids.length, deletedCount },
     result: { success: true, count: deletedCount }
   });
@@ -2634,7 +2660,7 @@ app.post('/api/reports/generate', authenticateJwt, requireCoachOrAdmin, verifySt
     actorRole: req.user?.role,
     actorStudentId: report.studentId,
     action: 'progress_report_generate',
-    summary: `${req.user?.displayName || req.user?.username} generated Progress Milestone Report for student ${report.studentId}`,
+    summary: `${req.user?.firstName || req.user?.username} generated Progress Milestone Report for student ${report.studentId}`,
     arguments: { studentId: report.studentId, reportDate: report.reportDate, remarks: report.remarks },
     result: { reportId: saved.id, studentId: report.studentId }
   });
@@ -2665,7 +2691,7 @@ app.delete('/api/reports/:id', authenticateJwt, requireCoachOrAdmin, asyncHandle
     actorRole: req.user?.role,
     actorStudentId: report.studentId,
     action: 'progress_report_delete',
-    summary: `${req.user?.displayName || req.user?.username} removed progress report #${id} for student ${report.studentId}`,
+    summary: `${req.user?.firstName || req.user?.username} removed progress report #${id} for student ${report.studentId}`,
     arguments: { reportId: id, studentId: report.studentId },
     result: { success: true }
   });
@@ -3252,7 +3278,7 @@ app.use(errorHandler);
 
 // ================= VITE INTEGRATION & SERVER LIFECYCLE =================
 async function startServer() {
-  const isProductionMode = process.env.NODE_ENV === 'production' || __dirname.includes('dist');
+  const isProductionMode = process.env.NODE_ENV === 'production' || (typeof __dirname !== 'undefined' && __dirname.includes('dist'));
   if (!isProductionMode) {
     const isHmrDisabled = process.env.DISABLE_HMR === 'true';
     const vite = await createViteServer({

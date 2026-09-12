@@ -79,7 +79,7 @@ export const deactivateCoachTool: AgentTool = {
           coach,
           alreadyInactive: true
         },
-        summary: `Coach "${coach.displayName}" is already Inactive (recorded date of leaving: ${recordedLeaving}). No changes made.`,
+        summary: `Coach "${coach.firstName}" is already Inactive (recorded date of leaving: ${recordedLeaving}). No changes made.`,
         success: true
       };
     }
@@ -93,24 +93,24 @@ export const deactivateCoachTool: AgentTool = {
     // 4. Draft confirmation (confirmed !== true)
     if (!confirmed) {
       const studentListPreview = assignedStudents.length > 0
-        ? ` (${assignedStudents.map(s => s.displayName).join(', ')})`
+        ? ` (${assignedStudents.map(s => s.firstName).join(', ')})`
         : '';
 
       return {
         result: {
           draft: true,
           coachId: coach.id,
-          displayName: coach.displayName,
+          firstName: coach.firstName,
           designation: coach.designation || 'Coach',
           email: coach.email,
           phone: coach.phoneNumber || 'N/A',
           assignedStudentCount: assignedStudents.length,
-          assignedStudents: assignedStudents.map(s => ({ id: s.id, name: s.displayName })),
+          assignedStudents: assignedStudents.map(s => ({ id: s.id, name: s.firstName })),
           dateOfLeaving: effectiveDate,
           notes: notes || undefined
         },
         summary: `⚠️ **Confirmation Required: Deactivate Coach**\n\n` +
-          `• **Coach**: ${coach.displayName} (ID: ${coach.id}, ${coach.designation || 'Coach'})\n` +
+          `• **Coach**: ${coach.firstName} (ID: ${coach.id}, ${coach.designation || 'Coach'})\n` +
           `• **Active Assigned Students**: ${assignedStudents.length} student(s)${studentListPreview}\n` +
           `• **Date of Leaving**: ${effectiveDate}\n\n` +
           `**Operational Impact**:\n` +
@@ -118,7 +118,7 @@ export const deactivateCoachTool: AgentTool = {
           `2. All ${assignedStudents.length} active student(s) will be unassigned (coach_id set to null).\n` +
           `3. Coach will be removed from active coaching assignments.\n` +
           `4. Historical coaching and attendance records are permanently preserved.\n\n` +
-          `To proceed, please reply: **"Confirm deactivation of ${coach.displayName}"** or **"Yes, deactivate coach"**.`,
+          `To proceed, please reply: **"Confirm deactivation of ${coach.firstName}"** or **"Yes, deactivate coach"**.`,
         success: true
       };
     }
@@ -130,11 +130,11 @@ export const deactivateCoachTool: AgentTool = {
       return {
         result: {
           coachId: coach.id,
-          displayName: coach.displayName,
+          firstName: coach.firstName,
           deactivated: true,
           unassignedStudentCount: assignedStudents.length
         },
-        summary: `✓ Coach **${coach.displayName}** has been successfully deactivated (soft delete). ${assignedStudents.length} assigned student(s) have been unassigned. Historical records remain preserved.`,
+        summary: `✓ Coach **${coach.firstName}** has been successfully deactivated (soft delete). ${assignedStudents.length} assigned student(s) have been unassigned. Historical records remain preserved.`,
         success: true
       };
     } catch (err: any) {

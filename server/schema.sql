@@ -381,26 +381,9 @@ REVOKE ALL ON FUNCTION public.get_auth_user_by_identifier(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_auth_user_by_identifier(text) TO authenticated, service_role, postgres;
 
 -- ============================================================================
--- 17. DELIBERATELY PUBLIC COACH VIEW (Sanitized Projection)
--- Exposes ONLY explicitly designated public fields.
--- Private contact info, address, notes, and emergency data are never exposed.
--- ============================================================================
-CREATE OR REPLACE VIEW public.public_coaches AS
-SELECT 
-  id,
-  first_name,
-  last_name,
-  designation,
-  specializations,
-  educational_qualification,
-  status,
-  created_at
-FROM public.coaches
-WHERE status = 'Active';
+-- 17. PUBLIC COACH VIEW REMOVED
+-- Coaches are strictly private to the academy.
 
-GRANT SELECT ON public.public_coaches TO anon, authenticated, service_role, postgres;
-
--- ============================================================================
 -- 18. ROW LEVEL SECURITY (RLS) POLICIES
 -- Defense-in-Depth: Users, Coaches, Students, Attendance, Fees, Progress, Works
 -- ============================================================================

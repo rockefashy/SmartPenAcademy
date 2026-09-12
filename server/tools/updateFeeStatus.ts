@@ -124,7 +124,7 @@ export const updateFeeStatusTool: AgentTool = {
       if (matchedFees.length === 0) {
         return {
           result: null,
-          summary: `Could not find any fee record for student "${student.displayName}"${period ? ` matching period "${period}"` : ''}.`,
+          summary: `Could not find any fee record for student "${student.firstName}"${period ? ` matching period "${period}"` : ''}.`,
           success: false
         };
       }
@@ -137,14 +137,14 @@ export const updateFeeStatusTool: AgentTool = {
       if (!verifyToolStudentAccess(user, student)) {
         return {
           result: null,
-          summary: `Privacy Scoping: As a coach, you can only modify fee records for students assigned to you. "${student.displayName}" is not in your roster.`,
+          summary: `Privacy Scoping: As a coach, you can only modify fee records for students assigned to you. "${student.firstName}" is not in your roster.`,
           success: false
         };
       }
     }
 
     // 4. Idempotency Check
-    const studentDisplayName = student?.displayName || `Student (${feeRecord.studentId})`;
+    const studentDisplayName = student?.firstName || `Student (${feeRecord.studentId})`;
     const isAmountUnchanged = newAmount === undefined || feeRecord.amount === newAmount;
     if (feeRecord.status === newStatus && isAmountUnchanged) {
       return {

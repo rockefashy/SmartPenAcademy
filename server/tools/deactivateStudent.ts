@@ -79,7 +79,7 @@ export const deactivateStudentTool: AgentTool = {
           student,
           alreadyInactive: true
         },
-        summary: `Student "${student.displayName}" is already Inactive (recorded date of leaving: ${recordedLeaving}). No changes made.`,
+        summary: `Student "${student.firstName}" is already Inactive (recorded date of leaving: ${recordedLeaving}). No changes made.`,
         success: true
       };
     }
@@ -92,7 +92,7 @@ export const deactivateStudentTool: AgentTool = {
         result: {
           draft: true,
           studentId: student.id,
-          displayName: student.displayName,
+          firstName: student.firstName,
           gradeClass: student.gradeClass || 'N/A',
           schoolName: student.schoolName || 'N/A',
           parentName: student.parentName,
@@ -102,7 +102,7 @@ export const deactivateStudentTool: AgentTool = {
           notes: notes || undefined
         },
         summary: `⚠️ **Confirmation Required: Deactivate Student**\n\n` +
-          `• **Student**: ${student.displayName} (ID: ${student.id})\n` +
+          `• **Student**: ${student.firstName} (ID: ${student.id})\n` +
           `• **Grade / School**: ${student.gradeClass || 'N/A'} • ${student.schoolName || 'N/A'}\n` +
           `• **Parent**: ${student.parentName} (${student.whatsappMobile || 'N/A'})\n` +
           `• **Assigned Coach**: ${student.coachName || 'None'}\n` +
@@ -112,7 +112,7 @@ export const deactivateStudentTool: AgentTool = {
           `2. Attendance marking and fee processing will be blocked.\n` +
           `3. Student will be placed into read-only historical archive.\n` +
           `4. Historical records (attendance, receipts, works) are preserved permanently.\n\n` +
-          `To proceed, please reply: **"Confirm deactivation of ${student.displayName}"** or **"Yes, deactivate student"**.`,
+          `To proceed, please reply: **"Confirm deactivation of ${student.firstName}"** or **"Yes, deactivate student"**.`,
         success: true
       };
     }
@@ -128,7 +128,7 @@ export const deactivateStudentTool: AgentTool = {
       if (!updated) {
         return {
           result: null,
-          summary: `Failed to deactivate student "${student.displayName}".`,
+          summary: `Failed to deactivate student "${student.firstName}".`,
           success: false
         };
       }
@@ -138,7 +138,7 @@ export const deactivateStudentTool: AgentTool = {
           student: updated,
           deactivated: true
         },
-        summary: `✓ Student **${updated.displayName}** has been successfully deactivated (soft delete). Historical records remain preserved.`,
+        summary: `✓ Student **${updated.firstName}** has been successfully deactivated (soft delete). Historical records remain preserved.`,
         success: true
       };
     } catch (err: any) {

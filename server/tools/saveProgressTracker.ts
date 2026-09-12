@@ -52,7 +52,7 @@ export const saveProgressTrackerTool: AgentTool = {
     if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
       return {
         result: null,
-        summary: `Scoping Policy: You can only record progress tracker evaluations for assigned students. "${student.displayName}" is not assigned to you.`,
+        summary: `Scoping Policy: You can only record progress tracker evaluations for assigned students. "${student.firstName}" is not assigned to you.`,
         success: false
       };
     }
@@ -83,7 +83,7 @@ export const saveProgressTrackerTool: AgentTool = {
     const saved = await db.saveProgressTracker(payload as any);
     return {
       result: saved,
-      summary: `📈 Recorded Progress Tracker evaluation for **${student.displayName}** on **${saved.evaluationDate}** with Overall Stars: **${saved.overallStars}/5**!`,
+      summary: `📈 Recorded Progress Tracker evaluation for **${student.firstName}** on **${saved.evaluationDate}** with Overall Stars: **${saved.overallStars}/5**!`,
       success: true
     };
   }

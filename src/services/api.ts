@@ -118,7 +118,8 @@ export const api = {
       id: string;
       studentId: string;
       userId?: string;
-      displayName: string;
+      firstName: string;
+      lastName?: string;
       age?: number;
       gradeClass?: string;
       schoolName?: string;
@@ -173,20 +174,6 @@ export const api = {
   },
 
   // Coaches API
-  async getPublicCoaches(): Promise<Array<{
-    id: string;
-    firstName?: string;
-    lastName?: string;
-    displayName: string;
-    designation: string;
-    specializations: string[];
-    educationalQualification?: string;
-    status: string;
-  }>> {
-    const res = await fetch('/api/coaches/public');
-    if (!res.ok) throw new Error('Failed to fetch public coaches');
-    return res.json();
-  },
 
   async getCoaches(): Promise<CoachProfile[]> {
     const res = await fetch('/api/coaches', {
@@ -198,7 +185,8 @@ export const api = {
   },
 
   async updateMyProfile(data: {
-    displayName?: string;
+    firstName?: string;
+    lastName?: string;
     phoneNumber?: string;
     avatarUrl?: string;
   }): Promise<{ success: boolean; message?: string; user?: any }> {
@@ -221,7 +209,6 @@ export const api = {
   async createCoach(data: {
     firstName?: string;
     lastName?: string;
-    displayName?: string;
     email: string;
     phoneNumber: string;
     address?: string;
@@ -400,6 +387,7 @@ export const api = {
     return {
       id: `att_${Date.now()}`,
       studentId,
+      classNumber: (data as any).classNumber || 1,
       date: data.date,
       yearMonth,
       status: data.status,
@@ -520,7 +508,7 @@ export const api = {
     const headers = ['ID', 'Full Name', 'Parent Name', 'WhatsApp Mobile', 'Email', 'Grade', 'School', 'Dominant Hand', 'Grip Type', 'Batch Days', 'Time Slot', 'Status', 'Enrollment Date'];
     const rows = students.map((s) => [
       `"${s.id}"`,
-      `"${s.displayName.replace(/"/g, '""')}"`,
+      `"${(s.firstName + (s.lastName ? ' ' + s.lastName : '')).replace(/"/g, '""')}"`,
       `"${s.parentName.replace(/"/g, '""')}"`,
       `"${s.whatsappMobile}"`,
       `"${s.email}"`,

@@ -55,7 +55,7 @@ export const assignCoachToStudentTool: AgentTool = {
         };
       }
       targetCoachId = coach.id;
-      targetCoachName = coach.displayName;
+      targetCoachName = coach.firstName;
     }
 
     // 3. Invoke hardened DB method (enforces active status, existence, idempotency)
@@ -64,7 +64,7 @@ export const assignCoachToStudentTool: AgentTool = {
       if (!updated) {
         return {
           result: null,
-          summary: `Failed to update coach assignment for "${student.displayName}".`,
+          summary: `Failed to update coach assignment for "${student.firstName}".`,
           success: false
         };
       }
@@ -74,7 +74,7 @@ export const assignCoachToStudentTool: AgentTool = {
       if (updated.assignmentChanged === false) {
         return {
           result: updated,
-          summary: `Coach assignment for **${student.displayName}** is already ${effectiveCoachName ? `Coach **${effectiveCoachName}**` : 'unassigned'}. No change was needed.`,
+          summary: `Coach assignment for **${student.firstName}** is already ${effectiveCoachName ? `Coach **${effectiveCoachName}**` : 'unassigned'}. No change was needed.`,
           success: true
         };
       }
@@ -82,13 +82,13 @@ export const assignCoachToStudentTool: AgentTool = {
       if (targetCoachId) {
         return {
           result: updated,
-          summary: `✓ Successfully assigned Coach **${effectiveCoachName}** to **${student.displayName}**.`,
+          summary: `✓ Successfully assigned Coach **${effectiveCoachName}** to **${student.firstName}**.`,
           success: true
         };
       } else {
         return {
           result: updated,
-          summary: `✓ Successfully unassigned coach from **${student.displayName}**.`,
+          summary: `✓ Successfully unassigned coach from **${student.firstName}**.`,
           success: true
         };
       }

@@ -59,7 +59,7 @@ export const listStudentsTool: AgentTool = {
     if (args?.search) {
       const q = String(args.search).toLowerCase().trim();
       filtered = filtered.filter(s => 
-        (s.displayName || '').toLowerCase().includes(q) || 
+        (s.firstName || '').toLowerCase().includes(q) || 
         (s.gradeClass || '').toLowerCase().includes(q)
       );
     }
@@ -84,7 +84,7 @@ export const listStudentsTool: AgentTool = {
     }
 
     const listStr = filteredResult.items.map((s, idx) => 
-      `${idx + 1}. **${s.displayName}** (${s.gradeClass}) - ${s.preferredDays} @ ${s.preferredSlot} [${s.status}]${s.coachName ? ` • Coach: ${s.coachName}` : ''}`
+      `${idx + 1}. **${s.firstName}** (${s.gradeClass}) - ${s.preferredDays} @ ${s.preferredSlot} [${s.status}]${s.coachName ? ` • Coach: ${s.coachName}` : ''}`
     ).join('\n');
 
     const title = user?.role === 'coach' 

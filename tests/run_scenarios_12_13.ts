@@ -44,7 +44,6 @@ async function runTargetedTests() {
       studentName: `StudentTarget Tester${ts}`,
       firstName: 'StudentTarget',
       lastName: `Tester${ts}`,
-      displayName: `StudentTarget Tester${ts}`,
       parentName: 'Parent Target',
       email: `target_${ts}@smartpen.test`,
       whatsappMobile: '9876543099',
@@ -73,7 +72,9 @@ async function runTargetedTests() {
     const adminUser: User = {
       id: 'admin-live-test',
       role: 'admin',
-      displayName: 'Master Admin',
+      firstName: 'Master Admin',
+      lastName: 'Admin',
+      isActive: true,
       email: 'admin@smartpen.com'
     };
 

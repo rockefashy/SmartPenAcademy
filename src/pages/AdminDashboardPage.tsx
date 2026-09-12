@@ -102,7 +102,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   const [coachForm, setCoachForm] = useState({
     firstName: '',
     lastName: '',
-    displayName: '',
+    
     email: '',
     phoneNumber: '',
     address: '',
@@ -125,7 +125,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   const [editCoachForm, setEditCoachForm] = useState<{
     firstName: string;
     lastName: string;
-    displayName: string;
+    
     email: string;
     phoneNumber: string;
     address: string;
@@ -316,7 +316,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         notes: `Marked from Admin Dashboard Quick Action`,
       });
       setNotificationBanner(
-        adminProperties.messages.attendanceMarkedSuccess.replace('{name}', quickAttendanceStudent.displayName)
+        adminProperties.messages.attendanceMarkedSuccess.replace('{name}', quickAttendanceStudent.firstName)
       );
       setQuickAttendanceStudent(null);
       loadStudents();
@@ -333,7 +333,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     setEnrollmentPrefillData({
       isSiblingEnrollment: true,
       siblingOfStudentId: student.id,
-      siblingOfStudentName: student.displayName,
+      siblingOfStudentName: student.firstName,
       parentName: student.parentName,
       contactNumber: student.whatsappMobile || student.emergencyContactPhone || (student as any).phone || '',
       email: student.email || '',
@@ -373,7 +373,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         notes: quickFeeNotes.trim() || undefined,
       });
       setNotificationBanner(
-        adminProperties.messages.feeMarkedSuccess.replace('{name}', quickFeeStudent.displayName)
+        adminProperties.messages.feeMarkedSuccess.replace('{name}', quickFeeStudent.firstName)
       );
       setQuickFeeStudent(null);
       loadStudents();
@@ -409,7 +409,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     };
 
     if (!firstName && !calculatedDisplayName) {
-      handleCoachValidationError('Coach first name and display name are required.', 'input-coach-first-name');
+      handleCoachValidationError('Coach first name is required.', 'input-coach-first-name');
       return;
     }
     if (!coachForm.email.trim()) {
@@ -434,7 +434,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       const newCoach = await api.createCoach({
         firstName: firstName,
         lastName: lastName,
-        displayName: calculatedDisplayName,
+        
         email: coachForm.email.toLowerCase().trim(),
         phoneNumber: coachForm.phoneNumber.trim(),
         address: coachForm.address.trim() || undefined,
@@ -450,7 +450,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         password: coachForm.password.trim()
       });
 
-      const enrolledName = newCoach.displayName;
+      const enrolledName = newCoach.firstName;
       const enrolledDesignation = newCoach.designation || 'Coach';
       const enrolledEmail = newCoach.email;
       const enrolledPhone = newCoach.phoneNumber;
@@ -465,7 +465,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       setCoachForm({
         firstName: '',
         lastName: '',
-        displayName: '',
+        
         email: '',
         phoneNumber: '',
         address: '',
@@ -517,9 +517,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     setEditCoachError(null);
     setEditingCoach(coach);
     setEditCoachForm({
-      firstName: coach.firstName || coach.displayName.split(' ')[0] || '',
-      lastName: coach.lastName || coach.displayName.split(' ').slice(1).join(' ') || '',
-      displayName: coach.displayName || '',
+      firstName: coach.firstName || coach.firstName.split(' ')[0] || '',
+      lastName: coach.lastName || coach.firstName.split(' ').slice(1).join(' ') || '',
+      
       email: coach.email || '',
       phoneNumber: coach.phoneNumber || '',
       address: coach.address || '',
@@ -546,7 +546,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     const calculatedDisplayName = editCoachForm.displayName.trim() || `${firstName} ${lastName}`.trim();
 
     if (!firstName && !calculatedDisplayName) {
-      setEditCoachError('Coach first name and display name are required.');
+      setEditCoachError('Coach first name is required.');
       return;
     }
     if (!editCoachForm.email.trim()) {
@@ -567,7 +567,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       const updated = await api.updateCoach(editingCoach.id, {
         firstName: firstName,
         lastName: lastName,
-        displayName: calculatedDisplayName,
+        
         email: editCoachForm.email.toLowerCase().trim(),
         phoneNumber: editCoachForm.phoneNumber.trim(),
         address: editCoachForm.address.trim() || undefined,
@@ -583,7 +583,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         password: editCoachForm.password.trim() || undefined
       });
 
-      setNotificationBanner(`Coach profile for ${updated.displayName} successfully updated!`);
+      setNotificationBanner(`Coach profile for ${updated.firstName} successfully updated!`);
       setEditingCoach(null);
       setEditCoachForm(null);
       setEditCoachError(null);
@@ -602,24 +602,24 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     const isCurrentlyActive = student.status === 'Active';
     if (isCurrentlyActive) {
       const today = new Date().toISOString().split('T')[0];
-      if (!confirm(`Deactivate student "${student.displayName}"?\n\n• Status will be set to Inactive\n• Date of Leaving will be recorded as today (${today})\n• Student will not be able to login\n• Coaches will no longer manage this student\n• All historical records (attendance, fees, works) will be permanently preserved.`)) {
+      if (!confirm(`Deactivate student "${student.firstName}"?\n\n• Status will be set to Inactive\n• Date of Leaving will be recorded as today (${today})\n• Student will not be able to login\n• Coaches will no longer manage this student\n• All historical records (attendance, fees, works) will be permanently preserved.`)) {
         return;
       }
       try {
         await api.updateStudent(student.id, { status: 'Inactive', dateOfLeaving: today });
-        setNotificationBanner(`Student ${student.displayName} has been deactivated (soft delete). Historical records preserved.`);
+        setNotificationBanner(`Student ${student.firstName} has been deactivated (soft delete). Historical records preserved.`);
         loadStudents();
         setTimeout(() => setNotificationBanner(null), 4000);
       } catch (err: any) {
         alert(err.message || 'Failed to deactivate student');
       }
     } else {
-      if (!confirm(`Reactivate student "${student.displayName}"?\n\n• Status will be restored to Active\n• Date of Leaving will be cleared\n• Student login access will be restored.`)) {
+      if (!confirm(`Reactivate student "${student.firstName}"?\n\n• Status will be restored to Active\n• Date of Leaving will be cleared\n• Student login access will be restored.`)) {
         return;
       }
       try {
         await api.updateStudent(student.id, { status: 'Active', dateOfLeaving: null as any });
-        setNotificationBanner(`Student ${student.displayName} has been reactivated to Active status.`);
+        setNotificationBanner(`Student ${student.firstName} has been reactivated to Active status.`);
         loadStudents();
         setTimeout(() => setNotificationBanner(null), 4000);
       } catch (err: any) {
@@ -632,13 +632,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     const isCurrentlyActive = coach.status === 'Active';
     if (isCurrentlyActive) {
       const today = new Date().toISOString().split('T')[0];
-      if (!confirm(`Deactivate coach "${coach.displayName}"?\n\n• Status will be set to Inactive\n• Date of Leaving will be recorded as today (${today})\n• Coach will not be able to login\n• Any assigned students will be unassigned\n• All historical attendance and records are permanently preserved.`)) {
+      if (!confirm(`Deactivate coach "${coach.firstName}"?\n\n• Status will be set to Inactive\n• Date of Leaving will be recorded as today (${today})\n• Coach will not be able to login\n• Any assigned students will be unassigned\n• All historical attendance and records are permanently preserved.`)) {
         return;
       }
       setDeletingCoachId(coach.id);
       try {
         await api.deleteCoach(coach.id); // Soft deactivates on backend
-        setNotificationBanner(`Coach ${coach.displayName} has been deactivated (soft delete). Historical records are preserved.`);
+        setNotificationBanner(`Coach ${coach.firstName} has been deactivated (soft delete). Historical records are preserved.`);
         loadCoaches();
         loadStudents();
         setTimeout(() => setNotificationBanner(null), 4000);
@@ -648,13 +648,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         setDeletingCoachId(null);
       }
     } else {
-      if (!confirm(`Reactivate coach "${coach.displayName}"?\n\n• Status will be set to Active\n• Date of Leaving will be cleared\n• Coach login access will be restored.`)) {
+      if (!confirm(`Reactivate coach "${coach.firstName}"?\n\n• Status will be set to Active\n• Date of Leaving will be cleared\n• Coach login access will be restored.`)) {
         return;
       }
       setDeletingCoachId(coach.id);
       try {
         await api.updateCoach(coach.id, { status: 'Active', dateOfLeaving: null as any });
-        setNotificationBanner(`Coach ${coach.displayName} has been reactivated to Active status.`);
+        setNotificationBanner(`Coach ${coach.firstName} has been reactivated to Active status.`);
         loadCoaches();
         setTimeout(() => setNotificationBanner(null), 4000);
       } catch (err: any) {
@@ -736,7 +736,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   const filteredStudents = students
     .filter((st) => {
       const matchesSearch =
-        st.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        st.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         st.schoolName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         st.parentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         st.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -772,7 +772,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   const assignmentStudents = students.filter((st) => {
     const matchesSearch = 
       !assignmentSearch.trim() ||
-      st.displayName.toLowerCase().includes(assignmentSearch.toLowerCase()) ||
+      st.firstName.toLowerCase().includes(assignmentSearch.toLowerCase()) ||
       st.parentName.toLowerCase().includes(assignmentSearch.toLowerCase()) ||
       st.whatsappMobile.includes(assignmentSearch) ||
       st.schoolName.toLowerCase().includes(assignmentSearch.toLowerCase());
@@ -1054,7 +1054,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     <option value="All">All Coaches</option>
                     <option value="Unassigned">?? Unassigned ({unassignedStudentsCount})</option>
                     {coaches.map((c) => (
-                      <option key={c.id} value={c.id}>Coach {c.displayName}</option>
+                      <option key={c.id} value={c.id}>Coach {c.firstName}</option>
                     ))}
                   </Select>
                 </div>
@@ -1190,7 +1190,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                           <td className="py-3.5 px-4">
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#0E3589] to-[#0084F4] text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
-                                {student.displayName.charAt(0)}
+                                {student.firstName.charAt(0)}
                               </div>
                               <div>
                                 <Button
@@ -1198,7 +1198,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                   onClick={() => onNavigate('studentDetail', student.id, 1)}
                                   className="font-extrabold text-sm text-[#0E3589] hover:underline text-left p-0 h-auto inline-flex"
                                 >
-                                  {student.displayName}
+                                  {student.firstName}
                                 </Button>
                                 <p className="text-[11px] text-slate-500 font-medium">
                                   {student.age ? `Age: ${student.age} yrs • ` : ''}{student.gradeClass ? `${formatGradeClass(student.gradeClass)} • ` : ''}{formatDominantHand(student.dominantHand)} • <span className="font-semibold text-slate-700">{student.modeOfLearning || 'In-person'}</span>
@@ -1380,7 +1380,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                     setEnrollmentPrefillData(null);
                                     setActiveTab('studentEnrollment');
                                   }}
-                                  title={`Edit Student Details for ${student.displayName}`}
+                                  title={`Edit Student Details for ${student.firstName}`}
                                   className="bg-blue-50 hover:bg-blue-100 text-[#0E3589] border border-blue-200/80 rounded-lg"
                                   id={`btn-edit-student-${student.id}`}
                                 >
@@ -1394,7 +1394,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                   size="icon"
                                   variant="ghost"
                                   onClick={() => handleAddSibling(student)}
-                                  title={`${adminProperties.actions.addSibling} for ${student.displayName}`}
+                                  title={`${adminProperties.actions.addSibling} for ${student.firstName}`}
                                   className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/80 rounded-lg"
                                   id={`btn-add-sibling-${student.id}`}
                                 >
@@ -1418,7 +1418,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                 size="icon"
                                 variant="ghost"
                                 onClick={() => onNavigate('parentPortal', student.id)}
-                                title={`Preview Parent Portal for ${student.displayName}`}
+                                title={`Preview Parent Portal for ${student.firstName}`}
                                 className="bg-orange-50 hover:bg-orange-100 text-[#F46E20] border border-orange-200/80 rounded-lg"
                               >
                                 <GraduationCap className="w-4 h-4" />
@@ -1498,7 +1498,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <option value="All">Filter by Assigned Coach (All)</option>
                   <option value="Unassigned">⚠️ Not Assigned to Any Coach</option>
                   {coaches.map((c) => (
-                    <option key={c.id} value={c.id}>Coach {c.displayName} ({c.studentCount || 0} students)</option>
+                    <option key={c.id} value={c.id}>Coach {c.firstName} ({c.studentCount || 0} students)</option>
                   ))}
                 </Select>
               </div>
@@ -1541,7 +1541,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                           <td className="py-3.5 px-4">
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#0E3589] to-[#0084F4] text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
-                                {student.displayName.charAt(0)}
+                                {student.firstName.charAt(0)}
                               </div>
                               <div>
                                 <Button
@@ -1549,7 +1549,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                   onClick={() => onNavigate('studentDetail', student.id, 1)}
                                   className="font-extrabold text-sm text-[#0E3589] hover:underline text-left p-0 h-auto inline-flex"
                                 >
-                                  {student.displayName}
+                                  {student.firstName}
                                 </Button>
                                 <p className="text-[11px] text-slate-500 font-medium">
                                   {student.gradeClass ? `${formatGradeClass(student.gradeClass)} • ` : ''}{student.schoolName}
@@ -1606,7 +1606,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                 <option value="">-- No Coach Assigned --</option>
                                 {coaches.map((c) => (
                                   <option key={c.id} value={c.id}>
-                                    Coach {c.displayName} ({c.designation})
+                                    Coach {c.firstName} ({c.designation})
                                   </option>
                                 ))}
                               </Select>
@@ -1651,8 +1651,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               loadStudents();
               setNotificationBanner(
                 isEdit
-                  ? `✅ Student profile for ${student?.displayName || 'student'} has been successfully saved! Update notification dispatched to parent & admin.`
-                  : `🎉 Student ${student?.displayName || 'student'} has been successfully enrolled! Access credentials dispatched to parent & admin.`
+                  ? `✅ Student profile for ${student?.firstName || 'student'} has been successfully saved! Update notification dispatched to parent & admin.`
+                  : `🎉 Student ${student?.firstName || 'student'} has been successfully enrolled! Access credentials dispatched to parent & admin.`
               );
               setEditingStudent(null);
               setEnrollmentPrefillData(null);
@@ -2145,7 +2145,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             {(() => {
               const filtered = coaches.filter(c => {
                 const matchSearch = coachSearchQuery === '' ||
-                  c.displayName.toLowerCase().includes(coachSearchQuery.toLowerCase()) ||
+                  c.firstName.toLowerCase().includes(coachSearchQuery.toLowerCase()) ||
                   c.email.toLowerCase().includes(coachSearchQuery.toLowerCase()) ||
                   c.phoneNumber.includes(coachSearchQuery) ||
                   (c.educationalQualification && c.educationalQualification.toLowerCase().includes(coachSearchQuery.toLowerCase())) ||
@@ -2186,7 +2186,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                           <div className="flex items-start gap-3">
                             <div className="relative">
                               <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0E3589] to-[#0084F4] text-white flex items-center justify-center font-black text-sm shadow-xs shrink-0">
-                                {coach.displayName.charAt(0)}
+                                {coach.firstName.charAt(0)}
                               </div>
                               <span 
                                 className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${
@@ -2198,7 +2198,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                             <div className="space-y-1">
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <h3 className="font-black text-sm text-slate-900">
-                                  {coach.displayName}
+                                  {coach.firstName}
                                 </h3>
                                 {isCurrentUserAdminMatch && (
                                   <span className="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-orange-100 text-[#F46E20] border border-orange-200">
@@ -2484,7 +2484,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
             <div>
               <p className="text-xs text-slate-500">Student Name</p>
-              <p className="text-sm font-extrabold text-slate-900">{quickCoachAssignStudent.displayName}</p>
+              <p className="text-sm font-extrabold text-slate-900">{quickCoachAssignStudent.firstName}</p>
               <p className="text-xs text-slate-500 mt-0.5">
                 {quickCoachAssignStudent.gradeClass ? `${formatGradeClass(quickCoachAssignStudent.gradeClass)} • ` : ''}
                 {quickCoachAssignStudent.schoolName}
@@ -2526,7 +2526,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                       }`}
                     >
                       <div className="text-left">
-                        <p className="font-extrabold text-xs">Coach {c.displayName}</p>
+                        <p className="font-extrabold text-xs">Coach {c.firstName}</p>
                         <p className="text-[10px] text-slate-500 font-normal">{c.designation} • {c.studentCount || 0} students assigned</p>
                       </div>
                       {isCurrent && <Check className="w-4 h-4 text-[#0E3589]" />}
@@ -2691,7 +2691,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                             {targetStudent.whatsappMobile && (
                               <a
                                 href={`https://wa.me/${targetStudent.whatsappMobile.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                                  `Hello! This is Mrs. Deepthy Rock from SmartPen Handwriting Academy. ${targetStudent.displayName} has completed 8 classes (${al.metadata?.cycleLabel || '8 classes'}). The coaching fee of ₹1,600 is now due. Please record the payment at your earliest convenience. Thank you!`
+                                  `Hello! This is Mrs. Deepthy Rock from SmartPen Handwriting Academy. ${targetStudent.firstName} has completed 8 classes (${al.metadata?.cycleLabel || '8 classes'}). The coaching fee of ₹1,600 is now due. Please record the payment at your earliest convenience. Thank you!`
                                 )}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -3124,7 +3124,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             </div>
 
             <p className="text-xs text-slate-600">
-              Recording session for <strong className="text-slate-900">{quickAttendanceStudent.displayName}</strong>
+              Recording session for <strong className="text-slate-900">{quickAttendanceStudent.firstName}</strong>
             </p>
 
             <form onSubmit={handleQuickAttendanceSubmit} className="space-y-4">
@@ -3210,7 +3210,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             </div>
 
             <p className="text-xs text-slate-600">
-              Recording payment receipt for <strong className="text-slate-900">{quickFeeStudent.displayName}</strong>
+              Recording payment receipt for <strong className="text-slate-900">{quickFeeStudent.firstName}</strong>
             </p>
 
             <form onSubmit={handleQuickFeeSubmit} className="space-y-4">
@@ -3298,7 +3298,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <Edit2 className="w-5 h-5" />
                 <div>
                   <h3 className="font-black text-base text-slate-900">Edit Coach Profile</h3>
-                  <p className="text-xs text-slate-500">{editingCoach.displayName} ({editingCoach.email})</p>
+                  <p className="text-xs text-slate-500">{editingCoach.firstName} ({editingCoach.email})</p>
                 </div>
               </div>
               <Button

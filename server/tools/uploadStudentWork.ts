@@ -52,7 +52,7 @@ export const uploadStudentWorkTool: AgentTool = {
     if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
       return {
         result: null,
-        summary: `Scoping Policy: As a coach, you can only upload work samples for assigned students. "${student.displayName}" is not assigned to you.`,
+        summary: `Scoping Policy: As a coach, you can only upload work samples for assigned students. "${student.firstName}" is not assigned to you.`,
         success: false
       };
     }
@@ -77,7 +77,7 @@ export const uploadStudentWorkTool: AgentTool = {
     const saved = await db.saveStudentWork(parsed.data as any);
     return {
       result: saved,
-      summary: `📸 Successfully attached **${saved.category}** handwriting sample for **${student.displayName}** on ${saved.captureDate}!`,
+      summary: `📸 Successfully attached **${saved.category}** handwriting sample for **${student.firstName}** on ${saved.captureDate}!`,
       success: true
     };
   }

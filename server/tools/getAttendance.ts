@@ -84,7 +84,7 @@ export const getAttendanceTool: AgentTool = {
       if (student && user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
         return {
           result: null,
-          summary: `Scoping Policy: As a coach, you can only view attendance for students assigned to you. "${student.displayName}" is not assigned to your roster.`,
+          summary: `Scoping Policy: As a coach, you can only view attendance for students assigned to you. "${student.firstName}" is not assigned to your roster.`,
           success: false
         };
       }
@@ -103,7 +103,7 @@ export const getAttendanceTool: AgentTool = {
       const filteredResult = applyFilterOrLimit({
         items: records,
         requestedLimit,
-        entityLabel: `attendance records for ${student.displayName}`,
+        entityLabel: `attendance records for ${student.firstName}`,
         suggestedFilters: [
           'Filter by month: e.g. yearMonth="2026-09"'
         ]
@@ -120,7 +120,7 @@ export const getAttendanceTool: AgentTool = {
 
       return {
         result: {
-          studentName: student.displayName,
+          studentName: student.firstName,
           studentId: student.id,
           period: targetYearMonth || 'all-time',
           totalPresent: presentCount,
@@ -130,7 +130,7 @@ export const getAttendanceTool: AgentTool = {
           totalCount: filteredResult.totalCount,
           records: filteredResult.items
         },
-        summary: `📊 **${student.displayName}** has attended **${presentCount} classes** (${absentCount} absent)${monthLabel}. Current 8-class cycle: **${currentCycleProgress}/8 classes completed**. Total records returned: ${filteredResult.items.length}.`,
+        summary: `📊 **${student.firstName}** has attended **${presentCount} classes** (${absentCount} absent)${monthLabel}. Current 8-class cycle: **${currentCycleProgress}/8 classes completed**. Total records returned: ${filteredResult.items.length}.`,
         success: true
       };
     }
@@ -163,7 +163,7 @@ export const getAttendanceTool: AgentTool = {
           studentRecs = studentRecs.filter(r => (r.date || '').startsWith(ym));
         }
         const count = studentRecs.filter(r => r.status === 'Present').length;
-        summaryData.push(`${s.displayName}: ${count} classes`);
+        summaryData.push(`${s.firstName}: ${count} classes`);
       }
 
       const monthLabel = targetYearMonth ? ` for ${targetYearMonth}` : '';
@@ -210,7 +210,7 @@ export const getAttendanceTool: AgentTool = {
         studentRecs = studentRecs.filter(r => (r.date || '').startsWith(targetYearMonth));
       }
       const count = studentRecs.filter(r => r.status === 'Present').length;
-      summaryData.push(`${s.displayName}: ${count} classes`);
+      summaryData.push(`${s.firstName}: ${count} classes`);
     }
 
     const monthLabel = targetYearMonth ? ` for ${targetYearMonth}` : '';

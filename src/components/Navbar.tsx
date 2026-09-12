@@ -166,7 +166,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                       >
                         {user.siblingStudents.map((s) => (
                           <option key={s.id} value={s.id}>
-                            Viewing: {s.displayName} {s.age ? `(${s.age}y)` : ''}
+                            Viewing: {s.firstName} {s.age ? `(${s.age}y)` : ''}
                           </option>
                         ))}
                       </Select>
@@ -185,11 +185,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                         id="link-nav-admin-portal"
                       >
                         <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-white text-xs font-black shadow-xs shrink-0 bg-[#0E3589] group-hover:ring-2 group-hover:ring-blue-400 transition-all">
-                          {user?.displayName.charAt(0) || 'A'}
+                          {user?.firstName?.charAt(0) || 'A'}
                         </div>
                         <div className="text-left hidden sm:block ml-1.5">
                           <p className="text-xs font-extrabold text-slate-800 leading-tight truncate max-w-[120px] group-hover:text-[#0E3589] transition-colors">
-                            {user?.displayName}
+                            {user?.firstName}
                           </p>
                           <p className="text-[10px] font-bold text-[#0E3589] group-hover:underline inline-flex items-center gap-0.5 leading-tight">
                             <span>Admin Portal</span>
@@ -208,11 +208,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                         id="link-nav-coach-portal"
                       >
                         <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-white text-xs font-black shadow-xs shrink-0 bg-amber-600 group-hover:ring-2 group-hover:ring-amber-400 transition-all">
-                          {user?.displayName.charAt(0) || 'C'}
+                          {user?.firstName?.charAt(0) || 'C'}
                         </div>
                         <div className="text-left hidden sm:block ml-1.5">
                           <p className="text-xs font-extrabold text-slate-800 leading-tight truncate max-w-[120px] group-hover:text-amber-700 transition-colors">
-                            {user?.displayName}
+                            {user?.firstName}
                           </p>
                           <p className="text-[10px] font-bold text-amber-700 group-hover:underline inline-flex items-center gap-0.5 leading-tight">
                             <span>Coach Portal</span>
@@ -231,11 +231,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                         id="link-nav-student-portal"
                       >
                         <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-white text-xs font-black shadow-xs shrink-0 bg-[#F46E20] group-hover:ring-2 group-hover:ring-orange-400 transition-all">
-                          {user?.displayName.charAt(0) || 'U'}
+                          {user?.firstName?.charAt(0) || 'U'}
                         </div>
                         <div className="text-left hidden sm:block ml-1.5">
                           <p className="text-xs font-extrabold text-slate-800 leading-tight truncate max-w-[120px] group-hover:text-[#F46E20] transition-colors">
-                            {user?.displayName}
+                            {user?.firstName}
                           </p>
                           <p className="text-[10px] font-semibold text-slate-500 capitalize leading-tight">
                             Student
@@ -422,11 +422,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-black shadow-xs bg-[#0E3589] group-hover:ring-2 group-hover:ring-blue-400">
-                        {user?.displayName.charAt(0) || 'A'}
+                        {user?.firstName?.charAt(0) || 'A'}
                       </div>
                       <div>
                         <p className="text-sm font-bold text-slate-800 leading-tight group-hover:text-[#0E3589]">
-                          {user?.displayName}
+                          {user?.firstName}
                         </p>
                         <span className="text-xs font-bold text-[#0E3589] group-hover:underline inline-flex items-center gap-0.5">
                           Admin Portal <span className="text-[9px]">↗</span>
@@ -439,11 +439,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-black shadow-xs ${
                       user?.role === 'coach' ? 'bg-amber-600' : 'bg-[#F46E20]'
                     }`}>
-                      {user?.displayName.charAt(0) || 'U'}
+                      {user?.firstName?.charAt(0) || 'U'}
                     </div>
                     <div>
                       <p className="text-sm font-bold text-slate-800 leading-tight">
-                        {user?.displayName}
+                        {user?.firstName}
                       </p>
                       <p className="text-xs text-slate-500 capitalize">
                         {user?.role === 'coach' ? (user.designation || 'Coach') : 'Student'}

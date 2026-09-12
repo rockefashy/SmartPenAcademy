@@ -51,7 +51,7 @@ export const generateProgressReportTool: AgentTool = {
     if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
       return {
         result: null,
-        summary: `Scoping Policy: You can only generate progress reports for students assigned to you. "${student.displayName}" is not assigned to your coaching roster.`,
+        summary: `Scoping Policy: You can only generate progress reports for students assigned to you. "${student.firstName}" is not assigned to your coaching roster.`,
         success: false
       };
     }
@@ -80,7 +80,7 @@ export const generateProgressReportTool: AgentTool = {
 
     return {
       result: report,
-      summary: `⭐ Generated Progress Report (**${report.milestoneTitle}**) for **${student.displayName}** with **${stars} Stars** rating!`,
+      summary: `⭐ Generated Progress Report (**${report.milestoneTitle}**) for **${student.firstName}** with **${stars} Stars** rating!`,
       success: true
     };
   }

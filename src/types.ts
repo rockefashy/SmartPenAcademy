@@ -7,24 +7,25 @@ export interface User {
   studentId?: string;
   coachId?: string | null;
   email: string;
+  phone?: string;
   phoneNumber?: string;
-  firstName?: string;
-  lastName?: string;
-  displayName: string;
+  firstName: string;
+  lastName: string;
+  displayName?: string;
   avatarUrl?: string;
-  isActive?: boolean;
+  isActive: boolean;
   designation?: string | null;
   authorizedStudentIds?: string[];
-  siblingStudents?: { id: string; displayName?: string; age?: number }[];
+  siblingStudents?: { id: string; firstName?: string; displayName?: string; age?: number }[];
 }
 
 export type CoachStatus = 'Active' | 'Inactive';
 
 export interface CoachProfile {
   id: string;
-  firstName?: string;
-  lastName?: string;
-  displayName: string;
+  firstName: string;
+  lastName: string;
+  displayName?: string;
   email: string;
   phoneNumber: string;
   address?: string;
@@ -32,8 +33,8 @@ export interface CoachProfile {
   status: CoachStatus;
   dateOfLeaving?: string;
   educationalQualification?: string;
-  designation: 'Executive Tutor' | 'Principal Tutor' | 'Associate Tutor' | string;
-  specializations?: string[];
+  designation?: 'Executive Tutor' | 'Principal Tutor' | 'Associate Tutor' | string | null;
+  specializations?: string[] | null;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   notes?: string;
@@ -52,10 +53,10 @@ export type ModeOfLearning = 'In-person' | 'Online';
 
 export interface StudentProfile {
   id: string;
-  firstName?: string;
-  lastName?: string;
-  displayName: string;
-  age?: number;
+  firstName: string;
+  lastName: string;
+  displayName?: string;
+  age: number;
   dateOfBirth?: string;
   gender?: Gender;
   gradeClass?: string;
@@ -63,13 +64,13 @@ export interface StudentProfile {
   modeOfLearning?: ModeOfLearning;
   schoolName?: string;
   instructionMedium?: string;
-  
+
   // Coach assignment (references users.id where role = 'coach')
   coachId?: string | null;
   coachName?: string | null;
-  
+
   // Parent details
-  parentName?: string;
+  parentName: string;
   relationship?: string;
   whatsappMobile?: string;
   email?: string;
@@ -125,8 +126,8 @@ export interface AttendanceRecord {
   studentId: string;
   date: string; // YYYY-MM-DD
   yearMonth?: string; // YYYY-MM or Cycle identifier
-  classNumber?: number;
-  status: 'Present' | 'Absent';
+  classNumber: number;
+  status: 'Present' | 'Absent' | string;
   notes?: string;
   coachNotes?: string;
   markedBy?: string;
@@ -136,8 +137,8 @@ export interface AttendanceRecord {
 export interface FeeRecord {
   id: string;
   studentId: string;
-  date?: string; // YYYY-MM-DD
-  yearMonth?: string; // Period / Milestone identifier (e.g. "August 2026")
+  date: string; // YYYY-MM-DD
+  yearMonth: string; // Period / Milestone identifier (e.g. "August 2026")
   milestone?: string;
   period?: string;
   cycleNumber?: number;
@@ -145,7 +146,7 @@ export interface FeeRecord {
   paidDate?: string; // YYYY-MM-DD
   amount: number;
   paymentMethod?: string;
-  receiptNumber?: string;
+  receiptNumber: string;
   notes?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -198,7 +199,8 @@ export interface StudentWorkImage {
   studentId: string;
   imageData: string; // Base64 data URL or path in /student_works/
   captureDate: string; // YYYY-MM-DD
-  comments: string;
+  title: string;
+  comments?: string;
   category?: 'Before' | 'After' | 'Practice' | 'Exam Sheet' | string;
   createdAt?: string;
 }
@@ -211,20 +213,20 @@ export interface ProgressReport {
   milestoneTitle?: string; // e.g. "After 10 Classes"
   completedClasses: number;
   totalClasses: number;
-  
+
   // Progress tracker data
   skills?: SkillRating[];
   overallStars: number;
   overallRemark: string;
   teacherFeedback?: string;
   nextSteps?: string[];
-  
+
   // Photos
   beforePhotoId?: string;
   beforePhotoData?: string;
   afterPhotoId?: string;
   afterPhotoData?: string;
-  
+
   comments?: string;
   savedToFolder?: string; // e.g. '/progress_reports/'
   createdAt: string;
@@ -264,7 +266,8 @@ export interface DemoBooking {
   id: string;
   studentName: string;
   parentName: string;
-  age: string;
+  studentAge: number;
+  age?: string | number;
   contactNumber: string;
   preferredDate: string; // e.g. "2026-09-02"
   preferredTimeSlot: string; // e.g. "04:00 PM"
@@ -291,7 +294,7 @@ export type TestimonyStatus = 'Pending' | 'Approved' | 'Featured';
 
 export interface Testimonial {
   id: string;
-  studentId: string;
+  studentId: string | null;
   studentName: string;
   parentName: string;
   grade?: string;
@@ -299,7 +302,7 @@ export interface Testimonial {
   relationship?: string;
   rating: number; // 1 to 5
   title?: string;
-  review: string;
+  review: string | null;
   beforeAfterTag?: string;
   image?: string;
   mediaConsent: boolean;
@@ -334,7 +337,8 @@ export interface ToolAuditLog {
 export interface StudentOption {
   id: string;
   studentId: string;
-  displayName: string;
+  firstName?: string;
+  displayName?: string;
   age?: number;
   gradeClass?: string;
   schoolName?: string;
@@ -352,3 +356,5 @@ export interface LoginResponse {
 }
 
 
+
+export type SessionUser = User;

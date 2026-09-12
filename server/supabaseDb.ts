@@ -1,21 +1,21 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { 
-  StudentProfile, 
-  AttendanceRecord, 
-  FeeRecord, 
-  ProgressTracker, 
-  StudentWorkImage, 
-  ProgressReport, 
-  FeeReminder, 
-  User, 
-  CoachProfile, 
-  DemoBooking, 
-  AdminAlert, 
-  Testimonial, 
-  ToolAuditLog 
+import {
+  StudentProfile,
+  AttendanceRecord,
+  FeeRecord,
+  ProgressTracker,
+  StudentWorkImage,
+  ProgressReport,
+  FeeReminder,
+  User,
+  CoachProfile,
+  DemoBooking,
+  AdminAlert,
+  Testimonial,
+  ToolAuditLog
 } from '../src/types';
-import { serverSupabase, isServerSupabaseConfigured } from './supabase.ts';
+import { serverSupabase } from './supabase.ts';
 
 import { PaginationParams, applyOffsetPagination, applyRowCeiling, applyQueryPagination } from './pagination';
 export type { PaginationParams };
@@ -32,9 +32,6 @@ export interface StoredUser extends User {
 }
 
 function getSupabase() {
-  if (!serverSupabase || !isServerSupabaseConfigured) {
-    throw new Error('Supabase database is not configured. Please ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.');
-  }
   return serverSupabase;
 }
 
@@ -52,15 +49,18 @@ function safeIsoDate(val: any): string {
 
 // Data Mapping Helpers
 function mapUserRow(row: any, coachDesignation?: string | null): StoredUser {
-  const displayName = row.display_name || `${row.first_name || ''} ${row.last_name || ''}`.trim() || row.email || '';
+  const firstName = row.first_name || '';
+  const lastName = row.last_name || '';
+  const displayName = `${firstName} ${lastName}`.trim() || firstName || 'User';
   return {
     id: row.id,
     email: row.email,
-    firstName: row.first_name || undefined,
-    lastName: row.last_name || undefined,
-    displayName: displayName,
+    phone: row.phone || '',
     phoneNumber: row.phone || undefined,
-    role: row.role || undefined,
+    firstName,
+    lastName,
+    displayName,
+    role: row.role || 'student',
     studentId: row.student_id || undefined,
     coachId: row.coach_id || undefined,
     avatarUrl: row.avatar_url || undefined,
@@ -74,10 +74,9 @@ function mapUserRow(row: any, coachDesignation?: string | null): StoredUser {
 }
 
 function mapCoachRow(row: any, studentCount = 0, userRow?: any): CoachProfile {
-  const firstName = userRow?.first_name || row.first_name || undefined;
-  const lastName = userRow?.last_name || row.last_name || undefined;
-  const nameDerived = (firstName || lastName) ? `${firstName || ''} ${lastName || ''}`.trim() : 'Coach';
-  const displayName = userRow?.display_name || nameDerived;
+  const firstName = userRow?.first_name || row.first_name || 'Coach';
+  const lastName = userRow?.last_name || row.last_name || '';
+  const displayName = `${firstName} ${lastName}`.trim() || firstName;
 
   let specs: string[] = [];
   if (Array.isArray(row.specializations)) {
@@ -118,10 +117,9 @@ function mapCoachRow(row: any, studentCount = 0, userRow?: any): CoachProfile {
 }
 
 function mapStudentRow(row: any, userRow?: any, resolvedCoachName?: string | null): StudentProfile {
-  const firstName = userRow?.first_name || row.first_name || undefined;
-  const lastName = userRow?.last_name || row.last_name || undefined;
-  const nameDerived = (firstName || lastName) ? `${firstName || ''} ${lastName || ''}`.trim() : (row.name || 'Student');
-  const displayName = userRow?.display_name || nameDerived;
+  const firstName = userRow?.first_name || row.first_name || 'Student';
+  const lastName = userRow?.last_name || row.last_name || '';
+  const displayName = `${firstName} ${lastName}`.trim() || firstName;
 
   let dominantHand: 'Right' | 'Left' = 'Right';
   let preferredDays: string | undefined = row.preferred_days || undefined;
@@ -158,7 +156,7 @@ function mapStudentRow(row: any, userRow?: any, resolvedCoachName?: string | nul
     firstName,
     lastName,
     displayName,
-    age: row.age !== undefined && row.age !== null ? Number(row.age) : undefined,
+    age: row.age !== undefined && row.age !== null ? Number(row.age) : 0,
     gradeClass: row.grade || row.grade_class || undefined,
     dominantHand,
     schoolName: row.school_name || undefined,
@@ -194,7 +192,7 @@ function mapAttendanceRow(row: any): AttendanceRecord {
   return {
     id: row.id,
     studentId: row.student_id,
-    classNumber: row.class_number !== undefined && row.class_number !== null ? Number(row.class_number) : undefined,
+    classNumber: row.class_number !== undefined && row.class_number !== null ? Number(row.class_number) : 1,
     date: row.date || '',
     status: row.status || 'Present',
     coachNotes: row.coach_notes || undefined,
@@ -204,7 +202,7 @@ function mapAttendanceRow(row: any): AttendanceRecord {
 }
 
 function mapFeeRow(row: any): FeeRecord {
-  const status: 'Paid' | 'Pending' | 'Overdue' | 'Waived' = 
+  const status: 'Paid' | 'Pending' | 'Overdue' | 'Waived' =
     (row.status === 'Paid' || row.status === 'Pending' || row.status === 'Overdue' || row.status === 'Waived')
       ? row.status
       : (row.is_paid ? 'Paid' : 'Pending');
@@ -213,20 +211,20 @@ function mapFeeRow(row: any): FeeRecord {
     id: row.id,
     studentId: row.student_id,
     date: row.date || row.paid_date || '',
-    yearMonth: row.year_month || undefined,
+    yearMonth: row.year_month || '',
     milestone: row.milestone || undefined,
     amount: row.amount !== undefined && row.amount !== null ? Number(row.amount) : 0,
     status,
     paidDate: row.paid_date || undefined,
-    receiptNumber: row.receipt_number || row.receipt_no || undefined,
+    receiptNumber: row.receipt_number || row.receipt_no || '',
     paymentMethod: row.payment_method || undefined,
     notes: row.notes || undefined
   };
 }
 
 function mapProgressTrackerRow(row: any): ProgressTracker {
-  const parsedNextSteps = Array.isArray(row.next_steps) 
-    ? row.next_steps 
+  const parsedNextSteps = Array.isArray(row.next_steps)
+    ? row.next_steps
     : (typeof row.next_steps === 'string' ? row.next_steps.split(';').map((s: string) => s.trim()).filter(Boolean) : []);
 
   return {
@@ -299,8 +297,8 @@ function buildProgressReportFromTrackerRow(row: any, student?: any): ProgressRep
     ];
   }
 
-  const completedClasses = student?.attendedClasses !== undefined && student?.attendedClasses !== null 
-    ? Number(student.attendedClasses) 
+  const completedClasses = student?.attendedClasses !== undefined && student?.attendedClasses !== null
+    ? Number(student.attendedClasses)
     : (student?.attended_classes !== undefined ? Number(student.attended_classes) : 10);
   const totalClasses = student?.totalClasses !== undefined && student?.totalClasses !== null
     ? Number(student.totalClasses)
@@ -318,8 +316,8 @@ function buildProgressReportFromTrackerRow(row: any, student?: any): ProgressRep
     overallStars: tracker.overallStars,
     overallRemark: tracker.overallRemark || 'Excellent progress and noticeable improvement in legibility.',
     teacherFeedback: tracker.teacherFeedback || tracker.overallRemark || 'Shows great dedication during handwriting coaching.',
-    nextSteps: tracker.nextSteps && tracker.nextSteps.length > 0 
-      ? tracker.nextSteps 
+    nextSteps: tracker.nextSteps && tracker.nextSteps.length > 0
+      ? tracker.nextSteps
       : ['Continue 10-minute daily speed drills', 'Maintain relaxed tripod pencil grip'],
     beforePhotoData: tracker.beforePhotoData,
     afterPhotoData: tracker.afterPhotoData,
@@ -335,8 +333,9 @@ function mapStudentWorkRow(row: any): StudentWorkImage {
     studentId: row.student_id,
     imageData: row.file_url || '',
     captureDate: row.submitted_date || row.created_at || '',
-    category: row.work_type || undefined,
+    title: row.title || 'Work Sample',
     comments: row.title || undefined,
+    category: row.work_type || undefined,
     createdAt: row.created_at || ''
   };
 }
@@ -387,6 +386,7 @@ function mapDemoBookingRow(row: any): DemoBooking {
     id: row.id,
     studentName: row.student_name || '',
     parentName: row.parent_name || '',
+    studentAge: Number(row.student_age) || 0,
     age: cleanAge,
     contactNumber: row.parent_phone || '',
     preferredDate: row.preferred_date || '',
@@ -689,7 +689,7 @@ export class SupabaseDatabase {
 
     let query = supabase
       .from('students')
-      .select('id, user_id, coach_id, first_name, last_name, age, grade, school_name, parent_name, mode_of_learning, emergency_contact_name, emergency_contact_phone, status, preferred_slot, total_classes, attended_classes, notes, avatar_url, diagnostic_observations, created_at, updated_at');
+      .select('id, user_id, coach_id, age, grade, school_name, parent_name, mode_of_learning, emergency_contact_name, emergency_contact_phone, status, preferred_slot, total_classes, attended_classes, notes, avatar_url, diagnostic_observations, created_at, updated_at');
 
     if (orConditions.length > 0) {
       query = query.or(orConditions.join(','));
@@ -709,7 +709,14 @@ export class SupabaseDatabase {
       }
     }
 
-    return siblings.map((s: any) => mapStudentRow(s));
+    const userIds = siblings.map((s: any) => s.user_id).filter(Boolean);
+    const userMap = new Map();
+    if (userIds.length > 0) {
+      const { data: uData } = await supabase.from('users').select('*').in('id', userIds);
+      (uData || []).forEach((u: any) => userMap.set(u.id, u));
+    }
+    return siblings.map((s: any) => mapStudentRow(s, userMap.get(s.user_id)));
+
   }
 
   async getFamilyStudentsByEmailOrPhone(identifier: string): Promise<StudentProfile[]> {
@@ -736,7 +743,7 @@ export class SupabaseDatabase {
 
     const { data: students, error } = await supabase
       .from('students')
-      .select('id, user_id, coach_id, first_name, last_name, age, grade, school_name, parent_name, mode_of_learning, emergency_contact_name, emergency_contact_phone, status, preferred_slot, total_classes, attended_classes, notes, avatar_url, diagnostic_observations, created_at, updated_at')
+      .select('id, user_id, coach_id, age, grade, school_name, parent_name, mode_of_learning, emergency_contact_name, emergency_contact_phone, status, preferred_slot, total_classes, attended_classes, notes, avatar_url, diagnostic_observations, created_at, updated_at')
       .or(orConditions.join(','));
 
     if (error || !students) return [];
@@ -749,8 +756,10 @@ export class SupabaseDatabase {
         uniqueStudents.push(s);
       }
     }
+    const userMap = new Map();
+    (users || []).forEach((u: any) => userMap.set(u.id, u));
 
-    return uniqueStudents.map((s: any) => mapStudentRow(s));
+    return uniqueStudents.map((s: any) => mapStudentRow(s, userMap.get(s.user_id)));
   }
 
   async changeUserPassword(
@@ -802,7 +811,7 @@ export class SupabaseDatabase {
 
     // If currentPassword was provided, verify it
     if (currentPassword) {
-      const passwordMatchingUsers = targetUsers.filter((u: any) => 
+      const passwordMatchingUsers = targetUsers.filter((u: any) =>
         u.password_hash && bcrypt.compareSync(currentPassword, u.password_hash)
       );
 
@@ -815,15 +824,15 @@ export class SupabaseDatabase {
       targetUsers = passwordMatchingUsers;
     }
 
-    const newHash = bcrypt.hashSync(newPassword, 8);
+    const newHash = bcrypt.hashSync(newPassword, 10);
     const targetIds = targetUsers.map((u: any) => u.id);
 
     // Update password_hash and increment token_version to invalidate existing tokens
     const { error: updateError } = await supabase
       .from('users')
-      .update({ 
+      .update({
         password_hash: newHash,
-        token_version: ((targetUsers[0] as any)?.token_version || 1) + 1 
+        token_version: ((targetUsers[0] as any)?.token_version || 1) + 1
       })
       .in('id', targetIds);
 
@@ -884,7 +893,7 @@ export class SupabaseDatabase {
       return { success: false, error: 'Password reset link has expired. Please request a new one.' };
     }
 
-    const newHash = bcrypt.hashSync(newPassword, 8);
+    const newHash = bcrypt.hashSync(newPassword, 10);
     const { error: updateError } = await supabase
       .from('users')
       .update({
@@ -903,7 +912,8 @@ export class SupabaseDatabase {
 
   async upsertUserFromSupabase(userData: {
     email: string;
-    displayName?: string;
+    firstName?: string;
+    lastName?: string;
     role?: 'admin' | 'coach' | 'student' | 'parent';
     studentId?: string;
     id?: string;
@@ -911,16 +921,14 @@ export class SupabaseDatabase {
   }): Promise<StoredUser> {
     const supabase = getSupabase();
     const targetId = userData.id || `usr-${Date.now()}`;
-    const targetRole = userData.role || (userData.email.includes('admin') ? 'admin' : 'student');
-    const displayName = (userData.displayName || userData.email.split('@')[0]).trim();
-    const parts = displayName.split(' ');
-    const firstName = parts[0] || 'User';
-    const lastName = parts.slice(1).join(' ') || '';
+    const targetRole = userData.role || 'student';
+    const firstName = userData.firstName;
+    const lastName = userData.lastName;
 
     // Lookup-first strategy: never overwrite an existing user's role from client-supplied data
     const { data: existingUser } = await supabase
       .from('users')
-      .select('id, email, role, first_name, last_name, username, is_active, student_id, coach_id, display_name, phone_number')
+      .select('id, email, role, first_name, last_name, username, is_active, student_id, coach_id, phone_number')
       .eq('email', userData.email)
       .maybeSingle();
 
@@ -974,12 +982,13 @@ export class SupabaseDatabase {
 
     // Build coach map to dynamically pick coach name from coach/user table
     const { data: coaches } = await applyRowCeiling(
-      supabase.from('coaches').select('id, first_name, last_name, user_id')
+      supabase.from('coaches').select('id, user_id')
     );
 
     const coachMap = new Map<string, string>();
     (coaches || []).forEach((c: any) => {
-      const name = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+      const u = c.user_id ? userMap.get(c.user_id) : null;
+      const name = u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() : '';
       if (name) coachMap.set(c.id, name);
     });
 
@@ -1041,12 +1050,13 @@ export class SupabaseDatabase {
     });
 
     const { data: coaches } = await applyRowCeiling(
-      supabase.from('coaches').select('id, first_name, last_name, user_id')
+      supabase.from('coaches').select('id, user_id')
     );
 
     const coachMap = new Map<string, string>();
     (coaches || []).forEach((c: any) => {
-      const name = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+      const u = c.user_id ? userMap.get(c.user_id) : null;
+      const name = u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() : '';
       if (name) coachMap.set(c.id, name);
     });
 
@@ -1112,14 +1122,9 @@ export class SupabaseDatabase {
 
     let coachName: string | null = null;
     if (student.coach_id) {
-      const { data: coach } = await supabase
-        .from('coaches')
-        .select('first_name, last_name')
-        .eq('id', student.coach_id)
-        .maybeSingle();
-
+      const coach = await this.getCoachById(student.coach_id);
       if (coach) {
-        coachName = `${coach.first_name || ''} ${coach.last_name || ''}`.trim() || null;
+        coachName = `${coach.firstName || ''} ${coach.lastName || ''}`.trim() || null;
       }
     }
 
@@ -1127,7 +1132,7 @@ export class SupabaseDatabase {
   }
 
   async checkStudentDuplicate(
-    param1: string | { firstName?: string; lastName?: string; displayName?: string; phoneNumber?: string; email?: string; age?: number },
+    param1: string | { firstName?: string; lastName?: string; phoneNumber?: string; email?: string; age?: number },
     param2?: number | string,
     param3?: string,
     param4?: string
@@ -1136,18 +1141,16 @@ export class SupabaseDatabase {
 
     let firstName = '';
     let lastName = '';
-    let displayName = '';
     let phoneNumber = '';
     let email = '';
 
     if (typeof param1 === 'object' && param1 !== null) {
       firstName = (param1.firstName || '').trim();
       lastName = (param1.lastName || '').trim();
-      displayName = (param1.displayName || '').trim();
       phoneNumber = (param1.phoneNumber || '').trim();
       email = (param1.email || '').trim();
     } else if (typeof param1 === 'string') {
-      displayName = param1.trim();
+      firstName = param1.trim();
       if (typeof param2 === 'number') {
         phoneNumber = (param3 || '').trim();
       } else if (typeof param2 === 'string') {
@@ -1155,15 +1158,6 @@ export class SupabaseDatabase {
         phoneNumber = (param3 || '').trim();
         email = (param4 || '').trim();
       }
-    }
-
-    if (!firstName && displayName) {
-      const parts = displayName.split(/\s+/);
-      firstName = parts[0] || '';
-      lastName = parts.slice(1).join(' ') || '';
-    }
-    if (!displayName && firstName) {
-      displayName = `${firstName} ${lastName}`.trim();
     }
 
     const cleanFirstName = firstName.toLowerCase();
@@ -1185,15 +1179,15 @@ export class SupabaseDatabase {
         const uEmail = (u.email || '').trim().toLowerCase();
 
         const nameMatches = Boolean(
-          cleanFirstName && uFirst === cleanFirstName && 
+          cleanFirstName && uFirst === cleanFirstName &&
           ((cleanLastName && uLast === cleanLastName) || (!cleanLastName && !uLast))
         );
 
         if (nameMatches) {
           // Condition 1: first name + last name + phone number
           const phoneMatches = Boolean(
-            cleanPhone.length >= 7 && 
-            uPhone.length >= 7 && 
+            cleanPhone.length >= 7 &&
+            uPhone.length >= 7 &&
             (cleanPhone === uPhone || cleanPhone.endsWith(uPhone) || uPhone.endsWith(cleanPhone) || cleanPhone.includes(uPhone) || uPhone.includes(cleanPhone))
           );
 
@@ -1208,29 +1202,15 @@ export class SupabaseDatabase {
     }
 
     // 2. Check STUDENTS table:
-    // If first name + last name + phone number already exists in students table
-    const { data: students, error: sError } = await supabase
-      .from('students')
-      .select('id, first_name, last_name, emergency_contact_phone');
+    if (cleanPhone.length >= 7) {
+      const { data: students, error: sError } = await supabase
+        .from('students')
+        .select('id, emergency_contact_phone');
 
-    if (!sError && students) {
-      for (const s of students) {
-        const sFirst = (s.first_name || '').trim().toLowerCase();
-        const sLast = (s.last_name || '').trim().toLowerCase();
-        const sPhone = (s.emergency_contact_phone || '').replace(/\D/g, '');
-
-        const nameMatches = Boolean(
-          cleanFirstName && sFirst === cleanFirstName && 
-          ((cleanLastName && sLast === cleanLastName) || (!cleanLastName && !sLast))
-        );
-
-        if (nameMatches) {
-          const phoneMatches = Boolean(
-            cleanPhone.length >= 7 && 
-            sPhone.length >= 7 && 
-            (cleanPhone === sPhone || cleanPhone.endsWith(sPhone) || sPhone.endsWith(cleanPhone) || cleanPhone.includes(sPhone) || sPhone.includes(cleanPhone))
-          );
-          if (phoneMatches) {
+      if (!sError && students) {
+        for (const s of students) {
+          const sPhone = (s.emergency_contact_phone || '').replace(/\D/g, '');
+          if (sPhone.length >= 7 && (cleanPhone === sPhone || cleanPhone.endsWith(sPhone) || sPhone.endsWith(cleanPhone))) {
             return true;
           }
         }
@@ -1248,11 +1228,8 @@ export class SupabaseDatabase {
 
     let firstName = (student.firstName || '').trim();
     let lastName = (student.lastName || '').trim();
-    if (!firstName && student.displayName) {
-      const parts = student.displayName.trim().split(' ');
-      firstName = parts[0] || 'Student';
-      lastName = parts.slice(1).join(' ') || '';
-    } else if (!firstName && student.name) {
+
+    if (!firstName && student.name) {
       const parts = student.name.trim().split(' ');
       firstName = parts[0] || 'Student';
       lastName = parts.slice(1).join(' ') || '';
@@ -1266,7 +1243,6 @@ export class SupabaseDatabase {
     const email = student.email ? student.email.toLowerCase().trim() : null;
     const userFirstName = student.firstName?.trim() || firstName;
     const userLastName = student.lastName?.trim() || lastName;
-    const displayName = student.displayName?.trim() || `${userFirstName} ${userLastName}`.trim() || 'Student';
 
     // 1. Identity-First: Create or link user account in public.users first
     let createdUser: any = null;
@@ -1291,7 +1267,7 @@ export class SupabaseDatabase {
     if (!assignedUserId && (email || student.password || student.passwordHash)) {
       let passwordHash = student.passwordHash;
       if (!passwordHash && student.password && student.password.trim()) {
-        passwordHash = bcrypt.hashSync(student.password.trim(), 8);
+        passwordHash = bcrypt.hashSync(student.password.trim(), 10);
       }
       if (!passwordHash) {
         throw new Error("A valid password is required to create a student user account.");
@@ -1332,8 +1308,6 @@ export class SupabaseDatabase {
 
     const studentRow: any = {
       id: studentId,
-      first_name: firstName,
-      last_name: lastName,
       user_id: assignedUserId || null,
       age: isNaN(ageNum as number) ? null : ageNum,
       grade: student.gradeClass || student.grade || null,
@@ -1381,14 +1355,9 @@ export class SupabaseDatabase {
 
     let coachName: string | null = null;
     if (studentRow.coach_id) {
-      const { data: coachData } = await supabase
-        .from('coaches')
-        .select('first_name, last_name')
-        .eq('id', studentRow.coach_id)
-        .maybeSingle();
-
+      const coachData = await this.getCoachById(studentRow.coach_id);
       if (coachData) {
-        coachName = `${coachData.first_name || ''} ${coachData.last_name || ''}`.trim() || null;
+        coachName = `${coachData.firstName || ''} ${coachData.lastName || ''}`.trim() || null;
       }
     }
 
@@ -1410,11 +1379,6 @@ export class SupabaseDatabase {
 
     if (updates.firstName !== undefined) updateData.first_name = updates.firstName.trim();
     if (updates.lastName !== undefined) updateData.last_name = updates.lastName.trim();
-    if (updates.displayName !== undefined && updates.firstName === undefined) {
-      const parts = updates.displayName.trim().split(' ');
-      updateData.first_name = parts[0] || '';
-      updateData.last_name = parts.slice(1).join(' ') || '';
-    }
     if (updates.age !== undefined) updateData.age = Number(updates.age);
     if (updates.gradeClass !== undefined) updateData.grade = updates.gradeClass;
     if (updates.schoolName !== undefined) updateData.school_name = updates.schoolName;
@@ -1429,7 +1393,7 @@ export class SupabaseDatabase {
     if (updates.preferredSlot !== undefined) updateData.preferred_slot = updates.preferredSlot;
     if (updates.totalClasses !== undefined) updateData.total_classes = Number(updates.totalClasses);
     if (updates.attendedClasses !== undefined) updateData.attended_classes = Number(updates.attendedClasses);
-    
+
     if (updates.dominantHand !== undefined || updates.preferredDays !== undefined || updates.relationship !== undefined || updates.notes !== undefined || updates.scriptsRequired !== undefined || updates.academicModules !== undefined || updates.dateOfLeaving !== undefined || updates.status !== undefined) {
       const { data: currentStudent } = await supabase
         .from('students')
@@ -1486,7 +1450,7 @@ export class SupabaseDatabase {
     updatedStudent = data;
 
     // Also update public.users if contact info, name, or password is updated
-    if (updates.email !== undefined || updates.whatsappMobile !== undefined || updates.displayName !== undefined || updates.firstName !== undefined || updates.lastName !== undefined || (updates.password && updates.password.trim().length >= 8)) {
+    if (updates.email !== undefined || updates.whatsappMobile !== undefined || updates.firstName !== undefined || updates.lastName !== undefined || (updates.password && updates.password.trim().length >= 8)) {
       const userUpdates: any = {
         updated_at: new Date().toISOString()
       };
@@ -1494,13 +1458,8 @@ export class SupabaseDatabase {
       if (updates.whatsappMobile !== undefined) userUpdates.phone = updates.whatsappMobile.trim();
       if (updates.firstName !== undefined) userUpdates.first_name = updates.firstName.trim();
       if (updates.lastName !== undefined) userUpdates.last_name = updates.lastName.trim();
-      if (updates.displayName !== undefined && updates.firstName === undefined) {
-        const parts = updates.displayName.trim().split(' ');
-        userUpdates.first_name = parts[0] || '';
-        userUpdates.last_name = parts.slice(1).join(' ') || '';
-      }
       if (updates.password && updates.password.trim().length >= 8) {
-        userUpdates.password_hash = bcrypt.hashSync(updates.password.trim(), 8);
+        userUpdates.password_hash = bcrypt.hashSync(updates.password.trim(), 10);
       }
 
       if (updatedStudent?.user_id) {
@@ -1508,21 +1467,6 @@ export class SupabaseDatabase {
           .from('users')
           .update(userUpdates)
           .eq('id', updatedStudent.user_id);
-      }
-    }
-
-    // Synchronize user account active status when student status changes
-    if (updates.status !== undefined && updatedStudent?.user_id) {
-      try {
-        await supabase
-          .from('users')
-          .update({
-            is_active: updates.status === 'Active',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', updatedStudent.user_id);
-      } catch (userStatusErr: any) {
-        console.warn(`[SupabaseDatabase] Warning syncing user is_active for student ${id}:`, userStatusErr.message);
       }
     }
 
@@ -1539,13 +1483,9 @@ export class SupabaseDatabase {
     let coachName: string | null = null;
     const coachIdToLookup = updatedStudent?.coach_id || updates.coachId;
     if (coachIdToLookup) {
-      const { data: coachData } = await supabase
-        .from('coaches')
-        .select('first_name, last_name')
-        .eq('id', coachIdToLookup)
-        .maybeSingle();
+      const coachData = await this.getCoachById(coachIdToLookup);
       if (coachData) {
-        coachName = `${coachData.first_name || ''} ${coachData.last_name || ''}`.trim() || null;
+        coachName = `${coachData.firstName || ''} ${coachData.lastName || ''}`.trim() || null;
       }
     }
 
@@ -1570,7 +1510,7 @@ export class SupabaseDatabase {
     const { data: coachesData, error: coachError } = await applyRowCeiling(
       supabase
         .from('coaches')
-        .select('id, user_id, first_name, last_name, email, phone, address, date_of_joining, status, date_of_leaving, educational_qualification, designation, specializations, emergency_contact_name, emergency_contact_phone, notes, created_at, updated_at')
+        .select('id, user_id, address, date_of_joining, status, date_of_leaving, educational_qualification, designation, specializations, emergency_contact_name, emergency_contact_phone, notes, created_at, updated_at')
         .order('created_at', { ascending: false })
     );
 
@@ -1624,69 +1564,14 @@ export class SupabaseDatabase {
     });
   }
 
-  async getPublicCoaches(): Promise<Array<{
-    id: string;
+  async updateUserSelfProfile(userId: string, allowedUpdates: {
     firstName?: string;
     lastName?: string;
-    displayName: string;
-    designation: string;
-    specializations: string[];
-    educationalQualification?: string;
-    status: string;
-  }>> {
-    const supabase = getSupabase();
-
-    // 1. Try public_coaches view first
-    try {
-      const { data: viewData, error: viewError } = await supabase
-        .from('public_coaches')
-        .select('id, first_name, last_name, designation, specializations, educational_qualification, status');
-      if (!viewError && Array.isArray(viewData) && viewData.length > 0) {
-        return viewData.map((c: any) => ({
-          id: c.id,
-          firstName: c.first_name || undefined,
-          lastName: c.last_name || undefined,
-          displayName: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Coach',
-          designation: c.designation || '',
-          specializations: Array.isArray(c.specializations) ? c.specializations : [],
-          educationalQualification: c.educational_qualification || undefined,
-          status: c.status || 'Active'
-        }));
-      }
-    } catch (err: any) {
-      console.error('[SupabaseDatabase] Notice querying public_coaches view:', err?.message || err);
-    }
-
-    // 2. Direct table query strictly projecting public fields
-    const { data, error } = await supabase
-      .from('coaches')
-      .select('id, first_name, last_name, designation, specializations, educational_qualification, status')
-      .eq('status', 'Active');
-
-    if (error) {
-      console.error(`[SupabaseDatabase] Error fetching public coaches from coaches table: ${error.message}`);
-      throw new Error(`Failed to fetch public coaches: ${error.message}`);
-    }
-
-    return (data || []).map((c: any) => ({
-      id: c.id,
-      firstName: c.first_name || undefined,
-      lastName: c.last_name || undefined,
-      displayName: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Coach',
-      designation: c.designation || '',
-      specializations: Array.isArray(c.specializations) ? c.specializations : [],
-      educationalQualification: c.educational_qualification || undefined,
-      status: c.status || 'Active'
-    }));
-  }
-
-  async updateUserSelfProfile(userId: string, allowedUpdates: {
-    displayName?: string;
     phoneNumber?: string;
     avatarUrl?: string;
   }): Promise<{ success: boolean; user?: StoredUser; error?: string }> {
     const supabase = getSupabase();
-    
+
     // Check user role: Coaches cannot edit their own details. Only Admin can do that.
     const { data: targetUser } = await supabase
       .from('users')
@@ -1699,14 +1584,10 @@ export class SupabaseDatabase {
     }
 
     // Explicit column-level whitelist: only allow safe self-profile fields
-    const payload: Record<string, any> = {
+    const payload: any = {
       updated_at: new Date().toISOString()
     };
-    if (allowedUpdates.displayName !== undefined) {
-      const parts = allowedUpdates.displayName.trim().split(' ');
-      payload.first_name = parts[0] || '';
-      payload.last_name = parts.slice(1).join(' ') || '';
-    }
+
     if (allowedUpdates.phoneNumber !== undefined) {
       payload.phone = allowedUpdates.phoneNumber.trim();
     }
@@ -1779,7 +1660,6 @@ export class SupabaseDatabase {
   async createCoach(data: {
     firstName?: string;
     lastName?: string;
-    displayName?: string;
     email: string;
     phoneNumber: string;
     address?: string;
@@ -1803,20 +1683,7 @@ export class SupabaseDatabase {
 
     let firstName = (data.firstName || '').trim();
     let lastName = (data.lastName || '').trim();
-    let displayName = (data.displayName || '').trim();
 
-    if (!displayName && (firstName || lastName)) {
-      displayName = `${firstName} ${lastName}`.trim();
-    }
-    if (!firstName && displayName) {
-      const parts = displayName.split(' ');
-      firstName = parts[0] || 'Coach';
-      lastName = parts.slice(1).join(' ') || '';
-    }
-    if (!displayName) {
-      displayName = 'Coach Instructor';
-      firstName = 'Coach';
-    }
     if (!lastName) {
       lastName = '';
     }
@@ -1844,7 +1711,7 @@ export class SupabaseDatabase {
       throw new Error("A valid password (minimum 8 characters) is required to create a coach account.");
     }
     const initialPassword = data.password.trim();
-    const passwordHash = bcrypt.hashSync(initialPassword, 8);
+    const passwordHash = bcrypt.hashSync(initialPassword, 10);
 
     // 2. Identity-First: Create or resolve user record first
     let createdUser: any = null;
@@ -1908,10 +1775,6 @@ export class SupabaseDatabase {
     const coachPayload: any = {
       id: coachId,
       user_id: assignedUserId || null,
-      first_name: firstName,
-      last_name: lastName,
-      email: normalizedEmail,
-      phone: normalizedPhone,
       address: (data.address && data.address.trim()) ? data.address.trim() : null,
       date_of_joining: dateOfJoining,
       status: coachStatus,
@@ -1947,7 +1810,6 @@ export class SupabaseDatabase {
   async updateCoach(id: string, updates: {
     firstName?: string;
     lastName?: string;
-    displayName?: string;
     email?: string;
     phoneNumber?: string;
     address?: string;
@@ -1970,12 +1832,6 @@ export class SupabaseDatabase {
 
     let firstName = updates.firstName?.trim();
     let lastName = updates.lastName?.trim();
-    let displayName = updates.displayName?.trim();
-
-    if (!displayName && (firstName || lastName)) {
-      displayName = `${firstName || ''} ${lastName || ''}`.trim();
-    }
-
     const patch: any = {
       updated_at: new Date().toISOString()
     };
@@ -2016,7 +1872,7 @@ export class SupabaseDatabase {
     if (updates.phoneNumber) userPatch.phone = updates.phoneNumber.trim();
     if (updates.status) userPatch.is_active = updates.status === 'Active';
     if (updates.password && updates.password.trim().length >= 8) {
-      userPatch.password_hash = bcrypt.hashSync(updates.password.trim(), 8);
+      userPatch.password_hash = bcrypt.hashSync(updates.password.trim(), 10);
     }
 
     let updatedUser: any = null;
@@ -2129,15 +1985,7 @@ export class SupabaseDatabase {
     // 2. Coach existence and status check (when coachId is non-null)
     let coachName: string | null = null;
     if (coachId) {
-      const { data: coachData, error: coachErr } = await supabase
-        .from('coaches')
-        .select('id, first_name, last_name, status')
-        .eq('id', coachId)
-        .maybeSingle();
-
-      if (coachErr) {
-        throw new Error(`Failed to lookup coach: ${coachErr.message}`);
-      }
+      const coachData = await this.getCoachById(coachId);
       if (!coachData) {
         throw new Error('Coach not found');
       }
@@ -2145,7 +1993,7 @@ export class SupabaseDatabase {
         throw new Error('Cannot assign an inactive coach to a student.');
       }
 
-      coachName = `${coachData.first_name || ''} ${coachData.last_name || ''}`.trim() || null;
+      coachName = `${coachData.firstName || ''} ${coachData.lastName || ''}`.trim() || null;
     }
 
     // 3. Idempotency check
@@ -2536,7 +2384,7 @@ export class SupabaseDatabase {
       pressure_level: tracker.pressureLevel || null,
       before_image_url: tracker.beforePhotoData || tracker.beforeImageUrl || null,
       after_image_url: tracker.afterPhotoData || tracker.afterImageUrl || null,
-      skills: tracker.skills || [],
+      skills: (tracker.skills as any) || [],
       is_unlocked: tracker.isUnlocked !== undefined ? Boolean(tracker.isUnlocked) : true,
       created_at: tracker.createdAt || new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -2643,7 +2491,7 @@ export class SupabaseDatabase {
   // ================= DYNAMIC PROGRESS REPORTS (GENERATED ON-DEMAND FROM PROGRESS TRACKERS) =================
   async getProgressReports(studentId: string): Promise<ProgressReport[]> {
     const supabase = getSupabase();
-    
+
     // 1. Fetch all progress tracker records for student
     const { data: trackerRows, error: trackerError } = await supabase
       .from('progress_trackers')
@@ -2702,7 +2550,7 @@ export class SupabaseDatabase {
       grip_posture_stars: gripPostureStars,
       before_image_url: report.beforePhotoData || null,
       after_image_url: report.afterPhotoData || null,
-      skills: report.skills || [],
+      skills: (report.skills as any) || [],
       is_unlocked: true,
       created_at: report.createdAt || new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -2728,7 +2576,7 @@ export class SupabaseDatabase {
     return buildProgressReportFromTrackerRow(data, studentData);
   }
 
-    async findProgressReportById(id: string): Promise<ProgressReport | null> {
+  async findProgressReportById(id: string): Promise<ProgressReport | null> {
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from('progress_trackers')
@@ -2806,7 +2654,7 @@ export class SupabaseDatabase {
 
   async createDemoBooking(booking: any): Promise<{ booking: DemoBooking; alert: AdminAlert }> {
     const supabase = getSupabase();
-    
+
     // Strict requirement validation without silent fallbacks
     const childName = booking.studentName?.trim();
     const parentName = booking.parentName?.trim();
@@ -2917,9 +2765,9 @@ export class SupabaseDatabase {
     const supabase = getSupabase();
     // Attempt to delete any associated demo alert
     try {
-      await supabase.from('alerts').delete().eq('demo_booking_id', id);
+      await supabase.from('alerts').delete().ilike('action_url', `%${id}%`);
     } catch {
-      // ignore if demo_booking_id column doesn't exist
+      // ignore if not found
     }
 
     const { error } = await supabase
@@ -3017,9 +2865,9 @@ export class SupabaseDatabase {
       student_name: testimonial.studentName || null,
       parent_name: testimonial.parentName || null,
       grade: testimonial.grade || null,
-        rating: testimonial.rating !== undefined && testimonial.rating !== null ? Number(testimonial.rating) : null,
+      rating: testimonial.rating !== undefined && testimonial.rating !== null ? Number(testimonial.rating) : null,
       review: testimonial.review || null,
-        title: testimonial.title || null,
+      title: testimonial.title || null,
       handwriting_style: (testimonial as any).handwritingStyle || null,
       status: testimonial.status || null,
       is_featured: testimonial.status === 'Featured' ? true : (testimonial.status === 'Approved' ? false : null),
@@ -3081,7 +2929,7 @@ export class SupabaseDatabase {
   async recordToolAuditLog(log: any): Promise<ToolAuditLog> {
     const supabase = getSupabase();
     const id = `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-    
+
     // Format actor: always logged in userId or 'anonymous'
     const rawUserId = log.userId || log.actorId;
     const userId = (!rawUserId || rawUserId === 'system') ? 'anonymous' : rawUserId;
@@ -3240,7 +3088,7 @@ export class SupabaseDatabase {
     windowSeconds: number
   ): Promise<{ allowed: boolean; retryAfter: number }> {
     const supabase = getSupabase();
-    
+
     // 1. Primary path: Invoke atomic SECURITY DEFINER Postgres function
     try {
       const { data, error } = await supabase.rpc('check_and_increment_rate_limit', {
@@ -3250,9 +3098,10 @@ export class SupabaseDatabase {
       });
 
       if (!error && data) {
+        const rpcRes = data as any;
         return {
-          allowed: Boolean(data.allowed),
-          retryAfter: Number(data.retry_after || 0),
+          allowed: Boolean(rpcRes?.allowed),
+          retryAfter: Number(rpcRes?.retry_after || 0),
         };
       }
 
@@ -3313,6 +3162,20 @@ export class SupabaseDatabase {
       return { allowed: true, retryAfter: 0 };
     }
   }
+
+  // Lightweight token-version check used by authenticateJwt to invalidate tokens after password change.
+  // Only fetches id + token_version — never returns sensitive fields.
+  async findUserTokenVersion(userId: string): Promise<number | null> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, token_version')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return (data as any).token_version ?? null;
+  }
+
 }
 
 export const db = new SupabaseDatabase();

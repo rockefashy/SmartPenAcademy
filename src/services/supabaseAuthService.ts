@@ -63,15 +63,15 @@ export const supabaseAuthService = {
       const firstName = userProfile?.first_name || meta.first_name || '';
       const lastName = userProfile?.last_name || meta.last_name || '';
       const derivedName = `${firstName} ${lastName}`.trim() || data.user.email?.split('@')[0] || 'User';
-      const displayName = userProfile?.display_name || derivedName;
       const appUser: User = {
         id: userProfile?.id || data.user.id,
         username: data.user.email?.split('@')[0] || 'user',
         email: data.user.email || '',
-        displayName,
-        firstName: firstName || undefined,
-        lastName: lastName || undefined,
-        role: userProfile?.role || meta.role || (data.user.email?.includes('admin') ? 'admin' : 'student'),
+        firstName: firstName || 'User',
+        lastName: lastName || '',
+        displayName: derivedName,
+        isActive: true,
+        role: userProfile?.role || meta.role || 'student',
         studentId: userProfile?.student_id || meta.student_id,
       };
 
@@ -136,9 +136,10 @@ export const supabaseAuthService = {
       id: data.user.id,
       username: email.split('@')[0],
       email: data.user.email || email,
+      firstName: metadata.firstName || 'User',
+      lastName: metadata.lastName || '',
       displayName: derivedDisplayName,
-      firstName: metadata.firstName,
-      lastName: metadata.lastName,
+      isActive: true,
       role: metadata.role || 'student',
       studentId: metadata.studentId,
     };
@@ -189,15 +190,15 @@ export const supabaseAuthService = {
       const firstName = profile?.first_name || meta.first_name || '';
       const lastName = profile?.last_name || meta.last_name || '';
       const derivedName = `${firstName} ${lastName}`.trim() || user.email?.split('@')[0] || 'User';
-      const displayName = profile?.display_name || derivedName;
       return {
         id: profile?.id || user.id,
         username: user.email?.split('@')[0] || 'user',
         email: user.email || '',
-        displayName,
-        firstName: firstName || undefined,
-        lastName: lastName || undefined,
-        role: profile?.role || meta.role || (user.email?.includes('admin') ? 'admin' : 'student'),
+        firstName: firstName || 'User',
+        lastName: lastName || '',
+        displayName: derivedName,
+        isActive: true,
+        role: profile?.role || meta.role || 'student',
         studentId: profile?.student_id || meta.student_id,
       };
     } catch {

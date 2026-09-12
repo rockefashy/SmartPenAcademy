@@ -48,7 +48,6 @@ async function runLiveTests() {
     const coachToDeact = await db.createCoach({
       firstName: 'DeactCoach',
       lastName: `Tester${ts}`,
-      displayName: `DeactCoach Tester${ts}`,
       email: `deact_coach_${ts}@smartpen.test`,
       phoneNumber: '9876543001',
       designation: 'Staff Coach',
@@ -64,7 +63,6 @@ async function runLiveTests() {
       studentName: `StudentDeact Child${ts}`,
       firstName: 'StudentDeact',
       lastName: `Child${ts}`,
-      displayName: `StudentDeact Child${ts}`,
       parentName: 'Parent Deact',
       email: `studentdeact_${ts}@smartpen.test`,
       whatsappMobile: '9876543002',
@@ -82,7 +80,6 @@ async function runLiveTests() {
     const coach1 = await db.createCoach({
       firstName: 'ActiveCoach',
       lastName: `One${ts}`,
-      displayName: `ActiveCoach One${ts}`,
       email: `activecoach1_${ts}@smartpen.test`,
       phoneNumber: '9876543011',
       designation: 'Senior Coach',
@@ -96,7 +93,6 @@ async function runLiveTests() {
     const coach2 = await db.createCoach({
       firstName: 'ActiveCoach',
       lastName: `Two${ts}`,
-      displayName: `ActiveCoach Two${ts}`,
       email: `activecoach2_${ts}@smartpen.test`,
       phoneNumber: '9876543012',
       designation: 'Associate Coach',
@@ -112,7 +108,6 @@ async function runLiveTests() {
       studentName: `StudentOne Tester${ts}`,
       firstName: 'StudentOne',
       lastName: `Tester${ts}`,
-      displayName: `StudentOne Tester${ts}`,
       parentName: 'Parent One',
       email: `student1_${ts}@smartpen.test`,
       whatsappMobile: '9876543021',
@@ -132,7 +127,6 @@ async function runLiveTests() {
       studentName: `StudentTwo Tester${ts}`,
       firstName: 'StudentTwo',
       lastName: `Tester${ts}`,
-      displayName: `StudentTwo Tester${ts}`,
       parentName: 'Parent Two',
       email: `student2_${ts}@smartpen.test`,
       whatsappMobile: '9876543022',
@@ -174,6 +168,7 @@ async function runLiveTests() {
     await db.saveAttendanceBatch([{
       id: attId1,
       studentId: student1.id,
+      classNumber: 1,
       date: '2026-09-08',
       status: 'Present',
       coachNotes: 'Good stroke technique'
@@ -217,7 +212,9 @@ async function runLiveTests() {
     const adminUser: User = {
       id: 'admin-live-test',
       role: 'admin',
-      displayName: 'Master Admin',
+      firstName: 'Master Admin',
+      lastName: 'User',
+      isActive: true,
       email: 'admin@smartpen.com'
     };
 
@@ -225,7 +222,9 @@ async function runLiveTests() {
       id: coach1.id,
       coachId: coach1.id,
       role: 'coach',
-      displayName: coach1.displayName,
+      firstName: coach1.firstName,
+      lastName: coach1.lastName || 'Coach',
+      isActive: true,
       email: coach1.email
     };
 
@@ -233,7 +232,9 @@ async function runLiveTests() {
       id: coach2.id,
       coachId: coach2.id,
       role: 'coach',
-      displayName: coach2.displayName,
+      firstName: coach2.firstName,
+      lastName: coach2.lastName || 'Coach',
+      isActive: true,
       email: coach2.email
     };
 
@@ -241,7 +242,9 @@ async function runLiveTests() {
       id: student1.id,
       studentId: student1.id,
       role: 'student',
-      displayName: student1.displayName,
+      firstName: student1.firstName,
+      lastName: student1.lastName || 'Student',
+      isActive: true,
       email: student1.email
     };
 

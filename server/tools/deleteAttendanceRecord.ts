@@ -120,14 +120,14 @@ export const deleteAttendanceRecordTool: AgentTool = {
       if (error || !data) {
         return {
           result: null,
-          summary: `No attendance record found for "${student.displayName}" on date "${date}".`,
+          summary: `No attendance record found for "${student.firstName}" on date "${date}".`,
           success: false
         };
       }
       record = data;
     }
 
-    const studentName = student?.displayName || `Student (${record.student_id})`;
+    const studentName = student?.firstName || `Student (${record.student_id})`;
 
     // 3. Draft Confirmation (confirmed !== true)
     if (!confirmed) {

@@ -175,7 +175,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
     try {
       const saved = await api.submitTestimonial({
         studentId: student.id,
-        studentName: student.displayName,
+        studentName: student.firstName,
         parentName: testimonyParentName.trim() || student.parentName || 'Parent',
         grade: `Grade ${student.gradeClass}, ${student.schoolName}`,
         schoolName: student.schoolName,
@@ -275,7 +275,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                 <span>Coach Admin Preview Mode</span>
               </div>
               <p className="text-xs sm:text-sm font-bold text-white mt-1">
-                Viewing Parent Portal for <span className="text-amber-200 font-extrabold">{student.displayName}</span> (Grade {student.gradeClass})
+                Viewing Parent Portal for <span className="text-amber-200 font-extrabold">{student.firstName}</span> (Grade {student.gradeClass})
               </p>
             </div>
           </div>
@@ -288,7 +288,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
               size="sm"
               className="bg-white hover:bg-slate-100 text-[#0E3589] font-black shadow-md active:scale-95"
               id="btn-preview-back-student-file"
-              title={`Return to ${student.displayName}'s Student Dossier`}
+              title={`Return to ${student.firstName}'s Student Dossier`}
               leftIcon={<ArrowLeft className="w-4 h-4" />}
             >
               Back to Student File
@@ -321,7 +321,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-extrabold text-sm text-slate-900">{student.displayName} — Alumni Archive</span>
+                <span className="font-extrabold text-sm text-slate-900">{student.firstName} — Alumni Archive</span>
                 <span className="px-2 py-0.5 bg-amber-200/70 text-amber-900 text-[10px] font-black rounded-full uppercase tracking-wider border border-amber-300">
                   Read-Only Archive
                 </span>
@@ -350,7 +350,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Welcome, {student.displayName}!
+              Welcome, {student.firstName}!
             </h1>
             {user?.role === 'student' && user.siblingStudents && user.siblingStudents.length > 1 && (
               <div className="flex items-center gap-1.5 bg-orange-50 px-2.5 py-1 rounded-xl border border-orange-200">
@@ -363,7 +363,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                 >
                   {user.siblingStudents.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.displayName || s.fullName} {s.age ? `(Age ${s.age})` : ''}
+                      {s.firstName || s.fullName} {s.age ? `(Age ${s.age})` : ''}
                     </option>
                   ))}
                 </Select>
@@ -713,7 +713,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
               <div className="flex items-center gap-2 bg-blue-50 px-4 py-2.5 rounded-2xl border border-blue-200/70 shrink-0">
                 <GraduationCap className="w-5 h-5 text-[#0E3589]" />
                 <div className="text-xs font-bold text-[#0E3589]">
-                  <span>{student.displayName}</span>
+                  <span>{student.firstName}</span>
                   {student.gradeClass && <span className="text-slate-500 font-normal"> ({formatGradeClass(student.gradeClass)})</span>}
                 </div>
               </div>
@@ -1003,10 +1003,10 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
 
                   <div className="pt-3 border-t border-slate-100 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-[#0E3589] text-white flex items-center justify-center font-black text-xs shadow-xs">
-                      {student.displayName.charAt(0)}
+                      {student.firstName.charAt(0)}
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-900">{student.displayName}</h4>
+                      <h4 className="text-xs font-bold text-slate-900">{student.firstName}</h4>
                       <p className="text-[11px] text-slate-500 font-sans">
                         {student.gradeClass ? `${formatGradeClass(student.gradeClass)} • ` : ''}{testimonyParentName || student.parentName || 'Parent'} ({testimonyRelationship})
                       </p>

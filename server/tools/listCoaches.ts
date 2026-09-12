@@ -70,7 +70,7 @@ export const listCoachesTool: AgentTool = {
 
     const list = filteredResult.items.map((c, idx) => {
       const specs = c.specializations && c.specializations.length > 0 ? ` [${c.specializations.join(', ')}]` : '';
-      return `${idx + 1}. **${c.displayName}** - ${c.designation || 'Tutor'}${specs} (${c.status})`;
+      return `${idx + 1}. **${c.firstName}** - ${c.designation || 'Tutor'}${specs} (${c.status})`;
     }).join('\n');
 
     return {

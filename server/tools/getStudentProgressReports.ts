@@ -55,7 +55,7 @@ export const getStudentProgressReportsTool: AgentTool = {
       if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
         return {
           result: null,
-          summary: `Privacy Scoping: As a coach, you can only view progress reports for assigned students. "${student.displayName}" is not assigned to your coaching roster.`,
+          summary: `Privacy Scoping: As a coach, you can only view progress reports for assigned students. "${student.firstName}" is not assigned to your coaching roster.`,
           success: false
         };
       }
@@ -65,7 +65,7 @@ export const getStudentProgressReportsTool: AgentTool = {
       const filteredResult = applyFilterOrLimit({
         items: reports,
         requestedLimit,
-        entityLabel: `progress reports for ${student.displayName}`,
+        entityLabel: `progress reports for ${student.firstName}`,
         suggestedFilters: [
           'A specific milestone review title or date'
         ]
@@ -81,13 +81,13 @@ export const getStudentProgressReportsTool: AgentTool = {
 
       return {
         result: {
-          studentName: student.displayName,
+          studentName: student.firstName,
           studentId: student.id,
           count: filteredResult.items.length,
           totalCount: filteredResult.totalCount,
           reports: filteredResult.items
         },
-        summary: `📋 **Progress Reports for ${student.displayName} (${filteredResult.totalCount} total)**:\n\n${filteredResult.items.length === 0 ? 'No progress reports found for this student.' : list}`,
+        summary: `📋 **Progress Reports for ${student.firstName} (${filteredResult.totalCount} total)**:\n\n${filteredResult.items.length === 0 ? 'No progress reports found for this student.' : list}`,
         success: true
       };
     }
@@ -101,7 +101,7 @@ export const getStudentProgressReportsTool: AgentTool = {
     for (const st of eligibleStudents) {
       const stReports = await db.getProgressReports(st.id);
       for (const r of stReports) {
-        allReports.push({ studentName: st.displayName, studentId: st.id, report: r });
+        allReports.push({ studentName: st.firstName, studentId: st.id, report: r });
       }
     }
 

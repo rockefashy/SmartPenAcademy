@@ -156,6 +156,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
     const newRecord: AttendanceRecord = {
       id: existingRec?.id || `att-${Date.now()}`,
       studentId: student.id,
+      classNumber: existingRec?.classNumber || (localAttendance.length + 1),
       date: dateStr,
       yearMonth,
       status,
@@ -173,6 +174,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
     try {
       await api.saveAttendanceBatch([{
         studentId: student.id,
+        classNumber: existingRec?.classNumber || (localAttendance.length + 1),
         date: dateStr,
         yearMonth,
         status,
@@ -348,7 +350,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
           </h2>
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <p className="text-xs text-slate-500 font-medium">
-              Classes attended by {student.displayName} are highlighted in green.
+              Classes attended by {student.firstName} are highlighted in green.
             </p>
             {/* Student's Enrolled Batch Schedule Indicator */}
             <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0E3589] bg-blue-50/80 px-2.5 py-0.5 rounded-lg border border-blue-200">

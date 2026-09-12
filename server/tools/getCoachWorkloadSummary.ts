@@ -78,9 +78,9 @@ export const getCoachWorkloadSummaryTool: AgentTool = {
     for (const s of allStudents) {
       if (s.status === 'Active') {
         if (!s.coachId || !coachStudentMap.has(s.coachId)) {
-          unassignedActiveStudents.push({ id: s.id, name: s.displayName });
+          unassignedActiveStudents.push({ id: s.id, name: s.firstName });
         } else {
-          coachStudentMap.get(s.coachId)?.activeStudents.push({ id: s.id, name: s.displayName });
+          coachStudentMap.get(s.coachId)?.activeStudents.push({ id: s.id, name: s.firstName });
         }
       } else {
         if (s.coachId && coachStudentMap.has(s.coachId)) {
@@ -94,7 +94,7 @@ export const getCoachWorkloadSummaryTool: AgentTool = {
       const data = coachStudentMap.get(c.id) || { activeStudents: [], inactiveStudentsCount: 0 };
       return {
         coachId: c.id,
-        displayName: c.displayName,
+        firstName: c.firstName,
         designation: c.designation || 'Coach',
         specializations: c.specializations || [],
         status: c.status,
@@ -122,7 +122,7 @@ export const getCoachWorkloadSummaryTool: AgentTool = {
     const coachLines = coachSummaries.map(c => {
       const tag = c.status === 'Inactive' ? ' *(Inactive)*' : '';
       const capacityBadge = c.activeStudentCount === 0 ? ' • 🟢 *Available for new students*' : '';
-      return `• **${c.displayName}** (${c.designation}${tag}): **${c.activeStudentCount} active student(s)**${capacityBadge}`;
+      return `• **${c.firstName}** (${c.designation}${tag}): **${c.activeStudentCount} active student(s)**${capacityBadge}`;
     }).join('\n');
 
     const unassignedNotice = unassignedActiveStudents.length > 0

@@ -152,9 +152,10 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
   // Synchronize state when studentToEdit or initialData changes
   useEffect(() => {
     if (studentToEdit) {
-      const parts = (studentToEdit.displayName || '').trim().split(/\s+/);
-      setFirstName(studentToEdit.firstName || parts[0] || '');
-      setLastName(studentToEdit.lastName || parts.slice(1).join(' ') || '');
+      const firstNameVal = studentToEdit.firstName || '';
+      const lastNameVal = studentToEdit.lastName || '';
+      setFirstName(studentToEdit.firstName || '');
+      setLastName(studentToEdit.lastName || '');
       setModeOfLearning(studentToEdit.modeOfLearning || 'In-person');
       setAge(studentToEdit.age !== undefined && studentToEdit.age !== null ? studentToEdit.age : '');
       setGender(studentToEdit.gender || 'Female');
@@ -309,7 +310,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
         const updatePayload: any = {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
-          displayName: calculatedDisplayName,
+          
           fullName: calculatedDisplayName,
           modeOfLearning,
           age: Number(age),
@@ -351,7 +352,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
         const payload: any = {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
-          displayName: calculatedDisplayName,
+          
           fullName: calculatedDisplayName,
           modeOfLearning,
           age: Number(age),
@@ -405,7 +406,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
         } else {
           setSuccessModalData({
             studentId: result.student.id,
-            studentName: result.student.displayName,
+            studentName: result.student.firstName,
             email: result.student.email || result.credentials?.parentEmail || email.trim().toLowerCase(),
             password: password.trim(),
           });
@@ -455,7 +456,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                   Editing Student
                 </span>
                 <p className="text-xs font-black text-slate-900">
-                  {studentToEdit.displayName}
+                  {studentToEdit.firstName}
                 </p>
               </div>
               <p className="text-[11px] text-slate-600 mt-0.5">
@@ -487,7 +488,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 mt-1.5 font-medium">
           {isEditMode 
-            ? (enrollmentProperties.header.editTagline || `Updating profile and enrollment settings for ${studentToEdit?.displayName || 'Student'}`) 
+            ? (enrollmentProperties.header.editTagline || `Updating profile and enrollment settings for ${studentToEdit?.firstName || 'Student'}`) 
             : enrollmentProperties.header.tagline
           }
         </p>
@@ -603,18 +604,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
               />
             </div>
 
-            {/* Display Name preview */}
-            <div className="sm:col-span-2">
-              <Input
-                label={enrollmentProperties.section1.displayName}
-                type="text"
-                readOnly
-                value={`${firstName.trim()} ${lastName.trim()}`.trim()}
-                placeholder={enrollmentProperties.section1.displayNamePlaceholder}
-                helperText={enrollmentProperties.section1.displayNameHint}
-                disabled
-              />
-            </div>
+
 
             {/* Age & Gender */}
             <div>

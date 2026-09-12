@@ -150,7 +150,7 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
           studentId: student.id,
           parentPhone: student.whatsappMobile,
           parentName: student.parentName,
-          studentName: student.displayName,
+          studentName: student.firstName,
           amount: numAmount,
           milestone: cleanMilestone,
           receiptNumber: savedFee.receiptNumber || undefined
@@ -283,7 +283,7 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
         studentId: student.id,
         parentPhone: student.whatsappMobile,
         parentName: student.parentName,
-        studentName: student.displayName,
+        studentName: student.firstName,
         amount: fee.amount || 1600,
         milestone: cleanMilestone,
         receiptNumber: fee.receiptNumber
@@ -400,7 +400,7 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-slate-500 mb-1">Receipt Number</label>
                 <div className="px-3 py-2 text-xs font-mono font-medium text-slate-500 bg-slate-100 border border-slate-200 rounded-lg">
-                  Auto-generated on save: REC-{student.displayName.split(' ')[0]}-YYYYMMDD-seq
+                  Auto-generated on save: REC-{student.firstName.split(' ')[0]}-YYYYMMDD-seq
                 </div>
               </div>
 
@@ -836,7 +836,7 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
             <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
               <div className="flex justify-between items-center text-slate-600">
                 <span className="font-medium">Student:</span>
-                <span className="font-bold text-slate-900">{student.displayName}</span>
+                <span className="font-bold text-slate-900">{student.firstName}</span>
               </div>
               <div className="flex justify-between items-center text-slate-600">
                 <span className="font-medium">Milestone / Month:</span>

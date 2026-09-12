@@ -56,7 +56,7 @@ export const recordFeePaymentTool: AgentTool = {
     if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
       return {
         result: null,
-        summary: `Privacy Scoping: As a coach, you can only record fee payments for your assigned students. "${student.displayName}" is not assigned to your coaching roster.`,
+        summary: `Privacy Scoping: As a coach, you can only record fee payments for your assigned students. "${student.firstName}" is not assigned to your coaching roster.`,
         success: false
       };
     }
@@ -70,13 +70,13 @@ export const recordFeePaymentTool: AgentTool = {
       return {
         result: {
           draft: true,
-          studentName: student.displayName,
+          studentName: student.firstName,
           studentId: student.id,
           amount,
           cyclePeriod,
           paymentMethod: args?.paymentMethod || 'GPAY (8861751000)'
         },
-        summary: `⚠️ **Confirmation Required Before Recording Payment**\n\n• **Student**: ${student.displayName} (ID: ${student.id})\n• **Amount**: ₹${amount}\n• **Cycle**: ${cyclePeriod}\n• **Method**: ${args?.paymentMethod || 'GPAY (8861751000)'}\n\nPlease reply **"Confirm payment"** or **"Yes, record fee for ${student.displayName}"** to finalize this financial transaction.`,
+        summary: `⚠️ **Confirmation Required Before Recording Payment**\n\n• **Student**: ${student.firstName} (ID: ${student.id})\n• **Amount**: ₹${amount}\n• **Cycle**: ${cyclePeriod}\n• **Method**: ${args?.paymentMethod || 'GPAY (8861751000)'}\n\nPlease reply **"Confirm payment"** or **"Yes, record fee for ${student.firstName}"** to finalize this financial transaction.`,
         success: true
       };
     }
@@ -104,7 +104,7 @@ export const recordFeePaymentTool: AgentTool = {
 
     return {
       result: feeRecord,
-      summary: `✓ **Payment Confirmed & Recorded**: ₹${amount} for **${student.displayName}** (${cyclePeriod}). Receipt Number: **${feeRecord.receiptNumber || 'N/A'}** (${args?.paymentMethod || 'GPAY'}).`,
+      summary: `✓ **Payment Confirmed & Recorded**: ₹${amount} for **${student.firstName}** (${cyclePeriod}). Receipt Number: **${feeRecord.receiptNumber || 'N/A'}** (${args?.paymentMethod || 'GPAY'}).`,
       success: true
     };
   }

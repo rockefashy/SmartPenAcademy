@@ -64,7 +64,7 @@ export const updateStudentProfileTool: AgentTool = {
     if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
       return {
         result: null,
-        summary: `Scoping Policy: As a coach, you can only update student profiles assigned to your roster. "${student.displayName}" is not assigned to you.`,
+        summary: `Scoping Policy: As a coach, you can only update student profiles assigned to your roster. "${student.firstName}" is not assigned to you.`,
         success: false
       };
     }
@@ -89,7 +89,7 @@ export const updateStudentProfileTool: AgentTool = {
     const updated = await db.updateStudent(student.id, parsed.data as any);
     return {
       result: updated,
-      summary: `✓ Successfully updated profile for **${student.displayName}** (${student.gradeClass})!`,
+      summary: `✓ Successfully updated profile for **${student.firstName}** (${student.gradeClass})!`,
       success: true
     };
   }

@@ -2,20 +2,20 @@ import { api } from '../services/api';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Bot, 
-  Sparkles, 
-  Send, 
-  RotateCcw, 
-  Maximize2, 
-  Minimize2, 
-  X, 
-  Users, 
-  Calendar, 
-  CreditCard, 
-  BookOpen, 
-  Phone, 
-  ChevronLeft, 
+import {
+  Bot,
+  Sparkles,
+  Send,
+  RotateCcw,
+  Maximize2,
+  Minimize2,
+  X,
+  Users,
+  Calendar,
+  CreditCard,
+  BookOpen,
+  Phone,
+  ChevronLeft,
   ChevronRight
 } from 'lucide-react';
 import { User, StudentProfile } from '../types';
@@ -75,7 +75,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
     }
   };
 
-  const displayName = currentStudent?.name || currentUser?.displayName || currentUser?.name || 'Khwaish Sharma';
+  const displayName = currentStudent?.name || currentUser?.firstName || currentUser?.name || 'Khwaish Sharma';
 
   const handleResetChat = () => {
     setMessages([
@@ -152,53 +152,52 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
   };
 
   const quickActions = [
-    { 
-      label: 'Enroll Student', 
-      icon: Users, 
-      color: 'text-amber-700 bg-amber-50/90 border-amber-200 hover:bg-amber-100', 
-      action: () => handleSend("I want to enroll / register my child") 
+    {
+      label: 'Enroll Student',
+      icon: Users,
+      color: 'text-amber-700 bg-amber-50/90 border-amber-200 hover:bg-amber-100',
+      action: () => handleSend("I want to enroll / register my child")
     },
-    { 
-      label: 'Book Free Demo', 
-      icon: Sparkles, 
-      color: 'text-blue-700 bg-blue-50/90 border-blue-200 hover:bg-blue-100', 
-      action: () => handleSend("Book a free demo class") 
+    {
+      label: 'Book Free Demo',
+      icon: Sparkles,
+      color: 'text-blue-700 bg-blue-50/90 border-blue-200 hover:bg-blue-100',
+      action: () => handleSend("Book a free demo class")
     },
-    { 
-      label: 'GPAY to Coach', 
-      icon: CreditCard, 
-      color: 'text-emerald-700 bg-emerald-50/90 border-emerald-200 hover:bg-emerald-100', 
-      action: () => handleSend("How to GPAY coaching fee to coach?") 
+    {
+      label: 'GPAY to Coach',
+      icon: CreditCard,
+      color: 'text-emerald-700 bg-emerald-50/90 border-emerald-200 hover:bg-emerald-100',
+      action: () => handleSend("How to GPAY coaching fee to coach?")
     },
-    { 
-      label: 'My Attendance', 
-      icon: Calendar, 
-      color: 'text-slate-700 bg-slate-100/90 border-slate-300 hover:bg-slate-200', 
-      action: () => handleSend("What is my attendance summary and fee status?") 
+    {
+      label: 'My Attendance',
+      icon: Calendar,
+      color: 'text-slate-700 bg-slate-100/90 border-slate-300 hover:bg-slate-200',
+      action: () => handleSend("What is my attendance summary and fee status?")
     },
-    { 
-      label: 'Course Syllabus', 
-      icon: BookOpen, 
-      color: 'text-purple-700 bg-purple-50/90 border-purple-200 hover:bg-purple-100', 
-      action: () => handleSend("Show 8-class handwriting curriculum") 
+    {
+      label: 'Course Syllabus',
+      icon: BookOpen,
+      color: 'text-purple-700 bg-purple-50/90 border-purple-200 hover:bg-purple-100',
+      action: () => handleSend("Show 8-class handwriting curriculum")
     },
-    { 
-      label: 'Contact Coach', 
-      icon: Phone, 
-      color: 'text-teal-700 bg-teal-50/90 border-teal-200 hover:bg-teal-100', 
-      action: () => handleSend("How to contact Mrs. Deepthy Rock?") 
+    {
+      label: 'Contact Coach',
+      icon: Phone,
+      color: 'text-teal-700 bg-teal-50/90 border-teal-200 hover:bg-teal-100',
+      action: () => handleSend("How to contact Mrs. Deepthy Rock?")
     },
   ];
 
   const roleLabel = currentUser?.role === 'admin' ? 'Admin' : 'Student';
 
   return (
-    <div 
-      className={`w-full bg-white flex flex-col overflow-hidden select-none ${
-        isFloatingModal 
-          ? 'h-full max-h-full' 
+    <div
+      className={`w-full bg-white flex flex-col overflow-hidden select-none ${isFloatingModal
+          ? 'h-full max-h-full'
           : 'rounded-3xl border-2 border-blue-200/80 shadow-2xl shadow-blue-900/10 h-[560px] max-h-[560px]'
-      }`}
+        }`}
       id="smartpen-ai-agent-core"
     >
       {/* 1. Header */}
@@ -212,14 +211,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
           <div>
             <div className="flex items-center gap-1.5">
               <h3 className="font-black text-sm tracking-tight text-white">SmartPen AI Agent</h3>
-              <span className="bg-[#F95F1E] text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-xs">
-                V2.5
-              </span>
             </div>
-            <p className="text-[11px] text-blue-100 font-semibold flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-              <span className="truncate">SmartPen Academy</span>
-            </p>
           </div>
         </div>
 
@@ -266,7 +258,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
       </div>
 
       {/* 2. Messages Scroll Area with fixed height & internal scrolling */}
-      <div 
+      <div
         ref={messagesContainerRef}
         className="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50/60 scrollbar-thin scrollbar-thumb-slate-300 min-h-0"
       >
@@ -284,11 +276,10 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
 
             {/* Message Speech Card with compact width and padding */}
             <div
-              className={`text-xs leading-snug relative ${
-                m.sender === 'user'
+              className={`text-xs leading-snug relative ${m.sender === 'user'
                   ? 'w-fit max-w-[80%] bg-gradient-to-r from-[#124EBF] to-[#0084F4] text-white px-3 py-1.5 rounded-xl rounded-tr-xs shadow-xs'
                   : 'w-fit max-w-[88%] bg-white text-slate-800 border border-slate-200/90 px-3 py-2 rounded-xl rounded-tl-xs shadow-2xs'
-              }`}
+                }`}
             >
               {/* Message Content with tight vertical rhythm */}
               <div className="prose-sm whitespace-pre-line text-xs">
@@ -407,9 +398,8 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
               )}
 
               {/* Timestamp Compact */}
-              <div className={`text-[9.5px] mt-0.5 text-right font-medium leading-none ${
-                m.sender === 'user' ? 'text-blue-100 opacity-90' : 'text-slate-400'
-              }`}>
+              <div className={`text-[9.5px] mt-0.5 text-right font-medium leading-none ${m.sender === 'user' ? 'text-blue-100 opacity-90' : 'text-slate-400'
+                }`}>
                 {m.timestamp}
               </div>
             </div>

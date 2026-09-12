@@ -24,7 +24,7 @@ export async function getSenderEmail(): Promise<string> {
   try {
     const admin = await db.getAdminUser();
     if (admin && admin.email) {
-      const name = admin.displayName || 'SmartPen Academy';
+      const name = admin.firstName || 'SmartPen Academy';
       return `${name} <${admin.email.trim()}>`;
     }
   } catch (err: any) {
@@ -114,7 +114,8 @@ export async function sendEmail({ to, subject, html, text, from }: SendEmailPara
 
 // 1. Student Registration / Enrollment Confirmation Email
 export async function sendEnrollmentEmails(student: {
-  displayName: string;
+  firstName: string;
+  lastName?: string;
   age?: number | string;
   gender?: string;
   dominantHand?: string;
@@ -141,7 +142,7 @@ export async function sendEnrollmentEmails(student: {
   const adminUser = await db.getAdminUser();
   const adminContactEmail = adminUser?.email || await getAdminNotificationEmail() || '';
   const adminContactPhone = adminUser?.phoneNumber || '';
-  const adminDisplayName = adminUser?.displayName || '';
+  const adminDisplayName = adminUser?.firstName || '';
 
   const parentHtml = `
 <!DOCTYPE html>
@@ -172,7 +173,7 @@ export async function sendEnrollmentEmails(student: {
     </div>
     <div class="content">
       <p>Dear <strong>${student.parentName}</strong>,</p>
-      <p>Welcome to SmartPen Academy! We are delighted to confirm the successful registration of <strong>${student.displayName}</strong> in our handwriting mastery program.</p>
+      <p>Welcome to SmartPen Academy! We are delighted to confirm the successful registration of <strong>${student.firstName}</strong> in our handwriting mastery program.</p>
       
       <div class="credential-box">
         <h3 style="margin-top: 0; color: #0E3589; font-size: 15px;">🔑 Parent &amp; Student Portal Login Credentials</h3>
@@ -199,7 +200,7 @@ export async function sendEnrollmentEmails(student: {
 
       <div class="box">
         <h4 style="margin: 0 0 10px 0; color: #0E3589; font-size: 14px;">📋 Enrollment Summary</h4>
-        <div class="credential-item"><span class="label">Student Name:</span><span class="value">${student.displayName}</span></div>
+        <div class="credential-item"><span class="label">Student Name:</span><span class="value">${student.firstName}</span></div>
         ${student.age ? `<div class="credential-item"><span class="label">Age:</span><span class="value">${student.age} years</span></div>` : ''}
         ${student.gender ? `<div class="credential-item"><span class="label">Gender:</span><span class="value">${student.gender}</span></div>` : ''}
         ${student.dominantHand ? `<div class="credential-item"><span class="label">Dominant Hand:</span><span class="value">${student.dominantHand} Handed</span></div>` : ''}
@@ -222,7 +223,7 @@ export async function sendEnrollmentEmails(student: {
       </div>` : ''}
 
       <p style="margin-top: 24px; font-size: 13px; color: #475569;">
-        Our team looks forward to guiding <strong>${student.displayName}</strong> towards fluent, confident, and beautiful handwriting!
+        Our team looks forward to guiding <strong>${student.firstName}</strong> towards fluent, confident, and beautiful handwriting!
       </p>
     </div>
     <div class="footer">
@@ -243,7 +244,7 @@ export async function sendEnrollmentEmails(student: {
     <h2 style="color: #0E3589; margin-top: 0;">🎉 New Student Enrollment Notification</h2>
     <p>A new student registration has been completed on the SmartPen Academy portal:</p>
     <ul>
-      <li><strong>Student:</strong> ${student.displayName} (${student.age || 'N/A'} yrs, ${student.gender || 'N/A'}, ${student.dominantHand || 'N/A'} handed)</li>
+      <li><strong>Student:</strong> ${student.firstName} (${student.age || 'N/A'} yrs, ${student.gender || 'N/A'}, ${student.dominantHand || 'N/A'} handed)</li>
       <li><strong>Parent:</strong> ${student.parentName}</li>
       <li><strong>WhatsApp / Phone:</strong> ${student.whatsappMobile || 'N/A'}</li>
       <li><strong>Registered Email (Login ID):</strong> ${student.email}</li>
@@ -262,8 +263,8 @@ export async function sendEnrollmentEmails(student: {
 
   // Dispatch to Parent
   const parentSubject = student.isSiblingEnrollment
-    ? `✨ SmartPen Academy - Sibling Enrollment Confirmed for ${student.displayName}`
-    : `✨ Welcome to SmartPen Academy - Enrollment Confirmed for ${student.displayName}`;
+    ? `✨ SmartPen Academy - Sibling Enrollment Confirmed for ${student.firstName}`
+    : `✨ Welcome to SmartPen Academy - Enrollment Confirmed for ${student.firstName}`;
 
   const parentPromise = sendEmail({
     to: student.email,
@@ -281,8 +282,8 @@ export async function sendEnrollmentEmails(student: {
   // Dispatch to Admin (email dynamically fetched from users table)
   const adminEmail = await getAdminNotificationEmail();
   const adminSubject = student.isSiblingEnrollment
-    ? `👨‍👩‍👧‍👦 [Sibling Enrollment] ${student.displayName} (Sibling of ${student.siblingOfStudentName || student.parentName})`
-    : `🔔 [New Enrollment] ${student.displayName} (${student.parentName})`;
+    ? `👨‍👩‍👧‍👦 [Sibling Enrollment] ${student.firstName} (Sibling of ${student.siblingOfStudentName || student.parentName})`
+    : `🔔 [New Enrollment] ${student.firstName} (${student.parentName})`;
 
   const adminPromise = adminEmail ? sendEmail({
     to: adminEmail,
@@ -301,7 +302,7 @@ export async function sendEnrollmentEmails(student: {
 }
 
 // 2. Forgot Password Email & Reset Link Email
-export async function sendPasswordResetLinkEmail(toEmail: string, params: { resetLink: string; displayName?: string }) {
+export async function sendPasswordResetLinkEmail(toEmail: string, params: { resetLink: string; firstName?: string }) {
   const html = `
 <!DOCTYPE html>
 <html>
@@ -324,7 +325,7 @@ export async function sendPasswordResetLinkEmail(toEmail: string, params: { rese
       <p style="margin:4px 0 0; font-size: 13px; color: #bfdbfe;">Password Reset Request</p>
     </div>
     <div class="content">
-      <p>Hello <strong>${params.displayName || 'User'}</strong>,</p>
+      <p>Hello <strong>${params.firstName || 'User'}</strong>,</p>
       <p>We received a request to reset the password for your SmartPen Academy account (<strong>${toEmail}</strong>).</p>
       
       <div class="btn-box">
@@ -355,63 +356,8 @@ export async function sendPasswordResetLinkEmail(toEmail: string, params: { rese
   });
 }
 
-export async function sendForgotPasswordEmail(toEmail: string, user: { username?: string; email?: string; displayName?: string; password?: string; rawPassword?: string }) {
-  const passwordToDisplay = user.rawPassword || user.password;
-  if (!passwordToDisplay) {
-    console.error(`[Security Warning] Attempted to send password retrieval email for "${toEmail}" without a known raw password. Directing to password reset flow.`);
-    return { success: false, error: 'Raw password unavailable. Please use password reset link.' };
-  }
-
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }
-    .card { max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; }
-    .header { background: #0E3589; color: #ffffff; padding: 24px; text-align: center; }
-    .content { padding: 24px; }
-    .pass-box { background: #f8fafc; border: 2px solid #F46E20; border-radius: 10px; padding: 16px; text-align: center; margin: 20px 0; }
-    .footer { text-align: center; font-size: 12px; color: #94a3b8; padding: 16px; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <h2 style="margin:0;">SmartPen Academy</h2>
-      <p style="margin:4px 0 0; font-size: 13px; color: #bfdbfe;">Password Retrieval</p>
-    </div>
-    <div class="content">
-      <p>Hello <strong>${user.displayName || user.username}</strong>,</p>
-      <p>We received a request to retrieve the password for your SmartPen Academy account (<strong>${toEmail}</strong>).</p>
-      
-      <div class="pass-box">
-        <span style="font-size: 12px; color: #64748b; display: block; margin-bottom: 4px;">Your Account Password:</span>
-        <span style="font-size: 20px; font-weight: 800; color: #0E3589; letter-spacing: 1px; font-family: monospace;">${passwordToDisplay}</span>
-      </div>
-
-      <p style="font-size: 13px; color: #64748b;">
-        You can use this password to log in directly at SmartPen Academy. If you wish to update your password, you can do so anytime via the "Change Password" link on the sign-in screen.
-      </p>
-    </div>
-    <div class="footer">
-      <p>SmartPen Academy • Automated Security Notification</p>
-    </div>
-  </div>
-</body>
-</html>
-`;
-
-  return sendEmail({
-    to: toEmail,
-    subject: `🔐 Your SmartPen Academy Account Password`,
-    html
-  });
-}
-
 // 3. Password Changed Confirmation Email
-export async function sendPasswordChangedEmail(toEmail: string, user: { displayName?: string }) {
+export async function sendPasswordChangedEmail(toEmail: string, user: { firstName?: string }) {
   const html = `
 <!DOCTYPE html>
 <html>
@@ -419,7 +365,7 @@ export async function sendPasswordChangedEmail(toEmail: string, user: { displayN
 <body style="font-family: sans-serif; padding: 20px; color: #1e293b; background: #f8fafc;">
   <div style="max-width: 500px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0;">
     <h3 style="color: #0E3589; margin-top: 0;">🛡️ Password Updated Successfully</h3>
-    <p>Hello ${user.displayName || 'SmartPen Student / Parent'},</p>
+    <p>Hello ${user.firstName || 'SmartPen Student / Parent'},</p>
     <p>This is a confirmation that the password for your SmartPen Academy account (<strong>${toEmail}</strong>) was successfully updated.</p>
     <p style="font-size: 12px; color: #64748b;">If you did not perform this update, please contact the academy administration immediately.</p>
   </div>
@@ -520,7 +466,8 @@ export async function sendFeeReminderEmail(params: {
 // 6. Student Profile Updated Notification Email (Parent & Admin)
 export async function sendStudentUpdatedEmails(student: {
   id?: string;
-  displayName: string;
+  firstName: string;
+  lastName?: string;
   parentName?: string;
   email?: string;
   whatsappMobile?: string;
@@ -539,7 +486,7 @@ export async function sendStudentUpdatedEmails(student: {
   const adminUser = await db.getAdminUser();
   const adminContactEmail = adminUser?.email || await getAdminNotificationEmail() || "";
   const adminContactPhone = adminUser?.phoneNumber || "";
-  const adminDisplayName = adminUser?.displayName || "SmartPen Academy";
+  const adminDisplayName = adminUser?.firstName || "SmartPen Academy";
 
   const parentEmail = student.email;
 
@@ -571,11 +518,11 @@ export async function sendStudentUpdatedEmails(student: {
     </div>
     <div class="content">
       <p>Dear <strong>${student.parentName || "Parent"}</strong>,</p>
-      <p>This is a confirmation that the profile and enrollment details for <strong>${student.displayName}</strong> have been successfully updated in our academy records.</p>
+      <p>This is a confirmation that the profile and enrollment details for <strong>${student.firstName}</strong> have been successfully updated in our academy records.</p>
       
       <div class="box">
         <h4 style="margin: 0 0 12px 0; color: #0E3589; font-size: 14px;">📋 Updated Student Profile Summary</h4>
-        <div class="item"><span class="label">Student Name:</span><span class="value">${student.displayName}</span></div>
+        <div class="item"><span class="label">Student Name:</span><span class="value">${student.firstName}</span></div>
         ${student.age ? `<div class="item"><span class="label">Age:</span><span class="value">${student.age} years</span></div>` : ""}
         ${student.gender ? `<div class="item"><span class="label">Gender:</span><span class="value">${student.gender}</span></div>` : ""}
         ${student.modeOfLearning ? `<div class="item"><span class="label">Mode of Learning:</span><span class="value">${student.modeOfLearning}</span></div>` : ""}
@@ -621,7 +568,7 @@ export async function sendStudentUpdatedEmails(student: {
     <h2 style="color: #0E3589; margin-top: 0;">📝 Student Profile Updated</h2>
     <p>Student profile details have been updated on the SmartPen Academy portal:</p>
     <ul>
-      <li><strong>Student:</strong> ${student.displayName} (${student.age || "N/A"} yrs, ${student.gender || "N/A"}, ${student.dominantHand || "N/A"} handed)</li>
+      <li><strong>Student:</strong> ${student.firstName} (${student.age || "N/A"} yrs, ${student.gender || "N/A"}, ${student.dominantHand || "N/A"} handed)</li>
       <li><strong>Parent:</strong> ${student.parentName || "N/A"}</li>
       <li><strong>Mode of Learning:</strong> ${student.modeOfLearning || "N/A"}</li>
       <li><strong>WhatsApp / Phone:</strong> ${student.whatsappMobile || "N/A"}</li>
@@ -646,7 +593,7 @@ export async function sendStudentUpdatedEmails(student: {
     dispatches.push(
       sendEmail({
         to: parentEmail,
-        subject: `📝 Student Details Updated - ${student.displayName} | SmartPen Academy`,
+        subject: `📝 Student Details Updated - ${student.firstName} | SmartPen Academy`,
         html: parentHtml
       }).then(res => {
         if (res.success) {
@@ -665,7 +612,7 @@ export async function sendStudentUpdatedEmails(student: {
     dispatches.push(
       sendEmail({
         to: adminEmail,
-        subject: `🔔 [Student Updated] ${student.displayName} (${student.parentName || "Parent"})`,
+        subject: `🔔 [Student Updated] ${student.firstName} (${student.parentName || "Parent"})`,
         html: adminHtml
       }).then(res => {
         if (res.success) {

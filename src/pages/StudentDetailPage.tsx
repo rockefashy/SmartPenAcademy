@@ -221,6 +221,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
     try {
       const record = {
         studentId,
+        classNumber: attendance.length + 1,
         date: attDate,
         yearMonth: attDate.slice(0, 7),
         status: attStatus,
@@ -446,7 +447,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
           <div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <h1 className="text-xl sm:text-3xl font-black text-slate-900">
-                {student.displayName}
+                {student.firstName}
               </h1>
               <span
                 className={`px-3 py-0.5 rounded-full text-xs font-bold tracking-wide uppercase ${
@@ -597,7 +598,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                       setProfileForm({ 
                         ...profileForm, 
                         firstName: val,
-                        displayName: `${val} ${lastName}`.trim()
+                        
                       });
                     }}
                     required
@@ -614,7 +615,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                       setProfileForm({ 
                         ...profileForm, 
                         lastName: val,
-                        displayName: `${firstName} ${val}`.trim()
+                        
                       });
                     }}
                     required
@@ -744,7 +745,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Student Profile</span>
-                  <p className="text-sm font-black text-slate-900">{student.displayName}</p>
+                  <p className="text-sm font-black text-slate-900">{student.firstName}</p>
                   <p className="text-xs text-slate-600">
                     {student.age ? `Age: ${student.age} yrs` : (student.dateOfBirth ? `DOB: ${student.dateOfBirth}` : '')} {student.gender ? `(${student.gender})` : ''}
                   </p>
@@ -813,7 +814,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                   <span>8 Classes Completed in Sequence • Fee Receipt Due</span>
                 </p>
                 <p className="text-[11px] text-orange-800 font-medium">
-                  {student.displayName} has completed 8 classes (Classes {(Math.floor(attendedCount / 8) - 1) * 8 + 1} - {Math.floor(attendedCount / 8) * 8}). ₹1,600 fee receipt is pending.
+                  {student.firstName} has completed 8 classes (Classes {(Math.floor(attendedCount / 8) - 1) * 8 + 1} - {Math.floor(attendedCount / 8) * 8}). ₹1,600 fee receipt is pending.
                 </p>
               </div>
               <Button
@@ -1435,7 +1436,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
         isOpen={isCameraModalOpen}
         onClose={() => setIsCameraModalOpen(false)}
         onSave={handleSaveCameraWork}
-        studentName={student?.displayName || 'Student'}
+        studentName={student?.firstName || 'Student'}
       />
 
       {/* Full Photo Zoom Modal */}

@@ -48,7 +48,7 @@ export const editCoachProfileTool: AgentTool = {
   async execute(args: any, _context: AgentToolContext): Promise<AgentToolResult> {
     const coaches = await db.getAllCoaches();
     const query = String(args?.coachNameOrId || '').toLowerCase().trim();
-    const target = coaches.find(c => c.id === query || c.displayName.toLowerCase().includes(query) || (c.email && c.email.toLowerCase() === query));
+    const target = coaches.find(c => c.id === query || c.firstName.toLowerCase().includes(query) || (c.email && c.email.toLowerCase() === query));
 
     if (!target) {
       return {
@@ -77,7 +77,7 @@ export const editCoachProfileTool: AgentTool = {
     const updated = await db.updateCoach(target.id, parsed.data);
     return {
       result: updated,
-      summary: `✓ Successfully updated profile for Coach **${target.displayName}**!`,
+      summary: `✓ Successfully updated profile for Coach **${target.firstName}**!`,
       success: true
     };
   }

@@ -172,8 +172,8 @@ export async function runLocalAgent(
 
     const allStudents = await db.getAllStudents();
     allStudents.forEach(st => {
-      if (prevContent.includes(st.displayName.toLowerCase())) {
-        targetNames.push(st.displayName);
+      if (prevContent.includes(st.firstName.toLowerCase())) {
+        targetNames.push(st.firstName);
       }
     });
 
@@ -211,8 +211,8 @@ export async function runLocalAgent(
     let studentQuery = '';
     const allStudents = await db.getAllStudents();
     allStudents.forEach(st => {
-      if (prevContent.includes(st.displayName.toLowerCase())) {
-        studentQuery = st.displayName;
+      if (prevContent.includes(st.firstName.toLowerCase())) {
+        studentQuery = st.firstName;
       }
     });
 
@@ -298,9 +298,9 @@ export async function runLocalAgent(
       // Find students from database mentioned in prompt
       const allStudents = await db.getAllStudents();
       allStudents.forEach(st => {
-        const firstName = st.displayName.toLowerCase().split(' ')[0];
-        if (p.includes(firstName) || p.includes(st.displayName.toLowerCase()) || p.includes(st.id.toLowerCase())) {
-          targetNames.push(st.displayName);
+        const firstName = st.firstName.toLowerCase().split(' ')[0];
+        if (p.includes(firstName) || p.includes(st.firstName.toLowerCase()) || p.includes(st.id.toLowerCase())) {
+          targetNames.push(st.firstName);
         }
       });
 
@@ -310,7 +310,7 @@ export async function runLocalAgent(
         numberMatches.forEach(m => {
           const num = parseInt(m.replace(/\D/g, ''), 10) - 1;
           if (num >= 0 && num < allStudents.length) {
-            targetNames.push(allStudents[num].displayName);
+            targetNames.push(allStudents[num].firstName);
           }
         });
       }
@@ -322,7 +322,7 @@ export async function runLocalAgent(
           const candidates = afterFor.split(/,|and|\bfor\b|\btoday\b/i).map(s => s.trim()).filter(Boolean);
           for (const c of candidates) {
             const found = await findStudent(c);
-            if (found) targetNames.push(found.displayName);
+            if (found) targetNames.push(found.firstName);
           }
         }
       }
@@ -375,8 +375,8 @@ export async function runLocalAgent(
     let studentQuery = '';
     const allStudents = await db.getAllStudents();
     allStudents.forEach(st => {
-      if (p.includes(st.displayName.toLowerCase()) || p.includes(st.displayName.toLowerCase().split(' ')[0])) {
-        studentQuery = st.displayName;
+      if (p.includes(st.firstName.toLowerCase()) || p.includes(st.firstName.toLowerCase().split(' ')[0])) {
+        studentQuery = st.firstName;
       }
     });
     const result = await executeTool('getAttendance', { studentNameOrId: studentQuery }, userContext, 'local_agent');
@@ -390,8 +390,8 @@ export async function runLocalAgent(
       let studentQuery = '';
       const allStudents = await db.getAllStudents();
       allStudents.forEach(st => {
-        if (p.includes(st.displayName.toLowerCase()) || p.includes(st.displayName.toLowerCase().split(' ')[0])) {
-          studentQuery = st.displayName;
+        if (p.includes(st.firstName.toLowerCase()) || p.includes(st.firstName.toLowerCase().split(' ')[0])) {
+          studentQuery = st.firstName;
         }
       });
 
@@ -409,8 +409,8 @@ export async function runLocalAgent(
       let studentQuery = '';
       const allStudents = await db.getAllStudents();
       allStudents.forEach(st => {
-        if (p.includes(st.displayName.toLowerCase()) || p.includes(st.displayName.toLowerCase().split(' ')[0])) {
-          studentQuery = st.displayName;
+        if (p.includes(st.firstName.toLowerCase()) || p.includes(st.firstName.toLowerCase().split(' ')[0])) {
+          studentQuery = st.firstName;
         }
       });
       const result = await executeTool('sendFeeReminder', { studentNameOrId: studentQuery || 'Khwaish Sharma' }, userContext, 'local_agent');
@@ -421,8 +421,8 @@ export async function runLocalAgent(
     let studentQuery = '';
     const allStudents = await db.getAllStudents();
     allStudents.forEach(st => {
-      if (p.includes(st.displayName.toLowerCase()) || p.includes(st.displayName.toLowerCase().split(' ')[0])) {
-        studentQuery = st.displayName;
+      if (p.includes(st.firstName.toLowerCase()) || p.includes(st.firstName.toLowerCase().split(' ')[0])) {
+        studentQuery = st.firstName;
       }
     });
     const result = await executeTool('getFeeStatus', { studentNameOrId: studentQuery }, userContext, 'local_agent');
@@ -449,8 +449,8 @@ export async function runLocalAgent(
     let studentQuery = '';
     const allStudents = await db.getAllStudents();
     allStudents.forEach(st => {
-      if (p.includes(st.displayName.toLowerCase()) || p.includes(st.displayName.toLowerCase().split(' ')[0])) {
-        studentQuery = st.displayName;
+      if (p.includes(st.firstName.toLowerCase()) || p.includes(st.firstName.toLowerCase().split(' ')[0])) {
+        studentQuery = st.firstName;
       }
     });
 
@@ -475,18 +475,18 @@ export async function runLocalAgent(
   // Default greetings & help
   if (userContext?.role === 'admin') {
     return {
-      reply: `Hello **${userContext.displayName || 'Admin'}**! I am your **SmartPen AI Assistant**. I can perform real-time actions across the academy:\n\n• **Mark attendance**: *"Update attendance for Student 1, 2, 3 for today"* or *"Mark Aryan and Ananya as Present"*\n• **Check Fee Dues & Alerts**: *"Check fee alerts"* or *"Send fee reminder to Khwaish"*\n• **Lookup Profiles**: *"Show student profile for Aarav"*\n• **Generate Progress Reports**: *"Generate progress report for Siddharth"*\n\nHow can I help you today?`,
+      reply: `Hello **${userContext.firstName || 'Admin'}**! I am your **SmartPen AI Assistant**. I can perform real-time actions across the academy:\n\n• **Mark attendance**: *"Update attendance for Student 1, 2, 3 for today"* or *"Mark Aryan and Ananya as Present"*\n• **Check Fee Dues & Alerts**: *"Check fee alerts"* or *"Send fee reminder to Khwaish"*\n• **Lookup Profiles**: *"Show student profile for Aarav"*\n• **Generate Progress Reports**: *"Generate progress report for Siddharth"*\n\nHow can I help you today?`,
       toolResults: []
     };
   } else if (userContext?.role === 'coach') {
     const designationSuffix = userContext.designation ? ` (${userContext.designation})` : '';
     return {
-      reply: `Hello Coach **${userContext.displayName || 'Tutor'}**${designationSuffix}! Welcome to your coaching assistant. You have full management over your assigned students:\n\n• **Attendance**: *"Mark Aarav as Present today"* or *"Update attendance for my batch"*\n• **Fee Management**: *"Check fee status for my students"*, *"Send fee reminder to [Student]"*, or *"Record fee payment"*\n• **Progress Reports**: *"Generate progress report for my student"*\n• **Roster & Profiles**: *"Show my assigned students"* or *"Show profile for Ananya"*\n\nWhat would you like to work on?`,
+      reply: `Hello Coach **${userContext.firstName || 'Tutor'}**${designationSuffix}! Welcome to your coaching assistant. You have full management over your assigned students:\n\n• **Attendance**: *"Mark Aarav as Present today"* or *"Update attendance for my batch"*\n• **Fee Management**: *"Check fee status for my students"*, *"Send fee reminder to [Student]"*, or *"Record fee payment"*\n• **Progress Reports**: *"Generate progress report for my student"*\n• **Roster & Profiles**: *"Show my assigned students"* or *"Show profile for Ananya"*\n\nWhat would you like to work on?`,
       toolResults: []
     };
   } else if (userContext?.role === 'student') {
     return {
-      reply: `Hello **${userContext.displayName || 'Student'}**! Welcome to your AI Handwriting Assistant. You can ask me:\n\n• *"What is my attendance record?"*\n• *"Do I have any pending fee?"*\n• *"What is my class schedule and milestone?"*\n• *"Show my skill ratings"*\n\nWhat would you like to review today?`,
+      reply: `Hello **${userContext.firstName || 'Student'}**! Welcome to your AI Handwriting Assistant. You can ask me:\n\n• *"What is my attendance record?"*\n• *"Do I have any pending fee?"*\n• *"What is my class schedule and milestone?"*\n• *"Show my skill ratings"*\n\nWhat would you like to review today?`,
       toolResults: []
     };
   } else {
@@ -528,7 +528,7 @@ PUBLIC WEB PORTAL KNOWLEDGE BASE (Available to all users, parents, and visitors)
   if (userContext?.role === 'admin') {
     return `${baseHeader}
 Logged-in User Context (ADMINISTRATOR):
-• Name: ${userContext.displayName}
+• Name: ${userContext.firstName}
 • Role: admin
 • Username: ${userContext.username}
 
@@ -542,7 +542,7 @@ Admin Guidelines:
   if (userContext?.role === 'coach') {
     return `${baseHeader}
 Logged-in User Context (COACH / TUTOR):
-• Name: ${userContext.displayName}
+• Name: ${userContext.firstName}
 • Role: coach
 • Designation: ${userContext.designation || 'Coach'}
 • User ID: ${userContext.id}
@@ -559,7 +559,7 @@ Coach Guidelines:
   if (userContext?.role === 'student') {
     return `${baseHeader}
 Logged-in User Context (STUDENT / PARENT):
-• Name: ${userContext.displayName}
+• Name: ${userContext.firstName}
 • Role: student
 • Username: ${userContext.username}
 • Student ID: ${userContext.studentId || 'N/A'}

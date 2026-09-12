@@ -227,7 +227,7 @@ export const StarAchieverCertificate: React.FC<StarAchieverCertificateProps> = (
           <div className="text-center my-1 sm:my-2">
             <div className="inline-block relative px-8 py-1">
               <h2 className={`text-2xl sm:text-4xl lg:text-5xl font-serif font-black tracking-wide ${themeConfig.accentText} uppercase`}>
-                {student.displayName}
+                {`${student.firstName} ${student.lastName || ''}`.trim()}
               </h2>
               <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-[#D97706] to-transparent mt-1" />
             </div>

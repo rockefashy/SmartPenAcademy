@@ -61,7 +61,7 @@ export const explainStudentStatusTool: AgentTool = {
     // Check exact matches first (ID or full name)
     const exactMatches = allStudents.filter(s => 
       s.id.toLowerCase() === cleanQ || 
-      s.displayName.toLowerCase() === cleanQ
+      s.firstName.toLowerCase() === cleanQ
     );
 
     let student = exactMatches[0];
@@ -69,14 +69,14 @@ export const explainStudentStatusTool: AgentTool = {
     if (!student) {
       // Partial matches
       const partialMatches = allStudents.filter(s => 
-        s.displayName.toLowerCase().includes(cleanQ) || 
-        cleanQ.includes(s.displayName.toLowerCase())
+        s.firstName.toLowerCase().includes(cleanQ) || 
+        cleanQ.includes(s.firstName.toLowerCase())
       );
 
       if (partialMatches.length > 1) {
         return {
           result: null,
-          summary: `Multiple students matched "${studentNameOrId}": ${partialMatches.map(s => `"${s.displayName}" (ID: ${s.id})`).join(', ')}. Please specify the exact student ID or full name.`,
+          summary: `Multiple students matched "${studentNameOrId}": ${partialMatches.map(s => `"${s.firstName}" (ID: ${s.id})`).join(', ')}. Please specify the exact student ID or full name.`,
           success: false
         };
       }
@@ -102,7 +102,7 @@ export const explainStudentStatusTool: AgentTool = {
       if (user.role === 'coach') {
         return {
           result: null,
-          summary: `Privacy Scoping: As a coach, you can only view records for students assigned to you. "${student.displayName}" is not in your roster.`,
+          summary: `Privacy Scoping: As a coach, you can only view records for students assigned to you. "${student.firstName}" is not in your roster.`,
           success: false
         };
       }
@@ -160,7 +160,7 @@ export const explainStudentStatusTool: AgentTool = {
       if (coach) {
         coachInfo = {
           assigned: true,
-          name: coach.displayName,
+          name: coach.firstName,
           designation: coach.designation || 'Coach',
           status: coach.status || 'Active'
         };
@@ -194,7 +194,7 @@ export const explainStudentStatusTool: AgentTool = {
     const result = {
       student: {
         id: student.id,
-        displayName: student.displayName,
+        firstName: student.firstName,
         grade: student.gradeClass || 'N/A',
         schoolName: student.schoolName || 'N/A',
         status: student.status,
@@ -243,7 +243,7 @@ export const explainStudentStatusTool: AgentTool = {
       : `• **Status**: ${feeStatusSummary}`;
 
     const summary = 
-      `📊 **Student 360° Overview: ${student.displayName} (${student.gradeClass || 'N/A'})**\n\n` +
+      `📊 **Student 360° Overview: ${student.firstName} (${student.gradeClass || 'N/A'})**\n\n` +
       `• **Status**: ${student.status} • **Mode**: ${student.modeOfLearning || 'N/A'} • **School**: ${student.schoolName || 'N/A'}\n` +
       `${coachLine}\n\n` +
       `🗓️ **Attendance & Cycle Progress**:\n` +

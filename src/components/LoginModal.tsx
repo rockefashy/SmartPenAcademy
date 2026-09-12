@@ -81,7 +81,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [passwordScope, setPasswordScope] = useState<'all' | 'single'>('all');
   const [targetStudentId, setTargetStudentId] = useState<string>('');
-  const [familyStudents, setFamilyStudents] = useState<Array<{ id: string; studentId: string; displayName: string; age?: number }>>([]);
+  const [familyStudents, setFamilyStudents] = useState<Array<{ id: string; studentId: string; firstName: string; lastName?: string; age?: number }>>([]);
   const [isCheckingFamily, setIsCheckingFamily] = useState(false);
 
   const checkFamilyMembers = async (emailToCheck: string) => {
@@ -558,7 +558,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                           </div>
                           <div>
                             <div className="text-sm font-bold text-slate-900">
-                              {std.displayName}
+                              {std.firstName}
                             </div>
                             <div className="text-xs text-slate-500">
                               {std.age ? `Age: ${std.age} yrs • ` : ''}{formatGradeClass(std.gradeClass) || 'Student'}{std.schoolName ? ` • ${std.schoolName}` : ''}
@@ -895,7 +895,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                                 >
                                   {familyStudents.map((s) => (
                                     <option key={s.id} value={s.id}>
-                                      {s.displayName} {s.age ? `(Age ${s.age})` : ''}
+                                      {s.firstName} {s.age ? `(Age ${s.age})` : ''}
                                     </option>
                                   ))}
                                 </Select>

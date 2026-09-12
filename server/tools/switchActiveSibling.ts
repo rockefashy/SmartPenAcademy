@@ -68,7 +68,7 @@ export const switchActiveSiblingTool: AgentTool = {
     if (!isFamilyMember && targetStudent.id !== user.studentId) {
       return {
         result: null,
-        summary: `Security Policy: "${targetStudent.displayName}" does not belong to your linked family account.`,
+        summary: `Security Policy: "${targetStudent.firstName}" does not belong to your linked family account.`,
         success: false
       };
     }
@@ -76,10 +76,10 @@ export const switchActiveSiblingTool: AgentTool = {
     return {
       result: {
         switchedToStudentId: targetStudent.id,
-        displayName: targetStudent.displayName,
+        firstName: targetStudent.firstName,
         gradeClass: targetStudent.gradeClass
       },
-      summary: `✓ Switched active student context to **${targetStudent.displayName}** (${targetStudent.gradeClass}). You can now view their attendance, fee status, and progress reports!`,
+      summary: `✓ Switched active student context to **${targetStudent.firstName}** (${targetStudent.gradeClass}). You can now view their attendance, fee status, and progress reports!`,
       success: true
     };
   }

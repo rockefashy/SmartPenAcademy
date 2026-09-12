@@ -1,16 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '../types';
+import { User, SessionUser } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { supabaseAuthService } from '../services/supabaseAuthService';
 import { api } from '../services/api';
 
 interface AuthContextType {
-  user: User | null;
+  user: SessionUser | null;
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   sessionExpired: boolean;
-  login: (token: string, user: User) => void;
+  login: (token: string, user: SessionUser) => void;
   logout: () => Promise<void>;
   switchStudent: (studentId: string) => Promise<void>;
   isLoginModalOpen: boolean;
@@ -21,7 +21,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<SessionUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -72,7 +72,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               body: JSON.stringify({
                 supabaseToken: session.access_token,
                 email: supabaseUser.email,
-                displayName: supabaseUser.displayName,
+                firstName: supabaseUser.firstName,
+                lastName: supabaseUser.lastName,
                 role: supabaseUser.role,
                 studentId: supabaseUser.studentId,
                 id: supabaseUser.id,
@@ -108,7 +109,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   body: JSON.stringify({
                     supabaseToken: session.access_token,
                     email: current.email,
-                    displayName: current.displayName,
+                    firstName: current.firstName,
+                    lastName: current.lastName,
                     role: current.role,
                     studentId: current.studentId,
                     id: current.id,
@@ -160,7 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = (newToken: string, newUser: User) => {
+  const login = (newToken: string, newUser: SessionUser) => {
     setToken(newToken);
     setUser(newUser);
     setSessionExpired(false);

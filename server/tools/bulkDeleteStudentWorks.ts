@@ -94,7 +94,7 @@ export const bulkDeleteStudentWorksTool: AgentTool = {
     const affectedStudents: string[] = [];
     for (const sId of studentIds) {
       const s = await db.getStudentById(sId);
-      if (s?.displayName) affectedStudents.push(s.displayName);
+      if (s?.firstName) affectedStudents.push(s.firstName);
     }
     const studentNamesStr = affectedStudents.length > 0 ? affectedStudents.join(', ') : `${studentIds.size} student(s)`;
 

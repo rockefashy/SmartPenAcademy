@@ -135,7 +135,7 @@ export const getAttendanceRiskStudentsTool: AgentTool = {
         const riskLevel = (consecutiveAbsences >= 2 || attendanceRate < 50) ? 'High' : 'Medium';
         atRiskList.push({
           studentId: student.id,
-          studentName: student.displayName,
+          studentName: student.firstName,
           grade: student.gradeClass || 'N/A',
           parentPhone: student.whatsappMobile || 'N/A',
           totalSessionsInWindow: windowRecords.length,

@@ -34,7 +34,7 @@ export const AIAgentChatWidget: React.FC<AIAgentChatWidgetProps> = ({
   const isWidgetOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
   const toggleOpen = onToggleOpen || (() => setInternalIsOpen(!internalIsOpen));
 
-  const displayName = currentStudent?.name || currentUser?.displayName || currentUser?.name || 'Khwaish Sharma';
+  const displayName = currentStudent?.name || currentUser?.firstName || currentUser?.name || 'Khwaish Sharma';
 
   return (
     <>

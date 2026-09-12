@@ -44,7 +44,7 @@ export const updateAttendanceTool: AgentTool = {
     const rawList = Array.isArray(args?.studentNames) ? args.studentNames : [args?.studentNames || 'all'];
     const targetDate = args?.date === 'today' || !args?.date ? today : args.date;
     const status = args?.status === 'Absent' ? 'Absent' : 'Present';
-    const notes = args?.notes || (user?.role === 'coach' ? `Marked by Coach ${user.displayName}` : 'Marked via SmartPen AI Assistant');
+    const notes = args?.notes || (user?.role === 'coach' ? `Marked by Coach ${user.firstName}` : 'Marked via SmartPen AI Assistant');
 
     const updatedStudents: { id: string; name: string }[] = [];
     const recordsToSave: any[] = [];
@@ -65,14 +65,14 @@ export const updateAttendanceTool: AgentTool = {
           status,
           notes
         });
-        updatedStudents.push({ id: st.id, name: st.displayName });
+        updatedStudents.push({ id: st.id, name: st.firstName });
       });
     } else {
       for (const item of rawList) {
         const student = await findStudent(String(item));
         if (student) {
           if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
-            unauthorized.push(student.displayName);
+            unauthorized.push(student.firstName);
             continue;
           }
           recordsToSave.push({
@@ -82,7 +82,7 @@ export const updateAttendanceTool: AgentTool = {
             status,
             notes
           });
-          updatedStudents.push({ id: student.id, name: student.displayName });
+          updatedStudents.push({ id: student.id, name: student.firstName });
         } else {
           notFound.push(String(item));
         }

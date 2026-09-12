@@ -106,11 +106,10 @@ export const enrollStudentTool: AgentTool = {
       };
     }
 
-    // Derive first, last, and display names
+    // Derive first and last names
     const parts = data.studentName.trim().split(/\s+/);
     const firstName = parts[0] || 'Student';
     const lastName = parts.slice(1).join(' ') || '';
-    const displayName = `${firstName} ${lastName}`.trim();
 
     const cleanEmail = data.parentEmail.toLowerCase().trim();
     const isSibling = Boolean(data.isSibling);
@@ -145,7 +144,6 @@ export const enrollStudentTool: AgentTool = {
     const isDuplicate = await db.checkStudentDuplicate({
       firstName,
       lastName,
-      displayName,
       phoneNumber: digitsOnly,
       email: cleanEmail,
       age: data.age
@@ -167,7 +165,6 @@ export const enrollStudentTool: AgentTool = {
       id: newId,
       firstName,
       lastName,
-      displayName,
       parentName: data.parentName.trim(),
       email: cleanEmail,
       whatsappMobile: digitsOnly,
@@ -190,7 +187,7 @@ export const enrollStudentTool: AgentTool = {
 
       // Dispatch enrollment notification email asynchronously (includes password for new families)
       sendEnrollmentEmails({
-        displayName: created.displayName,
+        firstName: created.firstName,
         age: created.age,
         gradeClass: created.gradeClass,
         schoolName: created.schoolName,
@@ -207,7 +204,7 @@ export const enrollStudentTool: AgentTool = {
         ? 'enrolled successfully under the existing family account.'
         : 'enrolled successfully. A temporary password has been emailed to the family.';
 
-      const summary = `✓ Student "${created.displayName}" ${passwordNotice}\n\nWould you like to assign ${created.displayName} to a coach now? If yes, tell me the coach's name or ID.`;
+      const summary = `✓ Student "${created.firstName}" ${passwordNotice}\n\nWould you like to assign ${created.firstName} to a coach now? If yes, tell me the coach's name or ID.`;
 
       return {
         result: {

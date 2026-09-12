@@ -151,9 +151,21 @@ export function canCoachAccessStudent(userContext: User | null, student: Student
 export async function findStudent(query?: string): Promise<StudentProfile | undefined> {
   if (!query || typeof query !== 'string') return undefined;
 
-  const students = await db.getAllStudents();
   const cleanQ = query.toLowerCase().trim().replace(/^(student|std|the student)\s+/i, '');
   if (!cleanQ) return undefined;
+
+  // Match by student 1, student 2 (1-based index)
+  const indexMatch = query.match(/student\s*(\d+)/i);
+  if (indexMatch) {
+    const idx = parseInt(indexMatch[1], 10) - 1;
+    const students = await db.getAllStudents({ limit: Math.max(idx + 1, 10) });
+    if (idx >= 0 && idx < students.length) {
+      return students[idx];
+    }
+  }
+
+  // Parameterized search using unified search function (retrieves max 10 matched candidates)
+  const students = await db.getAllStudents({ searchQuery: cleanQ, limit: 10 });
 
   // Exact ID
   let match = students.find(s => s.id.toLowerCase() === cleanQ);
@@ -161,6 +173,10 @@ export async function findStudent(query?: string): Promise<StudentProfile | unde
 
   // Exact Name
   match = students.find(s => s.firstName.toLowerCase() === cleanQ);
+  if (match) return match;
+
+  // Exact Display Name
+  match = students.find(s => (s.displayName || '').toLowerCase() === cleanQ);
   if (match) return match;
 
   // Partial Name Match
@@ -174,14 +190,9 @@ export async function findStudent(query?: string): Promise<StudentProfile | unde
   });
   if (match) return match;
 
-  // Match by student 1, student 2 (1-based index)
-  const indexMatch = query.match(/student\s*(\d+)/i);
-  if (indexMatch) {
-    const idx = parseInt(indexMatch[1], 10) - 1;
-    if (idx >= 0 && idx < students.length) {
-      return students[idx];
-    }
-  }
+  // Parent name match
+  match = students.find(s => s.parentName.toLowerCase().includes(cleanQ) || cleanQ.includes(s.parentName.toLowerCase()));
+  if (match) return match;
 
   return undefined;
 }

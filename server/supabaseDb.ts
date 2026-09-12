@@ -117,7 +117,7 @@ function mapCoachRow(row: any, studentCount = 0, userRow?: any): CoachProfile {
 }
 
 function mapStudentRow(row: any, userRow?: any, resolvedCoachName?: string | null): StudentProfile {
-  const firstName = userRow?.first_name || row.first_name || 'Student';
+  const firstName = userRow?.first_name || row.first_name || '';
   const lastName = userRow?.last_name || row.last_name || '';
   const displayName = `${firstName} ${lastName}`.trim() || firstName;
 
@@ -959,14 +959,33 @@ export class SupabaseDatabase {
   }
 
   // ================= STUDENTS =================
-  async getAllStudents(options?: PaginationParams): Promise<StudentProfile[]> {
+  async getAllStudents(options?: PaginationParams & { searchQuery?: string }): Promise<StudentProfile[]> {
     const supabase = getSupabase();
+    const limit = options?.limit ?? 1000;
+    const offset = options?.page && options?.limit ? (options.page - 1) * options.limit : 0;
+    const cleanQuery = (options?.searchQuery || '').trim();
+
+    try {
+      const { data, error } = await (supabase as any).rpc('get_all_students_search', {
+        p_query: cleanQuery || null,
+        p_limit: limit,
+        p_offset: offset
+      });
+
+      if (!error && Array.isArray(data)) {
+        return data.map((row: any) => mapStudentRow(row, row, row.coach_name));
+      }
+      if (error) {
+        console.warn(`[SupabaseDatabase.getAllStudents] get_all_students_search RPC error, falling back:`, error.message);
+      }
+    } catch (err: any) {
+      console.warn(`[SupabaseDatabase.getAllStudents] RPC execution failed, falling back:`, err?.message);
+    }
+
+    // Defensive legacy fallback (e.g. before migration 011 is executed in Supabase)
     let query = supabase.from('students').select('*');
-
     query = applyQueryPagination(query, options);
-
     const { data: students, error } = await query;
-
     if (error) {
       throw new Error(`Failed to fetch students from database: ${error.message}`);
     }
@@ -974,17 +993,14 @@ export class SupabaseDatabase {
     const { data: users } = await applyRowCeiling(
       supabase.from('users').select('*')
     );
-
     const userMap = new Map();
     (users || []).forEach((u: any) => {
       if (u.id) userMap.set(u.id, u);
     });
 
-    // Build coach map to dynamically pick coach name from coach/user table
     const { data: coaches } = await applyRowCeiling(
       supabase.from('coaches').select('id, user_id')
     );
-
     const coachMap = new Map<string, string>();
     (coaches || []).forEach((c: any) => {
       const u = c.user_id ? userMap.get(c.user_id) : null;
@@ -992,11 +1008,24 @@ export class SupabaseDatabase {
       if (name) coachMap.set(c.id, name);
     });
 
-    return (students || []).map((s: any) => {
+    let mapped = (students || []).map((s: any) => {
       const user = (s.user_id && userMap.get(s.user_id)) || userMap.get(s.id);
       const coachName = s.coach_id ? (coachMap.get(s.coach_id) || null) : null;
       return mapStudentRow(s, user, coachName);
     });
+
+    if (cleanQuery) {
+      const q = cleanQuery.toLowerCase();
+      mapped = mapped.filter((s: StudentProfile) =>
+        s.id.toLowerCase().includes(q) ||
+        s.firstName.toLowerCase().includes(q) ||
+        s.lastName.toLowerCase().includes(q) ||
+        s.parentName.toLowerCase().includes(q) ||
+        (s.coachName && s.coachName.toLowerCase().includes(q))
+      );
+    }
+
+    return mapped;
   }
 
   async getStudentsCount(): Promise<number> {

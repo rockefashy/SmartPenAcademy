@@ -217,7 +217,7 @@ export async function runLocalAgent(
     });
 
     const result = await executeTool('recordFeePayment', {
-      studentNameOrId: studentQuery || 'Aarav Mehta',
+      studentNameOrId: studentQuery || '',
       amount: 1600,
       confirmed: true
     }, userContext, 'local_agent');
@@ -413,7 +413,7 @@ export async function runLocalAgent(
           studentQuery = st.firstName;
         }
       });
-      const result = await executeTool('sendFeeReminder', { studentNameOrId: studentQuery || 'Khwaish Sharma' }, userContext, 'local_agent');
+      const result = await executeTool('sendFeeReminder', { studentNameOrId: studentQuery || '' }, userContext, 'local_agent');
       toolResults.push(result);
       return { reply: result.summary, toolResults };
     }
@@ -475,7 +475,7 @@ export async function runLocalAgent(
   // Default greetings & help
   if (userContext?.role === 'admin') {
     return {
-      reply: `Hello **${userContext.firstName || 'Admin'}**! I am your **SmartPen AI Assistant**. I can perform real-time actions across the academy:\n\n• **Mark attendance**: *"Update attendance for Student 1, 2, 3 for today"* or *"Mark Aryan and Ananya as Present"*\n• **Check Fee Dues & Alerts**: *"Check fee alerts"* or *"Send fee reminder to Khwaish"*\n• **Lookup Profiles**: *"Show student profile for Aarav"*\n• **Generate Progress Reports**: *"Generate progress report for Siddharth"*\n\nHow can I help you today?`,
+      reply: `Hello **${userContext.firstName || 'Admin'}**! I am your **SmartPen AI Assistant**. I can perform real-time actions across the academy:\n\n• **Mark attendance**: *"Update attendance for Student 1, 2, 3 for today"* or *"Mark Aryan and Ananya as Present"*\n• **Check Fee Dues & Alerts**: *"Check fee alerts"* or *"Send fee reminder to [Student Name]"*\n• **Lookup Profiles**: *"Show student profile for Aarav"*\n• **Generate Progress Reports**: *"Generate progress report for Siddharth"*\n\nHow can I help you today?`,
       toolResults: []
     };
   } else if (userContext?.role === 'coach') {

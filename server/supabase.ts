@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from './database.types.ts';
 
-const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
+const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
 const supabaseServiceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
 // Server-side Supabase client MUST use the service-role key.

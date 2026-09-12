@@ -13,7 +13,7 @@ export const updateAttendanceDeclaration: FunctionDeclaration = {
       studentNames: {
         type: Type.ARRAY,
         items: { type: Type.STRING },
-        description: 'Names or IDs of students to update attendance for (e.g. ["Khwaish", "Aarav", "Ananya"]).'
+        description: 'Names or IDs of students to update attendance for (e.g. ["Student Name", "Student ID"]).'
       },
       status: {
         type: Type.STRING,

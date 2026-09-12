@@ -13,10 +13,7 @@ import {
   Users,
   Calendar,
   CreditCard,
-  BookOpen,
-  Phone,
-  ChevronLeft,
-  ChevronRight
+  BookOpen
 } from 'lucide-react';
 import { User, StudentProfile } from '../types';
 
@@ -57,7 +54,6 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
   const [isTyping, setIsTyping] = useState(false);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const quickActionsRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Auto-scroll ONLY internal chat box container without scrolling the main window/page
@@ -67,23 +63,21 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
     }
   }, [messages, isTyping]);
 
-  // Scroll quick actions
-  const scrollQuickActions = (direction: 'left' | 'right') => {
-    if (quickActionsRef.current) {
-      const scrollAmount = direction === 'left' ? -180 : 180;
-      quickActionsRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    }
-  };
 
-  const displayName = currentStudent?.name || currentUser?.firstName || currentUser?.name || 'Khwaish Sharma';
+
+  const displayName = currentStudent?.displayName || currentStudent?.firstName || currentUser?.firstName || currentUser?.name || '';
 
   const handleResetChat = () => {
+    const greeting = displayName
+      ? `👋 Hello **${displayName}**! I am your SmartPen Assistant.`
+      : `👋 Hello & welcome to SmartPen Academy! I am your SmartPen Assistant.`;
+
     setMessages([
       {
         id: `welcome-${Date.now()}`,
         sender: 'bot',
-        text: `👋 Hello **${displayName}**! I am your SmartPen Assistant.\n\nYou can ask me:\n\n• *"I want to enroll / register my child"*\n• *"Book a free demo class"*\n• *"How to GPAY coaching fee to coach?"*\n• *"What is my attendance summary and fee status?"*`,
-        timestamp: '01:45 PM',
+        text: `${greeting}\n\nYou can ask me:\n\n• *"I want to enroll / register my child"*\n• *"Book a free demo class"*\n• *"How to GPAY coaching fee to coach?"*\n• *"What is my attendance summary and fee status?"*`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       }
     ]);
   };
@@ -151,44 +145,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
     }
   };
 
-  const quickActions = [
-    {
-      label: 'Enroll Student',
-      icon: Users,
-      color: 'text-amber-700 bg-amber-50/90 border-amber-200 hover:bg-amber-100',
-      action: () => handleSend("I want to enroll / register my child")
-    },
-    {
-      label: 'Book Free Demo',
-      icon: Sparkles,
-      color: 'text-blue-700 bg-blue-50/90 border-blue-200 hover:bg-blue-100',
-      action: () => handleSend("Book a free demo class")
-    },
-    {
-      label: 'GPAY to Coach',
-      icon: CreditCard,
-      color: 'text-emerald-700 bg-emerald-50/90 border-emerald-200 hover:bg-emerald-100',
-      action: () => handleSend("How to GPAY coaching fee to coach?")
-    },
-    {
-      label: 'My Attendance',
-      icon: Calendar,
-      color: 'text-slate-700 bg-slate-100/90 border-slate-300 hover:bg-slate-200',
-      action: () => handleSend("What is my attendance summary and fee status?")
-    },
-    {
-      label: 'Course Syllabus',
-      icon: BookOpen,
-      color: 'text-purple-700 bg-purple-50/90 border-purple-200 hover:bg-purple-100',
-      action: () => handleSend("Show 8-class handwriting curriculum")
-    },
-    {
-      label: 'Contact Coach',
-      icon: Phone,
-      color: 'text-teal-700 bg-teal-50/90 border-teal-200 hover:bg-teal-100',
-      action: () => handleSend("How to contact Mrs. Deepthy Rock?")
-    },
-  ];
+
 
   const roleLabel = currentUser?.role === 'admin' ? 'Admin' : 'Student';
 
@@ -421,61 +378,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
         )}
       </div>
 
-      {/* 3. QUICK ACTIONS Section */}
-      <div className="bg-white border-t border-slate-100 px-3 py-1.5 shrink-0">
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-1 text-[10px] font-extrabold text-[#F95F1E] uppercase tracking-wider">
-            <Sparkles className="w-3 h-3 text-[#F95F1E]" />
-            <span>QUICK ACTIONS</span>
-          </div>
 
-          <div className="flex items-center gap-0.5">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => scrollQuickActions('left')}
-              className="p-0.5 text-slate-400 hover:text-slate-700 min-h-[30px] min-w-[30px]"
-              title="Scroll Left"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => scrollQuickActions('right')}
-              className="p-0.5 text-slate-400 hover:text-slate-700 min-h-[30px] min-w-[30px]"
-              title="Scroll Right"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Scrollable Quick Action Chips */}
-        <div
-          ref={quickActionsRef}
-          className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar scroll-smooth"
-        >
-          {quickActions.map((qa, idx) => {
-            const Icon = qa.icon;
-            return (
-              <Button
-                key={idx}
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={qa.action}
-                leftIcon={<Icon className="w-3 h-3 shrink-0" />}
-                className={`text-[11px] py-1 px-2.5 ${qa.color}`}
-              >
-                {qa.label}
-              </Button>
-            );
-          })}
-        </div>
-      </div>
 
       {/* 4. Input Form with Blue Send Button */}
       <form
@@ -491,7 +394,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="e.g. Enroll student, book demo, or GPAY to coach..."
+            placeholder="Ask SmartPen AI assistant..."
             disabled={isTyping}
             id="input-smartpen-ai-message"
           />

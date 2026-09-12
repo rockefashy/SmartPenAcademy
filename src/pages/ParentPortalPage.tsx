@@ -987,7 +987,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                     )}
 
                     <p className="text-xs text-slate-700 leading-relaxed italic font-sans font-medium">
-                      "{testimonyReview || 'Khwaish\'s handwriting improved miraculously in just 10 classes! Earlier, teachers struggled to read her exam answers. Now her notebook is showcased as an example in class.'}"
+                      "{testimonyReview || 'Your handwriting transformation review will appear here as you type...'}"
                     </p>
                   </div>
 

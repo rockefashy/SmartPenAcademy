@@ -25,38 +25,9 @@ export const getTestimonialsTool: AgentTool = {
     let testimonials = await db.getTestimonials(undefined, 'Published');
 
     if (testimonials.length === 0) {
-      const featured = [
-        {
-          parentName: 'Mrs. Sangeetha Sharma',
-          studentName: 'Ananya Sharma',
-          grade: 'Grade 4',
-          rating: 5,
-          review: 'Visible improvement in just 10 classes! The finger grip correction stopped hand cramps completely. Her school teacher specifically wrote a note praising her improved notebook presentation.'
-        },
-        {
-          parentName: 'Mr. Rajesh Kumar',
-          studentName: 'Siddharth Kumar',
-          grade: 'Grade 9',
-          rating: 5,
-          review: 'His exam writing speed jumped from 14 to 26 WPM without losing neatness. The exam margin formatting and formula structure taught by Mrs. Deepthy Rock helped him score 94% in his term finals.'
-        },
-        {
-          parentName: 'Dr. Priya Mehta',
-          studentName: 'Aarav Mehta',
-          grade: 'Grade 2',
-          rating: 5,
-          review: 'Gentle, encouraging approach by Mrs. Deepthy Rock. Aarav used to avoid writing and struggle with pencil pressure. Now he writes neatly and with joy.'
-        }
-      ];
-
-      let summary = `🌟 **Verified Parent Voices & Success Stories**:\n\n`;
-      featured.forEach(f => {
-        summary += `• ⭐⭐⭐⭐⭐ **${f.parentName}** (Parent of ${f.studentName}, ${f.grade}):\n  *"${f.review}"*\n\n`;
-      });
-      summary += `💬 *Join over 15,000 students who transformed their handwriting with SmartPen Academy!*`;
       return {
-        result: { count: featured.length, testimonials: featured },
-        summary,
+        result: { count: 0, testimonials: [] },
+        summary: '🌟 **Verified Parent Voices & Success Stories**:\n\nNo parent reviews or testimonials have been published yet. Testimonials will appear here once submitted and published.',
         success: true
       };
     }

@@ -113,7 +113,7 @@ export const ProgressReportCard: React.FC<ProgressReportCardProps> = ({
                 Student Name
               </p>
               <p className="text-base font-extrabold text-[#0E3589] truncate">
-                {student?.firstName || "Khwaish"}
+                {student?.displayName || (student?.firstName ? `${student.firstName} ${student.lastName || ''}`.trim() : '') || 'Student'}
               </p>
             </div>
           </div>

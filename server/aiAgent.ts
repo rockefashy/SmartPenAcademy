@@ -137,371 +137,14 @@ export async function executeTool(
   }
 }
 
-// Heuristic NLP fallback agent if Gemini is unavailable or key is not configured
-export async function runLocalAgent(
-  prompt: string,
-  userContext: User | null,
-  messages: ChatMessage[] = []
-): Promise<{ reply: string; toolResults: ToolCallResult[] }> {
-  const p = prompt.toLowerCase().trim();
-  const toolResults: ToolCallResult[] = [];
-
-  // Check previous assistant message to see if we are in a pending confirmation state
-  const prevAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant' || m.role === 'model');
-  const prevContent = (prevAssistantMessage?.content || '').toLowerCase();
-  const isAwaitingAttendanceConfirm = prevContent.includes('confirmation required before updating attendance') || prevContent.includes('confirm attendance');
-  const isAwaitingFeeConfirm = prevContent.includes('confirmation required before recording payment') || prevContent.includes('confirm payment');
-
-  const isExplicitConfirmationOnly = 
-    p === 'confirm' ||
-    p === 'yes' ||
-    p === 'yes confirm' ||
-    p === 'confirm payment' ||
-    p === 'confirm attendance' ||
-    p === 'yes, record' ||
-    p === 'proceed' ||
-    p === 'yes proceed' ||
-    p.startsWith('yes, record fee') ||
-    p.startsWith('yes, mark');
-
-  // Handle follow-up confirmation for attendance
-  if (isAwaitingAttendanceConfirm && isExplicitConfirmationOnly && (userContext?.role === 'admin' || userContext?.role === 'coach')) {
-    // Parse the students, date, and status from the previous prompt/content
-    const status = prevContent.includes('absent') ? 'Absent' : 'Present';
-    let targetNames: string[] = [];
-
-    const allStudents = await db.getAllStudents();
-    allStudents.forEach(st => {
-      if (prevContent.includes(st.firstName.toLowerCase())) {
-        targetNames.push(st.firstName);
-      }
-    });
-
-    if (prevContent.includes('all active students') || targetNames.length === 0) {
-      targetNames = ['all'];
-    }
-
-    // Extract date from previous message or prompt
-    let followUpDate = 'today';
-    const prevDateMatchIso = (prevContent + ' ' + prompt).match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
-    const prevDateMatchSlash = (prevContent + ' ' + prompt).match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
-    if (prevDateMatchIso) {
-      const [, y, m, d] = prevDateMatchIso;
-      followUpDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-    } else if (prevDateMatchSlash) {
-      const [, m, d, y] = prevDateMatchSlash;
-      followUpDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-    }
-
-    const result = await executeTool('updateAttendance', {
-      studentNames: targetNames,
-      status,
-      date: followUpDate
-    }, userContext, 'local_agent');
-
-    toolResults.push(result);
-    return {
-      reply: `${result.summary}\n\nAttendance has been successfully confirmed and recorded. Is there anything else you would like to manage?`,
-      toolResults
-    };
-  }
-
-  // Handle follow-up confirmation for fee payment
-  if (isAwaitingFeeConfirm && isExplicitConfirmationOnly && (userContext?.role === 'admin' || userContext?.role === 'coach')) {
-    let studentQuery = '';
-    const allStudents = await db.getAllStudents();
-    allStudents.forEach(st => {
-      if (prevContent.includes(st.firstName.toLowerCase())) {
-        studentQuery = st.firstName;
-      }
-    });
-
-    const result = await executeTool('recordFeePayment', {
-      studentNameOrId: studentQuery || '',
-      amount: 1600,
-      confirmed: true
-    }, userContext, 'local_agent');
-
-    toolResults.push(result);
-    return {
-      reply: `${result.summary}\n\nPayment has been officially confirmed and the receipt is saved in the ledger.`,
-      toolResults
-    };
-  }
-
-  // Public Web Portal Knowledge Intents: Curriculum, About Us, Testimonials, Demo Booking
-  if (p.includes('curriculum') || p.includes('syllabus') || p.includes('module') || p.includes('what do you teach') || p.includes('course') || p.includes('workshop') || p.includes('bootcamp')) {
-    const result = await executeTool('getCurriculum', { topic: 'all' }, userContext, 'local_agent');
-    toolResults.push(result);
-    return { reply: result.summary, toolResults };
-  }
-
-  if (p.includes('about') || p.includes('who is') || p.includes('deepthy') || p.includes('founder') || p.includes('philosophy') || p.includes('academy info')) {
-    const result = await executeTool('getAboutUs', {}, userContext, 'local_agent');
-    toolResults.push(result);
-    return { reply: result.summary, toolResults };
-  }
-
-  if (p.includes('testimonial') || p.includes('review') || p.includes('feedback') || p.includes('parent voice') || p.includes('rating') || p.includes('what parents say') || p.includes('experience')) {
-    const result = await executeTool('getTestimonials', { limit: 5 }, userContext, 'local_agent');
-    toolResults.push(result);
-    return { reply: result.summary, toolResults };
-  }
-
-  // 1. Navigation intents: Enroll, Book a demo, GPAY payment, syllabus, about
-  if ((userContext?.role !== 'admin' || p.includes('open enroll') || p.includes('go to enroll') || p.includes('navigate to enroll')) && (p.includes('enroll') || p.includes('register') || p.includes('join') || p.includes('admission') || p.includes('sign up'))) {
-    const result = await executeTool('navigateToPage', { target: 'enroll', reason: 'Student Registration / Enrollment' }, userContext, 'local_agent');
-    toolResults.push(result);
-    return {
-      reply: `I have opened the **Student Enrollment & Registration** page for you! You can fill in the student details, select script preferences (Print / Cursive), and secure your coaching batch.`,
-      toolResults
-    };
-  }
-
-  if (p.includes('book demo') || p.includes('free demo') || p.includes('book a demo') || p.includes('trial class') || (p.includes('demo') && (p.includes('book') || p.includes('schedule') || p.includes('slot')))) {
-    const result = await executeTool('bookDemoClass', {}, userContext, 'local_agent');
-    const navResult = await executeTool('navigateToPage', { target: 'demo', reason: 'Book Free Demo Class' }, userContext, 'local_agent');
-    toolResults.push(result);
-    toolResults.push(navResult);
-    return {
-      reply: `${result.summary}\n\nI have also opened the **Free Demo Class Booking** window for you!`,
-      toolResults
-    };
-  }
-
-  if (p.includes('gpay') || p.includes('google pay') || p.includes('pay fee') || p.includes('pay money') || p.includes('payment to coach') || p.includes('pay coach') || p.includes('upi')) {
-    const result = await executeTool('navigateToPage', { target: 'gpay', reason: 'Google Pay Coaching Fee Payment' }, userContext, 'local_agent');
-    toolResults.push(result);
-    return {
-      reply: `You can send the coaching fee directly via **Google Pay (GPAY)** to Head Coach Mrs. Deepthy Rock at **8861751000** (₹1,600 for 8 classes). I've generated the direct payment button below for you!`,
-      toolResults
-    };
-  }
-
-  // Attendance update pattern: e.g. "update attendance for student 1, 2, 3 for today" or "mark attendance for aryan as present"
-  if (p.includes('attendance') && (p.includes('update') || p.includes('mark') || p.includes('present') || p.includes('absent') || p.includes('save') || p.includes('record') || p.includes('set'))) {
-    if (userContext?.role !== 'admin' && userContext?.role !== 'coach') {
-      return {
-        reply: `⚠️ **Permission Denied**: Student and parent accounts cannot record or update attendance records. Only Head Coach / Administrator **Mrs. Deepthy Rock** has permission to officially mark attendance. You can view your current attendance count by asking *"What is my attendance?"*.`,
-        toolResults: []
-      };
-    }
-
-    // Extract names
-    const status = p.includes('absent') ? 'Absent' : 'Present';
-    let targetNames: string[] = [];
-    let isAmbiguous = false;
-
-    if (p.includes('all') || p.includes('everyone')) {
-      targetNames = ['all'];
-    } else {
-      // Find students from database mentioned in prompt
-      const allStudents = await db.getAllStudents();
-      allStudents.forEach(st => {
-        const firstName = st.firstName.toLowerCase().split(' ')[0];
-        if (p.includes(firstName) || p.includes(st.firstName.toLowerCase()) || p.includes(st.id.toLowerCase())) {
-          targetNames.push(st.firstName);
-        }
-      });
-
-      // Match "student 1, 2, 3" or "student1,2,3"
-      const numberMatches = p.match(/student\s*(\d+)/gi);
-      if (numberMatches) {
-        numberMatches.forEach(m => {
-          const num = parseInt(m.replace(/\D/g, ''), 10) - 1;
-          if (num >= 0 && num < allStudents.length) {
-            targetNames.push(allStudents[num].firstName);
-          }
-        });
-      }
-
-      // If still empty but text has comma separated list
-      if (targetNames.length === 0) {
-        const afterFor = prompt.split(/for|to|students?/i)[1];
-        if (afterFor) {
-          const candidates = afterFor.split(/,|and|\bfor\b|\btoday\b/i).map(s => s.trim()).filter(Boolean);
-          for (const c of candidates) {
-            const found = await findStudent(c);
-            if (found) targetNames.push(found.firstName);
-          }
-        }
-      }
-    }
-
-    if (targetNames.length === 0) {
-      isAmbiguous = true;
-      targetNames = ['all']; // default if no specific name provided
-    }
-
-    // Confirmation Step: If targeting more than one student or if the match was ambiguous/broad, ask for confirmation first
-    const isMultiOrAmbiguous = targetNames.length > 1 || targetNames.includes('all') || isAmbiguous;
-    if (isMultiOrAmbiguous) {
-      const studentListDisplay = targetNames.includes('all') ? 'All Active Students' : targetNames.join(', ');
-      const todayStr = new Date().toISOString().split('T')[0];
-      const activeCount = (await db.getAllStudents()).filter(s => s.status === 'Active').length;
-      return {
-        reply: `⚠️ **Confirmation Required Before Updating Attendance**\n\n• **Students**: ${studentListDisplay} (${targetNames.includes('all') ? activeCount : targetNames.length} students)\n• **Status**: **${status}**\n• **Date**: **${todayStr}**\n\nPlease reply **"Confirm attendance"** or **"Yes, proceed"** to officially mark and record these attendance records.`,
-        toolResults: []
-      };
-    }
-
-    // Extract date if specified in prompt, e.g. "on 9/9/2026", "9/9/2026", "2026-09-09"
-    let targetDate = 'today';
-    const dateMatchIso = prompt.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
-    const dateMatchSlash = prompt.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
-    if (dateMatchIso) {
-      const [, y, m, d] = dateMatchIso;
-      targetDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-    } else if (dateMatchSlash) {
-      const [, m, d, y] = dateMatchSlash;
-      targetDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-    }
-
-    const result = await executeTool('updateAttendance', {
-      studentNames: targetNames,
-      status,
-      date: targetDate
-    }, userContext, 'local_agent');
-
-    toolResults.push(result);
-    return {
-      reply: `${result.summary}\n\nIs there anything else you would like me to assist you with (e.g. fee receipt, progress reports, or student profiles)?`,
-      toolResults
-    };
-  }
-
-  // Attendance check
-  if (p.includes('attendance') || p.includes('classes attended') || p.includes('class count')) {
-    let studentQuery = '';
-    const allStudents = await db.getAllStudents();
-    allStudents.forEach(st => {
-      if (p.includes(st.firstName.toLowerCase()) || p.includes(st.firstName.toLowerCase().split(' ')[0])) {
-        studentQuery = st.firstName;
-      }
-    });
-    const result = await executeTool('getAttendance', { studentNameOrId: studentQuery }, userContext, 'local_agent');
-    toolResults.push(result);
-    return { reply: result.summary, toolResults };
-  }
-
-  // Fee dues / fee alerts / fee status
-  if (p.includes('fee') || p.includes('payment') || p.includes('gpay') || p.includes('dues') || p.includes('receipt')) {
-    if (p.includes('pay') && p.includes('record')) {
-      let studentQuery = '';
-      const allStudents = await db.getAllStudents();
-      allStudents.forEach(st => {
-        if (p.includes(st.firstName.toLowerCase()) || p.includes(st.firstName.toLowerCase().split(' ')[0])) {
-          studentQuery = st.firstName;
-        }
-      });
-
-      // Local agent requires a separate follow-up message for confirmation (confirmed: false on initial request)
-      const result = await executeTool('recordFeePayment', { 
-        studentNameOrId: studentQuery || 'Aarav Mehta', 
-        amount: 1600,
-        confirmed: false
-      }, userContext, 'local_agent');
-      toolResults.push(result);
-      return { reply: result.summary, toolResults };
-    }
-
-    if (p.includes('remind') || p.includes('send reminder')) {
-      let studentQuery = '';
-      const allStudents = await db.getAllStudents();
-      allStudents.forEach(st => {
-        if (p.includes(st.firstName.toLowerCase()) || p.includes(st.firstName.toLowerCase().split(' ')[0])) {
-          studentQuery = st.firstName;
-        }
-      });
-      const result = await executeTool('sendFeeReminder', { studentNameOrId: studentQuery || '' }, userContext, 'local_agent');
-      toolResults.push(result);
-      return { reply: result.summary, toolResults };
-    }
-
-    let studentQuery = '';
-    const allStudents = await db.getAllStudents();
-    allStudents.forEach(st => {
-      if (p.includes(st.firstName.toLowerCase()) || p.includes(st.firstName.toLowerCase().split(' ')[0])) {
-        studentQuery = st.firstName;
-      }
-    });
-    const result = await executeTool('getFeeStatus', { studentNameOrId: studentQuery }, userContext, 'local_agent');
-    toolResults.push(result);
-    return { reply: result.summary, toolResults };
-  }
-
-  // Demo bookings
-  if (p.includes('demo') || p.includes('trial') || p.includes('booking')) {
-    const result = await executeTool('getDemoBookings', {}, userContext, 'local_agent');
-    toolResults.push(result);
-    return { reply: result.summary, toolResults };
-  }
-
-  // Alerts
-  if (p.includes('alert') || p.includes('notification')) {
-    const result = await executeTool('getAdminAlerts', {}, userContext, 'local_agent');
-    toolResults.push(result);
-    return { reply: result.summary, toolResults };
-  }
-
-  // Progress report
-  if (p.includes('progress report') || p.includes('report card') || p.includes('evaluation')) {
-    let studentQuery = '';
-    const allStudents = await db.getAllStudents();
-    allStudents.forEach(st => {
-      if (p.includes(st.firstName.toLowerCase()) || p.includes(st.firstName.toLowerCase().split(' ')[0])) {
-        studentQuery = st.firstName;
-      }
-    });
-
-    if (p.includes('generate') || p.includes('create') || p.includes('make')) {
-      const result = await executeTool('generateProgressReport', {
-        studentNameOrId: studentQuery || 'Aarav Mehta',
-        milestoneTitle: 'After 10 Classes',
-        overallStars: 5
-      }, userContext, 'local_agent');
-      toolResults.push(result);
-      return { reply: result.summary, toolResults };
-    }
-  }
-
-  // List students
-  if (p.includes('student') && (p.includes('list') || p.includes('all') || p.includes('show') || p.includes('enrolled'))) {
-    const result = await executeTool('listStudents', {}, userContext, 'local_agent');
-    toolResults.push(result);
-    return { reply: result.summary, toolResults };
-  }
-
-  // Default greetings & help
-  if (userContext?.role === 'admin') {
-    return {
-      reply: `Hello **${userContext.firstName || 'Admin'}**! I am your **SmartPen AI Assistant**. I can perform real-time actions across the academy:\n\n• **Mark attendance**: *"Update attendance for Student 1, 2, 3 for today"* or *"Mark Aryan and Ananya as Present"*\n• **Check Fee Dues & Alerts**: *"Check fee alerts"* or *"Send fee reminder to [Student Name]"*\n• **Lookup Profiles**: *"Show student profile for Aarav"*\n• **Generate Progress Reports**: *"Generate progress report for Siddharth"*\n\nHow can I help you today?`,
-      toolResults: []
-    };
-  } else if (userContext?.role === 'coach') {
-    const designationSuffix = userContext.designation ? ` (${userContext.designation})` : '';
-    return {
-      reply: `Hello Coach **${userContext.firstName || 'Tutor'}**${designationSuffix}! Welcome to your coaching assistant. You have full management over your assigned students:\n\n• **Attendance**: *"Mark Aarav as Present today"* or *"Update attendance for my batch"*\n• **Fee Management**: *"Check fee status for my students"*, *"Send fee reminder to [Student]"*, or *"Record fee payment"*\n• **Progress Reports**: *"Generate progress report for my student"*\n• **Roster & Profiles**: *"Show my assigned students"* or *"Show profile for Ananya"*\n\nWhat would you like to work on?`,
-      toolResults: []
-    };
-  } else if (userContext?.role === 'student') {
-    return {
-      reply: `Hello **${userContext.firstName || 'Student'}**! Welcome to your AI Handwriting Assistant. You can ask me:\n\n• *"What is my attendance record?"*\n• *"Do I have any pending fee?"*\n• *"What is my class schedule and milestone?"*\n• *"Show my skill ratings"*\n\nWhat would you like to review today?`,
-      toolResults: []
-    };
-  } else {
-    return {
-      reply: `Welcome to SmartPen Academy AI! Please **sign in** with your administrator, coach, or student credentials to access real-time attendance management, student tracking, and progress analytics.`,
-      toolResults: []
-    };
-  }
-}
-
 // Build dynamic role-tailored system instructions
 function buildRoleSystemInstruction(userContext: User | null): string {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  const dayOfWeek = now.toLocaleDateString('en-US', { weekday: 'long' });
+
   const baseHeader = `You are SmartPen Academy's intelligent AI Assistant.
-Current Date: ${todayStr}
+Current Date & Day: ${dayOfWeek}, ${todayStr}
 Academy Info: SmartPen Academy, Founder & Principal Coach Mrs. Deepthy Rock. 
 Fee policy: ₹1,600 for every 8 classes. Google Pay payment number: 8861751000 (UPI: 8861751000@okbizaxis).
 Age Groups: 4 to 18 years (Preschool to Grade 12).
@@ -534,9 +177,10 @@ Logged-in User Context (ADMINISTRATOR):
 
 Admin Guidelines:
 1. You have full administrative capabilities. When the admin commands you to update attendance (e.g. 'Update attendance for Student 1, 2, 3 for today' or 'Mark Aryan as present'), you MUST call the updateAttendance tool with the student names, status, and date.
-2. If the admin asks about fee dues, alerts, demo bookings, student profiles, or progress reports, call the corresponding tools.
-3. FINANCIAL CONFIRMATION POLICY: For recordFeePayment, if the admin is requesting to record a payment for the first time without explicit prior confirmation, set confirmed: false to produce a safety draft. If the admin explicitly says "Confirm payment", "Yes, record", or "Proceed", set confirmed: true.
-4. Keep your conversational response warm, clear, professional, and well formatted with markdown bullet points.`;
+2. If the admin asks about fee dues, alerts, demo bookings, student profiles, schedules, or progress reports, call the corresponding tools.
+3. When asked about classes or schedule today, call listStudents to check active students, inspect their batch schedule (preferredDays and preferredSlot) for ${dayOfWeek}, and report the schedule in natural language.
+4. FINANCIAL CONFIRMATION POLICY: For recordFeePayment, if the admin is requesting to record a payment for the first time without explicit prior confirmation, set confirmed: false to produce a safety draft. If the admin explicitly says "Confirm payment", "Yes, record", or "Proceed", set confirmed: true.
+5. Keep your conversational response warm, clear, professional, and well formatted with markdown bullet points.`;
   }
 
   if (userContext?.role === 'coach') {
@@ -548,7 +192,7 @@ Logged-in User Context (COACH / TUTOR):
 • User ID: ${userContext.id}
 
 Coach Guidelines:
-1. PROTECTED ROSTER ACCESS: As a Coach, you have complete functional management over your ASSIGNED STUDENTS (identical to the administrator's powers over students). This includes marking attendance, viewing student profiles, generating milestone progress reports, checking fee status, dispatching fee reminders, and recording fee payments.
+1. PROTECTED ROSTER & DAILY SCHEDULE: As a Coach, you have complete functional management over your ASSIGNED STUDENTS. You have tools including listStudents and getStudentProfile. When asked about today's classes or your coaching schedule (e.g. "Do I have classes today?"), invoke listStudents to retrieve your assigned students, inspect their batch schedule (preferredDays and preferredSlot) against today (${dayOfWeek}), and answer clearly in natural language.
 2. SCOPED ATTENDANCE & PROFILES: You can mark and update attendance and inspect student profiles for students assigned to you. Any attempt to query or update students outside your coaching roster will be prevented by the system.
 3. FEE MANAGEMENT FOR ASSIGNED STUDENTS: You can check fee status, dispatch fee reminder emails with UPI links, and record fee payments for your assigned students.
 4. FINANCIAL CONFIRMATION POLICY: For recordFeePayment, if the coach is requesting to record a payment for the first time without explicit prior confirmation, set confirmed: false to produce a safety draft. If the coach explicitly says "Confirm payment", "Yes, record", or "Proceed", set confirmed: true.
@@ -572,7 +216,7 @@ Student / Parent Guidelines:
    • If the user asks to book a free demo class / trial (e.g., "Book a demo", "Schedule trial class"), you MUST call the \`navigateToPage\` tool with target: "demo".
    • If the user asks to pay fees, GPAY money to the coach, or make a payment (e.g., "How to pay", "GPAY money to coach", "Pay ₹1600 fee"), you MUST call the \`navigateToPage\` tool with target: "gpay" (Google Pay UPI: 8861751000).
    • If the user asks to see their student portal / attendance dashboard, call \`navigateToPage\` with target: "parentPortal".
-4. PERSONAL DATA SCOPE: If the student asks about their attendance history or fee status, you can check their personal attendance and fee cycle status using their student profile.
+4. PERSONAL DATA SCOPE: If the student asks about their attendance history, class schedule, or fee status, you can check their personal attendance and fee cycle status using their student profile.
 5. LEARNING & COACHING: Help them with handwriting tips, posture advice, speed writing techniques, and course information.
 6. Keep your tone encouraging, warm, respectful, and helpful.`;
   }
@@ -590,34 +234,31 @@ Guest Guidelines:
 7. Explain that private student attendance records, fee payment ledgers, and coach rosters require signing in with registered credentials.`;
 }
 
-// Master AI Agent Process Function with Instant Fast-Path and High-Speed Low-Latency Fallbacks
+// Master AI Agent Process Function - Direct LLM Reasoning with Tools and Natural Language Response
 export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ reply: string; toolResults: ToolCallResult[] }> {
   const { messages, userContext, settings } = reqBody;
-  const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
-  const userPrompt = (lastUserMessage?.content || '').trim();
   const apiKey = settings?.apiKey || process.env.GEMINI_API_KEY;
   const preferredModel = settings?.model || 'gemini-2.5-flash';
 
-  // If no Gemini API key is configured or requested, run our robust high-accuracy local agent engine
   if (!apiKey) {
-    return await runLocalAgent(userPrompt, userContext, messages);
+    return {
+      reply: "⚠️ The AI assistant is currently offline because the Gemini API key is not configured.",
+      toolResults: []
+    };
   }
 
-  // Model fallback chain prioritized by latency and speed
   const candidateModels = [
     preferredModel,
     'gemini-2.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-3.7-flash'
-  ].filter((v, i, a) => a.indexOf(v) === i); // unique
+    'gemini-2.0-flash'
+  ].filter((v, i, a) => a.indexOf(v) === i);
 
   const systemInstruction = buildRoleSystemInstruction(userContext);
   const activeTools = getToolsForRole(userContext?.role);
 
-  // Construct conversation history for Gemini (keep history compact for fast inference)
-  const contents: any[] = messages.slice(-6).map(m => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
+  // Construct conversation history for Gemini
+  const contents: any[] = messages.slice(-10).map(m => ({
+    role: m.role === 'assistant' || m.role === 'model' ? 'model' : 'user',
     parts: [{ text: m.content }]
   }));
 
@@ -630,15 +271,15 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
     }
   });
 
-  // Helper with 4.5-second timeout per model to prevent sluggish response hangs
-  const fetchWithTimeout = async (modelName: string, timeoutMs: number = 4500) => {
+  // Generous timeout (25 seconds) to give the LLM ample thinking time for reasoning and tool execution
+  const fetchWithTimeout = async (modelName: string, callContents: any[], timeoutMs: number = 25000) => {
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error(`Model ${modelName} timed out after ${timeoutMs}ms`)), timeoutMs);
     });
 
     const generatePromise = ai.models.generateContent({
       model: modelName,
-      contents,
+      contents: callContents,
       config: {
         systemInstruction,
         temperature: settings?.temperature ?? 0.7,
@@ -649,20 +290,54 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
     return await Promise.race([generatePromise, timeoutPromise]);
   };
 
+  let lastError: any = null;
+
   for (const modelToTry of candidateModels) {
     try {
-      const response = await fetchWithTimeout(modelToTry, 4500);
+      const response = await fetchWithTimeout(modelToTry, contents, 25000);
 
       const toolResults: ToolCallResult[] = [];
       const functionCalls = response.functionCalls;
 
       if (functionCalls && functionCalls.length > 0) {
+        const functionResponses: any[] = [];
         for (const fc of functionCalls) {
           const toolResult = await executeTool(fc.name, fc.args, userContext, 'remote_gemini');
           toolResults.push(toolResult);
+          functionResponses.push({
+            functionResponse: {
+              name: fc.name,
+              response: { result: toolResult.result || toolResult.summary }
+            }
+          });
         }
 
-        // Generate a conversational response incorporating the tool outputs
+        // Pass tool outputs back to Gemini so it formulates the final natural language answer
+        try {
+          const followUpContents = [
+            ...contents,
+            {
+              role: 'model',
+              parts: functionCalls.map(fc => ({ functionCall: fc }))
+            },
+            {
+              role: 'user',
+              parts: functionResponses
+            }
+          ];
+
+          const followUpResponse = await fetchWithTimeout(modelToTry, followUpContents, 25000);
+          if (followUpResponse.text) {
+            return {
+              reply: followUpResponse.text,
+              toolResults
+            };
+          }
+        } catch (followUpErr: any) {
+          console.warn(`[AI_AGENT] Follow-up response synthesis with ${modelToTry} encountered error:`, followUpErr?.message || followUpErr);
+        }
+
+        // Fallback to formatted tool summaries if second turn fails
         const toolSummaries = toolResults.map(t => t.summary).join('\n\n');
         const finalReply = response.text ? `${response.text}\n\n${toolSummaries}` : toolSummaries;
 
@@ -673,15 +348,19 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
       }
 
       return {
-        reply: response.text || "I've processed your request.",
+        reply: response.text || "I have processed your request.",
         toolResults: []
       };
     } catch (error: any) {
-      // If error or timeout occurs, silently try the next model or proceed to instant local agent
+      lastError = error;
+      console.warn(`[AI_AGENT] Model ${modelToTry} failed:`, error?.message || error);
       continue;
     }
   }
 
-  // If all remote models take too long or are rate-limited, provide immediate high-accuracy local resolution
-  return await runLocalAgent(userPrompt, userContext, messages);
+  // If remote models fail, return a transparent error rather than silent fallback
+  return {
+    reply: `⚠️ I encountered an error communicating with the AI service: ${lastError?.message || 'Unable to connect'}. Please try again shortly.`,
+    toolResults: []
+  };
 }

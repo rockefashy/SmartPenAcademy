@@ -76,7 +76,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
       {
         id: `welcome-${Date.now()}`,
         sender: 'bot',
-        text: `${greeting}\n\nYou can ask me:\n\n• *"I want to enroll / register my child"*\n• *"Book a free demo class"*\n• *"How to GPAY coaching fee to coach?"*\n• *"What is my attendance summary and fee status?"*`,
+        text: `${greeting}\n\nYou can ask me:\n\n• *"Book a free demo class"*\n• *"What is my attendance summary and fee status?"*`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       }
     ]);
@@ -372,7 +372,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
               <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce" />
               <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce [animation-delay:0.2s]" />
               <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-bounce [animation-delay:0.4s]" />
-              <span className="text-[10.5px] text-slate-500 font-medium ml-0.5">typing...</span>
+              <span className="text-[10.5px] text-slate-500 font-medium ml-0.5">Thinking...</span>
             </div>
           </div>
         )}

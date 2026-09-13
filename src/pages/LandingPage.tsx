@@ -503,11 +503,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="mt-8 text-center">
           <Button
             onClick={() => {
-              if (currentUser && currentUser.role === 'student') {
+              if (!currentUser) {
+                onOpenLogin();
+              } else if (currentUser.role === 'admin') {
+                onNavigate('admin', undefined, 'roster' as any);
+              } else if (currentUser.role === 'student') {
                 onNavigate('parentPortal', currentUser.studentId, 'testimony' as any);
               } else {
-                onNavigate('parentPortal', undefined, 'testimony' as any);
-                onOpenLogin();
+                onNavigate('coach', undefined, 'students' as any);
               }
             }}
             variant="outline"

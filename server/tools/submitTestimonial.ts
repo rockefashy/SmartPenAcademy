@@ -41,16 +41,16 @@ export const submitTestimonialDeclaration: FunctionDeclaration = {
 export const submitTestimonialTool: AgentTool = {
   name: 'submitTestimonial',
   declaration: submitTestimonialDeclaration,
-  allowedRoles: ['admin', 'coach', 'student'],
+  allowedRoles: ['admin', 'student'],
   selfServiceOnly: false,
-  accessDeniedMessage: 'Access Denied: Testimonials can only be submitted by admin, coach, parent, or student.',
+  accessDeniedMessage: 'Access Denied: Testimonials can only be submitted by admin, parent, or student.',
   rateLimit: { maxCalls: 5, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
     const { user } = context;
-    if (!user || !['admin', 'coach', 'student'].includes(user.role)) {
+    if (!user || !['admin', 'student'].includes(user.role)) {
       return {
         result: null,
-        summary: 'Access Denied: Testimonials can only be submitted by admin, coach, parent, or student.',
+        summary: 'Access Denied: Testimonials can only be submitted by admin, parent, or student.',
         success: false
       };
     }

@@ -3101,8 +3101,8 @@ app.get('/api/testimonials/student/:id', asyncHandler(async (req: Request, res: 
 }));
 
 app.post('/api/testimonials', authenticateJwt, asyncHandler(async (req: AuthRequest, res: Response) => {
-  if (!req.user || !['admin', 'coach', 'student'].includes(req.user.role)) {
-    throw new AuthorizationError('Access denied: Testimonials can only be submitted by admin, coach, parent, or student.');
+  if (!req.user || !['admin', 'student'].includes(req.user.role)) {
+    throw new AuthorizationError('Access denied: Testimonials can only be submitted by admin, parent, or student.');
   }
   const parsed = createTestimonialSchema.safeParse(req.body);
   if (!parsed.success) {

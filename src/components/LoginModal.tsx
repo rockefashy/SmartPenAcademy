@@ -35,6 +35,7 @@ interface LoginModalProps {
   onClose: () => void;
   onLoginSuccess?: (user: User) => void;
   initialResetToken?: string;
+  initialResetEmail?: string;
 }
 
 type AuthView = 'login' | 'select-role' | 'select-student' | 'forgot' | 'reset-token' | 'change';
@@ -44,6 +45,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onClose,
   onLoginSuccess,
   initialResetToken,
+  initialResetEmail,
 }) => {
   const { login, logout, user } = useAuth();
   const [currentView, setCurrentView] = useState<AuthView>('login');
@@ -67,6 +69,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   // Token Reset State
   const [resetToken, setResetToken] = useState(initialResetToken || '');
+  const [resetEmail, setResetEmail] = useState(initialResetEmail || '');
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
   const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
@@ -114,12 +117,29 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       }
       if (initialResetToken) {
         setResetToken(initialResetToken);
+        if (initialResetEmail) setResetEmail(initialResetEmail);
         setCurrentView('reset-token');
       } else {
         setCurrentView('login');
       }
     }
-  }, [isOpen, initialResetToken, user]);
+  }, [isOpen, initialResetToken, initialResetEmail, user]);
+
+  // If in reset-token view and resetEmail is empty, verify token with backend to fetch and lock email
+  useEffect(() => {
+    if (isOpen && currentView === 'reset-token') {
+      const activeToken = resetToken || initialResetToken;
+      if (activeToken && !resetEmail) {
+        api.verifyResetToken(activeToken)
+          .then((res) => {
+            if (res.email) setResetEmail(res.email);
+          })
+          .catch((err) => {
+            setErrorMessage(err.message || 'Invalid or expired password reset link.');
+          });
+      }
+    }
+  }, [isOpen, currentView, resetToken, initialResetToken, resetEmail]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -227,7 +247,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotIdentifier.trim()) {
-      setErrorMessage('Please enter your registered email address or phone number.');
+      setErrorMessage('Please enter your registered email address.');
       return;
     }
 
@@ -278,6 +298,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
       setResetSuccessMessage(res.message || 'Password successfully reset! You can now log in.');
       setPassword(resetNewPassword.trim());
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to reset password. The link or token may have expired.');
     } finally {
@@ -595,57 +618,46 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                       <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
                         <CheckCircle className="w-6 h-6" />
                       </div>
-                      <h3 className="text-sm font-bold text-emerald-800">
+                      <h3 className="text-base sm:text-lg font-bold text-emerald-900">
                         Reset Link Dispatched
                       </h3>
-                      <p className="text-xs text-emerald-700 leading-relaxed">
+                      <p className="text-sm sm:text-base font-medium text-emerald-800 leading-relaxed px-2">
                         {forgotSuccessMessage}
                       </p>
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="w-1/2 border-emerald-300 text-emerald-800 hover:bg-emerald-50"
-                          onClick={() => {
-                            setCurrentView('reset-token');
-                            setErrorMessage(null);
-                          }}
-                        >
-                          Have a Token?
-                        </Button>
+                      <div className="pt-2">
                         <Button
                           type="button"
                           variant="success"
-                          size="sm"
-                          className="w-1/2"
+                          size="md"
+                          fullWidth
                           onClick={() => {
+                            setForgotSuccessMessage(null);
                             setCurrentView('login');
-                            setErrorMessage(null);
+                            onClose();
                           }}
-                          id="btn-back-from-forgot-success"
+                          id="btn-close-forgot-success"
                         >
-                          Back to Login
+                          Close
                         </Button>
                       </div>
                     </div>
                   ) : (
                     <form onSubmit={handleForgotPasswordSubmit} className="space-y-4" id="form-forgot-password">
                       <p className="text-xs text-slate-600 leading-relaxed">
-                        Enter your registered email address or phone number. We will dispatch a secure password reset link to your email immediately.
+                        Enter your registered email address. We will send a secure password reset link to your email immediately.
                       </p>
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                          Registered Email or Phone
+                          Registered Email Address
                         </label>
                         <Input
                           id="input-forgot-email"
-                          type="text"
+                          type="email"
                           required
                           value={forgotIdentifier}
                           onChange={(e) => setForgotIdentifier(e.target.value)}
-                          placeholder="e.g. parent@example.com or 9876543210"
+                          placeholder="e.g. name@example.com"
                           leftIcon={<Mail className="w-4 h-4" />}
                         />
                       </div>
@@ -714,24 +726,50 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   ) : (
                     <form onSubmit={handleResetTokenSubmit} className="space-y-3.5" id="form-reset-password">
                       <p className="text-xs text-slate-600 leading-relaxed">
-                        Enter the reset token received in your email and configure your new secure password.
+                        Configure your new secure password for this account.
                       </p>
 
+                      {/* Account Email Field - locked to registered email for browser autofill */}
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
-                          Reset Token
+                          Account Email
                         </label>
                         <Input
-                          id="input-reset-token"
-                          type="text"
+                          id="input-reset-email"
+                          type="email"
+                          name="username"
+                          autoComplete="username"
                           required
-                          value={resetToken}
-                          onChange={(e) => setResetToken(e.target.value)}
-                          placeholder="Enter 64-character token from email"
-                          className="font-mono text-xs"
-                          leftIcon={<Key className="w-4 h-4" />}
+                          readOnly={true}
+                          value={resetEmail || (resetToken ? 'Fetching registered email...' : '')}
+                          placeholder="Registered Email"
+                          className="bg-slate-100 text-slate-700 font-medium cursor-not-allowed select-none"
+                          leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
                         />
                       </div>
+
+                      {/* Hidden token field when loaded from reset link */}
+                      {initialResetToken ? (
+                        <input type="hidden" name="reset-token" value={resetToken} />
+                      ) : (
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Reset Token
+                          </label>
+                          <Input
+                            id="input-reset-token"
+                            type="text"
+                            name="reset-token"
+                            autoComplete="off"
+                            required
+                            value={resetToken}
+                            onChange={(e) => setResetToken(e.target.value)}
+                            placeholder="Enter 64-character token from email"
+                            className="font-mono text-xs"
+                            leftIcon={<Key className="w-4 h-4" />}
+                          />
+                        </div>
+                      )}
 
                       <div>
                         <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -740,6 +778,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         <Input
                           id="input-reset-new-password"
                           type="password"
+                          name="new-password"
+                          autoComplete="new-password"
                           required
                           minLength={8}
                           value={resetNewPassword}
@@ -756,6 +796,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         <Input
                           id="input-reset-confirm-password"
                           type="password"
+                          name="confirm-password"
+                          autoComplete="new-password"
                           required
                           minLength={8}
                           value={resetConfirmPassword}

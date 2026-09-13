@@ -33,6 +33,36 @@ function MainApp() {
     logout 
   } = useAuth();
   
+  // Robust parameter extractor from both window.location.search and window.location.hash
+  const getUrlParam = (name: string): string | null => {
+    if (typeof window === 'undefined') return null;
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.has(name)) return searchParams.get(name);
+    if (window.location.hash && window.location.hash.includes('?')) {
+      const hashParams = new URLSearchParams(window.location.hash.split('?')[1]);
+      if (hashParams.has(name)) return hashParams.get(name);
+    }
+    return null;
+  };
+
+  // URL Reset Token & Email State for Password Reset Links
+  const [urlResetToken, setUrlResetToken] = useState<string | null>(() => getUrlParam('resetToken'));
+  const [urlResetEmail, setUrlResetEmail] = useState<string | null>(() => getUrlParam('email'));
+
+  // Open reset password modal automatically if resetToken or #reset-password in URL
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const rToken = getUrlParam('resetToken');
+      const rEmail = getUrlParam('email');
+      const hash = window.location.hash;
+      if (rToken || (hash && hash.startsWith('#reset-password'))) {
+        if (rToken) setUrlResetToken(rToken);
+        if (rEmail) setUrlResetEmail(rEmail);
+        openLoginModal();
+      }
+    }
+  }, [openLoginModal]);
+
   // Navigation State
   const getInitialView = () => {
     if (typeof window !== 'undefined') {
@@ -423,8 +453,22 @@ function MainApp() {
       {/* Authentication Modal (Single Unified Sign In Screen) */}
       <LoginModal
         isOpen={isLoginModalOpen}
-        onClose={closeLoginModal}
+        onClose={() => {
+          closeLoginModal();
+          if (urlResetToken || (typeof window !== 'undefined' && window.location.hash === '#reset-password')) {
+            setUrlResetToken(null);
+            setUrlResetEmail(null);
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        }}
+        initialResetToken={urlResetToken || undefined}
+        initialResetEmail={urlResetEmail || undefined}
         onLoginSuccess={(loggedInUser) => {
+          if (urlResetToken || (typeof window !== 'undefined' && window.location.hash === '#reset-password')) {
+            setUrlResetToken(null);
+            setUrlResetEmail(null);
+            window.history.replaceState(null, '', window.location.pathname);
+          }
           if (loggedInUser.role === 'admin' || loggedInUser.role === 'coach') {
             handleNavigate('admin');
           } else {

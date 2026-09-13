@@ -952,18 +952,6 @@ app.post('/api/auth/request-reset-link', authRateLimiter, asyncHandler(async (re
   }
 
   const user = users[0];
-  if (user.role === 'admin') {
-    recordAudit({
-      actorId: user.id,
-      actorUsername: user.username,
-      actorRole: user.role,
-      action: 'auth_request_reset_link_blocked',
-      summary: `Blocked password reset via email for admin account ${user.username}`,
-      arguments: { identifier },
-      status: 'failed'
-    });
-    throw new AuthorizationError('Admin account password cannot be reset via email. Password changes happen only via direct backend access.');
-  }
 
   if (!user.email) {
     throw new ValidationError('No email address registered on this account.');
@@ -976,7 +964,7 @@ app.post('/api/auth/request-reset-link', authRateLimiter, asyncHandler(async (re
 
   // Compose reset URL
   const origin = req.headers.origin || 'http://localhost:3000';
-  const resetLink = `${origin}?resetToken=${resetData.token}#reset-password`;
+  const resetLink = `${origin}?resetToken=${resetData.token}&email=${encodeURIComponent(user.email)}#reset-password`;
 
   const emailResult = await sendPasswordResetLinkEmail(user.email, {
     firstName: user.firstName,
@@ -1001,6 +989,19 @@ app.post('/api/auth/request-reset-link', authRateLimiter, asyncHandler(async (re
     email: user.email,
     deliveryStatus: emailResult.success ? 'sent' : 'simulated'
   });
+}));
+
+// Verify Reset Token and return associated email
+app.get('/api/auth/verify-reset-token', authRateLimiter, asyncHandler(async (req: Request, res: Response) => {
+  const token = String(req.query.token || '').trim();
+  if (!token) {
+    throw new ValidationError('Reset token is required.');
+  }
+  const result = await db.getUserByResetToken(token);
+  if (!result) {
+    throw new NotFoundError('Invalid or expired password reset link.');
+  }
+  return res.json({ valid: true, email: result.email });
 }));
 
 // Reset Password using Token
@@ -1435,9 +1436,7 @@ app.post('/api/auth/forgot-password', authRateLimiter, asyncHandler(async (req: 
     throw new NotFoundError('No account found with this username or email.');
   }
 
-  if (user.role === 'admin') {
-    throw new AuthorizationError('Admin account password cannot be reset via email. Password changes happen only via direct backend access.');
-  }
+  // Admin, coach, and student can all request password reset via email
 
   // Generate a secure, single-use, 1-hour reset token and dispatch via email link.
   // Passwords are one-way bcrypt hashes and are never sent in plaintext.
@@ -1447,7 +1446,7 @@ app.post('/api/auth/forgot-password', authRateLimiter, asyncHandler(async (req: 
   }
 
   const origin = req.headers.origin || 'http://localhost:3000';
-  const resetLink = `${origin}?resetToken=${resetData.token}#reset-password`;
+  const resetLink = `${origin}?resetToken=${resetData.token}&email=${encodeURIComponent(user.email)}#reset-password`;
 
   const emailResult = await sendPasswordResetLinkEmail(user.email, {
     firstName: user.firstName,

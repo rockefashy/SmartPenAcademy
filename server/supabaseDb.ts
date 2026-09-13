@@ -875,6 +875,26 @@ export class SupabaseDatabase {
     return { token };
   }
 
+  async getUserByResetToken(token: string): Promise<{ email: string } | null> {
+    if (!token) return null;
+    const supabase = getSupabase();
+    const { data: user, error: findError } = await supabase
+      .from('users')
+      .select('email, reset_password_expiry')
+      .eq('reset_password_token', token.trim())
+      .maybeSingle();
+
+    if (findError || !user) {
+      return null;
+    }
+
+    if (user.reset_password_expiry && Number(user.reset_password_expiry) < Date.now()) {
+      return null;
+    }
+
+    return { email: user.email };
+  }
+
   async resetPasswordWithToken(token: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
     if (!token || !newPassword || newPassword.length < 8) {
       return { success: false, error: 'Invalid reset parameters or password too short.' };

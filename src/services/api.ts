@@ -160,6 +160,15 @@ export const api = {
     return res.json();
   },
 
+  async verifyResetToken(token: string): Promise<{ valid: boolean; email: string }> {
+    const res = await fetch(`/api/auth/verify-reset-token?token=${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Invalid or expired reset token' }));
+      throw new Error(err.error || 'Invalid or expired reset token');
+    }
+    return res.json();
+  },
+
   async resetPasswordWithToken(data: { token: string; newPassword: string }): Promise<{ success: boolean; message: string }> {
     const res = await fetch('/api/auth/reset-password', {
       method: 'POST',

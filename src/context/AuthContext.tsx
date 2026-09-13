@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, SessionUser } from '../types';
+import { User, SessionUser, ROLES } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { supabaseAuthService } from '../services/supabaseAuthService';
 import { api } from '../services/api';
@@ -8,6 +8,9 @@ interface AuthContextType {
   user: SessionUser | null;
   token: string | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;
+  isCoach: boolean;
+  isStudent: boolean;
   isLoading: boolean;
   sessionExpired: boolean;
   login: (token: string, user: SessionUser) => void;
@@ -214,12 +217,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoginModalOpen(false);
   };
 
+  const isAdmin = user?.role === ROLES.ADMIN;
+  const isCoach = user?.role === ROLES.COACH;
+  const isStudent = user?.role === ROLES.STUDENT;
+
   return (
     <AuthContext.Provider
       value={{
         user,
         token,
         isAuthenticated: !!user,
+        isAdmin,
+        isCoach,
+        isStudent,
         isLoading,
         sessionExpired,
         login,

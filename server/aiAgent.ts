@@ -238,7 +238,7 @@ Guest Guidelines:
 export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ reply: string; toolResults: ToolCallResult[] }> {
   const { messages, userContext, settings } = reqBody;
   const apiKey = settings?.apiKey || process.env.GEMINI_API_KEY;
-  const preferredModel = settings?.model || 'gemini-2.5-flash';
+  const preferredModel = settings?.model || 'gemini-flash-latest';
 
   if (!apiKey) {
     return {
@@ -247,10 +247,13 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
     };
   }
 
+  // Resilient model fallback chain with active Google Gemini models
   const candidateModels = [
     preferredModel,
-    'gemini-2.5-flash',
-    'gemini-2.0-flash'
+    'gemini-flash-latest',
+    'gemini-3.7-flash',
+    'gemini-3.6-flash',
+    'gemini-2.5-flash'
   ].filter((v, i, a) => a.indexOf(v) === i);
 
   const systemInstruction = buildRoleSystemInstruction(userContext);
@@ -272,7 +275,12 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
   });
 
   // Generous timeout (25 seconds) to give the LLM ample thinking time for reasoning and tool execution
-  const fetchWithTimeout = async (modelName: string, callContents: any[], timeoutMs: number = 25000) => {
+  const fetchWithTimeout = async (
+    modelName: string,
+    callContents: any[],
+    includeTools: boolean = true,
+    timeoutMs: number = 25000
+  ) => {
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error(`Model ${modelName} timed out after ${timeoutMs}ms`)), timeoutMs);
     });
@@ -283,7 +291,7 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
       config: {
         systemInstruction,
         temperature: settings?.temperature ?? 0.7,
-        tools: [{ functionDeclarations: activeTools }]
+        ...(includeTools ? { tools: [{ functionDeclarations: activeTools }] } : {})
       }
     });
 
@@ -294,7 +302,7 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
 
   for (const modelToTry of candidateModels) {
     try {
-      const response = await fetchWithTimeout(modelToTry, contents, 25000);
+      const response = await fetchWithTimeout(modelToTry, contents, true, 25000);
 
       const toolResults: ToolCallResult[] = [];
       const functionCalls = response.functionCalls;
@@ -307,26 +315,30 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
           functionResponses.push({
             functionResponse: {
               name: fc.name,
-              response: { result: toolResult.result || toolResult.summary }
+              response: { result: toolResult.result || toolResult.summary },
+              ...(fc.id ? { id: fc.id } : {})
             }
           });
         }
 
-        // Pass tool outputs back to Gemini so it formulates the final natural language answer
+        // Pass model candidate content (including thoughtSignature) and tool responses back to Gemini
         try {
+          const modelCandidateContent = response.candidates?.[0]?.content || {
+            role: 'model',
+            parts: functionCalls.map(fc => ({ functionCall: fc }))
+          };
+
           const followUpContents = [
             ...contents,
-            {
-              role: 'model',
-              parts: functionCalls.map(fc => ({ functionCall: fc }))
-            },
+            modelCandidateContent,
             {
               role: 'user',
               parts: functionResponses
             }
           ];
 
-          const followUpResponse = await fetchWithTimeout(modelToTry, followUpContents, 25000);
+          // Call without tools so the model synthesizes the final conversational response
+          const followUpResponse = await fetchWithTimeout(modelToTry, followUpContents, false, 25000);
           if (followUpResponse.text) {
             return {
               reply: followUpResponse.text,
@@ -358,9 +370,22 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
     }
   }
 
-  // If remote models fail, return a transparent error rather than silent fallback
+  // Parse error into human-friendly response rather than raw JSON
+  const rawErr = lastError?.message || String(lastError || 'Unable to connect');
+  let userFriendly = rawErr;
+  if (rawErr.includes('429') || rawErr.includes('RESOURCE_EXHAUSTED') || rawErr.includes('quota')) {
+    userFriendly = "The AI service is temporarily experiencing high traffic or quota limits. Please try again in a few seconds.";
+  } else if (rawErr.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(rawErr);
+      userFriendly = parsed.error?.message || rawErr;
+    } catch {
+      userFriendly = rawErr;
+    }
+  }
+
   return {
-    reply: `⚠️ I encountered an error communicating with the AI service: ${lastError?.message || 'Unable to connect'}. Please try again shortly.`,
+    reply: `⚠️ ${userFriendly}`,
     toolResults: []
   };
 }

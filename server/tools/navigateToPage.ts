@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 
 export const navigateToPageDeclaration: FunctionDeclaration = {
   name: 'navigateToPage',
@@ -57,7 +57,7 @@ export const navigateToPageTool: AgentTool = {
       resolvedView = 'syllabus';
       actionDescription = 'Navigating to Course Syllabus & Modules...';
     } else if (target.includes('admin') || target.includes('dashboard')) {
-      if (user?.role !== 'admin') {
+      if (user?.role !== ROLES.ADMIN) {
         return {
           result: null,
           summary: 'Access Denied: Only administrators can access the Admin Workspace.',
@@ -68,7 +68,7 @@ export const navigateToPageTool: AgentTool = {
       resolvedView = 'admin';
       actionDescription = 'Navigating to Administrator Workspace...';
     } else if (target.includes('enroll') || target.includes('registration') || target.includes('admission')) {
-      if (user?.role !== 'admin') {
+      if (user?.role !== ROLES.ADMIN) {
         return {
           result: null,
           summary: 'Access Denied: Student enrollment is managed exclusively by the Academy Administrator. Please book a Free Demo Class first or contact the academy directly.',

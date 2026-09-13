@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { findStudent, verifyToolStudentAccess, validateWithSchema, toolLimitSchema, applyFilterOrLimit } from './helpers.ts';
 import { db } from '../supabaseDb.ts';
 import { StudentProfile } from '../../src/types.ts';
@@ -29,7 +29,7 @@ export const getFeeStatusDeclaration: FunctionDeclaration = {
 export const getFeeStatusTool: AgentTool = {
   name: 'getFeeStatus',
   declaration: getFeeStatusDeclaration,
-  allowedRoles: ['admin', 'coach', 'student'],
+  allowedRoles: [ROLES.ADMIN, ROLES.COACH, ROLES.STUDENT],
   accessDeniedMessage: 'Access Denied: Only authenticated users can view fee statuses.',
   rateLimit: { maxCalls: 30, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
@@ -48,7 +48,7 @@ export const getFeeStatusTool: AgentTool = {
 
     let student: StudentProfile | undefined;
 
-    if (user?.role === 'student') {
+    if (user?.role === ROLES.STUDENT) {
       if (!user.studentId) {
         return {
           result: null,
@@ -73,7 +73,7 @@ export const getFeeStatusTool: AgentTool = {
 
     // 1. Single student query
     if (student) {
-      if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
+      if (user?.role === ROLES.COACH && !verifyToolStudentAccess(user, student)) {
         return {
           result: null,
           summary: `Privacy Scoping: As a coach, you can only view fee status for students assigned to your coaching roster. "${student.firstName}" is not assigned to you.`,
@@ -106,7 +106,7 @@ export const getFeeStatusTool: AgentTool = {
     }
 
     // 2. Coach roster broad query
-    if (user?.role === 'coach') {
+    if (user?.role === ROLES.COACH) {
       const coachKey = user.coachId || user.id;
       const coachAlt = user.coachId ? user.id : undefined;
       let myStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
@@ -158,7 +158,7 @@ export const getFeeStatusTool: AgentTool = {
     }
 
     // 3. Admin fee alerts broad query
-    if (user?.role !== 'admin') {
+    if (user?.role !== ROLES.ADMIN) {
       return {
         result: null,
         summary: 'Access Denied: Only administrators and coaches can view fee summaries.',

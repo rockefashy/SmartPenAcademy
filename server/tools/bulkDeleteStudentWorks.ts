@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { verifyToolStudentAccess, validateWithSchema } from './helpers.ts';
 
@@ -41,7 +41,7 @@ type BulkDeleteStudentWorksInput = z.infer<typeof bulkDeleteStudentWorksSchema>;
 export const bulkDeleteStudentWorksTool: AgentTool = {
   name: 'bulkDeleteStudentWorks',
   declaration: bulkDeleteStudentWorksDeclaration,
-  allowedRoles: ['admin', 'coach'],
+  allowedRoles: [ROLES.ADMIN, ROLES.COACH],
   accessDeniedMessage: 'Access Denied: Only administrators and assigned coaches can delete student work samples.',
   rateLimit: { maxCalls: 10, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
@@ -67,7 +67,7 @@ export const bulkDeleteStudentWorksTool: AgentTool = {
       const work = await db.findStudentWorkById(workId);
       if (work) {
         // Coach scoping check
-        if (user?.role === 'coach') {
+        if (user?.role === ROLES.COACH) {
           const student = await db.getStudentById(work.studentId);
           if (!student || !verifyToolStudentAccess(user, student)) {
             return {

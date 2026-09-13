@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { findStudent, verifyToolStudentAccess, validateWithSchema } from './helpers.ts';
 
@@ -28,7 +28,7 @@ type ExplainStudentStatusInput = z.infer<typeof explainStudentStatusSchema>;
 export const explainStudentStatusTool: AgentTool = {
   name: 'explainStudentStatus',
   declaration: explainStudentStatusDeclaration,
-  allowedRoles: ['admin', 'coach', 'student'],
+  allowedRoles: [ROLES.ADMIN, ROLES.COACH, ROLES.STUDENT],
   accessDeniedMessage: 'Access Denied: Authentication required to view student records.',
   rateLimit: { maxCalls: 30, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
@@ -99,14 +99,14 @@ export const explainStudentStatusTool: AgentTool = {
 
     // 3. Authorization & Scoping
     if (!verifyToolStudentAccess(user, student)) {
-      if (user.role === 'coach') {
+      if (user?.role === ROLES.COACH) {
         return {
           result: null,
           summary: `Privacy Scoping: As a coach, you can only view records for students assigned to you. "${student.firstName}" is not in your roster.`,
           success: false
         };
       }
-      if (user.role === 'student') {
+      if (user?.role === ROLES.STUDENT) {
         return {
           result: null,
           summary: 'Access Denied: You can only view your own student records.',

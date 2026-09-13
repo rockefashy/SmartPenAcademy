@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { z } from 'zod';
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { sendEnrollmentEmails } from '../email.ts';
 import { validateWithSchema } from './helpers.ts';
@@ -80,7 +80,7 @@ type EnrollStudentInput = z.infer<typeof enrollStudentToolSchema>;
 export const enrollStudentTool: AgentTool = {
   name: 'enrollStudent',
   declaration: enrollStudentDeclaration,
-  allowedRoles: ['admin'],
+  allowedRoles: [ROLES.ADMIN],
   accessDeniedMessage: 'Access Denied: Only administrators can enroll students.',
   rateLimit: { maxCalls: 15, windowMs: 60 * 1000 },
   async execute(args: any, _context: AgentToolContext): Promise<AgentToolResult> {

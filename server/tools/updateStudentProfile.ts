@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { findStudent, verifyToolStudentAccess } from './helpers.ts';
 import { updateStudentSchema } from '../schemas.ts';
@@ -46,7 +46,7 @@ export const updateStudentProfileDeclaration: FunctionDeclaration = {
 export const updateStudentProfileTool: AgentTool = {
   name: 'updateStudentProfile',
   declaration: updateStudentProfileDeclaration,
-  allowedRoles: ['admin', 'coach'],
+  allowedRoles: [ROLES.ADMIN, ROLES.COACH],
   accessDeniedMessage: 'Access Denied: Only administrators and assigned coaches can edit student profiles.',
   rateLimit: { maxCalls: 15, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
@@ -61,7 +61,7 @@ export const updateStudentProfileTool: AgentTool = {
       };
     }
 
-    if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
+    if (user?.role === ROLES.COACH && !verifyToolStudentAccess(user, student)) {
       return {
         result: null,
         summary: `Scoping Policy: As a coach, you can only update student profiles assigned to your roster. "${student.firstName}" is not assigned to you.`,

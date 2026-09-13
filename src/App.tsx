@@ -1,3 +1,4 @@
+import { ROLES } from './types';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -228,7 +229,7 @@ function MainApp() {
 
       case 'enroll':
         // Auth Guard: Student enrollment is exclusively accessible to Administrators
-        if (!isAuthenticated || !token || user?.role !== 'admin') {
+        if (!isAuthenticated || !token || user?.role !== ROLES.ADMIN) {
           return (
             <LandingPage
               onNavigate={handleNavigate}
@@ -270,7 +271,7 @@ function MainApp() {
           );
         }
 
-        if (user?.role !== 'admin' && user?.role !== 'coach') {
+        if (user?.role !== ROLES.ADMIN && user?.role !== ROLES.COACH) {
           return (
             <div className="max-w-xl mx-auto px-4 py-16 sm:py-24 text-center">
               <div className="bg-white rounded-3xl p-8 sm:p-10 border-2 border-red-200 shadow-xl space-y-6">
@@ -337,7 +338,7 @@ function MainApp() {
           );
         }
 
-        if (user?.role !== 'admin' && user?.role !== 'coach') {
+        if (user?.role !== ROLES.ADMIN && user?.role !== ROLES.COACH) {
           return (
             <div className="max-w-xl mx-auto px-4 py-16 sm:py-24 text-center">
               <div className="bg-white rounded-3xl p-8 border-2 border-red-200 shadow-xl space-y-5">
@@ -368,7 +369,7 @@ function MainApp() {
           <StudentDetailPage
             studentId={selectedStudentId || user?.studentId || 'std-1'}
             initialSection={studentDetailSection}
-            onBack={() => handleNavigate(user?.role === 'student' ? 'parentPortal' : 'admin')}
+            onBack={() => handleNavigate(user?.role === ROLES.STUDENT ? 'parentPortal' : 'admin')}
             onNavigate={handleNavigate}
           />
         );
@@ -390,7 +391,7 @@ function MainApp() {
 
         return (
           <ParentPortalPage
-            studentId={user?.role === 'admin' ? selectedStudentId : (user?.studentId || selectedStudentId)}
+            studentId={user?.role === ROLES.ADMIN ? selectedStudentId : (user?.studentId || selectedStudentId)}
             initialTab={parentPortalInitialTab}
             onNavigate={handleNavigate}
             onOpenLogin={openLoginModal}
@@ -483,7 +484,7 @@ function MainApp() {
             setUrlResetEmail(null);
             window.history.replaceState(null, '', window.location.pathname);
           }
-          if (loggedInUser.role === 'admin' || loggedInUser.role === 'coach') {
+          if (loggedInUser?.role === ROLES.ADMIN || loggedInUser?.role === ROLES.COACH) {
             handleNavigate('admin');
           } else {
             handleNavigate('parentPortal', loggedInUser.studentId, parentPortalInitialTab);

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { findCoach, validateWithSchema } from './helpers.ts';
 
@@ -43,7 +43,7 @@ type DeactivateCoachInput = z.infer<typeof deactivateCoachSchema>;
 export const deactivateCoachTool: AgentTool = {
   name: 'deactivateCoach',
   declaration: deactivateCoachDeclaration,
-  allowedRoles: ['admin'],
+  allowedRoles: [ROLES.ADMIN],
   accessDeniedMessage: 'Access Denied: Only administrators can deactivate coaches.',
   rateLimit: { maxCalls: 10, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {

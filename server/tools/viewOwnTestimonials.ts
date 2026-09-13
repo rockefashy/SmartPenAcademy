@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 
 export const viewOwnTestimonialsDeclaration: FunctionDeclaration = {
@@ -14,7 +14,7 @@ export const viewOwnTestimonialsDeclaration: FunctionDeclaration = {
 export const viewOwnTestimonialsTool: AgentTool = {
   name: 'viewOwnTestimonials',
   declaration: viewOwnTestimonialsDeclaration,
-  allowedRoles: ['student'],
+  allowedRoles: [ROLES.STUDENT],
   selfServiceOnly: true,
   accessDeniedMessage: 'Access Denied: Only authenticated students can view their submitted testimonials.',
   rateLimit: { maxCalls: 30, windowMs: 60 * 1000 },

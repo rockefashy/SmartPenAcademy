@@ -30,17 +30,7 @@ import {
   Award
 } from 'lucide-react';
 import { api } from '../services/api';
-import { 
-  StudentProfile, 
-  AttendanceRecord, 
-  FeeRecord, 
-  StudentWorkImage, 
-  ProgressReport, 
-  ProgressTracker,
-  StudentStatus, 
-  DominantHand,
-  SkillRating
-} from '../types';
+import { StudentProfile, AttendanceRecord, FeeRecord, StudentWorkImage, ProgressReport, ProgressTracker, StudentStatus, DominantHand, SkillRating, ROLES } from '../types';
 import { studentDetailProperties } from '../properties/studentDetail.properties';
 import { StarRating } from '../components/StarRating';
 import { formatGradeClass, formatDominantHand } from '../utils/formatters';
@@ -65,8 +55,8 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
   const [activeTab, setActiveTab] = useState<number>(initialSection);
   const { user } = useAuth();
   const [student, setStudent] = useState<StudentProfile | null>(null);
-  const isAdmin = user?.role === 'admin';
-  const isAssignedCoach = user?.role === 'coach' && (
+  const isAdmin = user?.role === ROLES.ADMIN;
+  const isAssignedCoach = user?.role === ROLES.COACH && (
     student?.coachId === user?.id || 
     student?.coachId === user?.coachId || 
     user?.authorizedStudentIds?.includes(student?.id)

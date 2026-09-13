@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 import { db } from './supabaseDb.ts';
-import { User, StudentProfile, AuditExecutionMode } from '../src/types';
+import { User, StudentProfile, ROLES, AuditExecutionMode } from '../src/types';
 import { sendFeeReminderEmail } from './email.ts';
 import { landingProperties } from '../src/properties/landing.properties.ts';
 import { ALL_TOOLS, PUBLIC_TOOLS, getToolsForRole, toolRegistry } from './tools/registry.ts';
@@ -175,7 +175,7 @@ PUBLIC WEB PORTAL KNOWLEDGE BASE (Available to all users, non logged in users, a
    - Forgotten Passwords: Users can retrieve or reset their password by clicking the "Forgot Password?" link on the Sign In window; a secure reset link will be sent to their registered email address.
    - Action for Credential Inquiries: When a visitor, parent, or student asks for help with credentials, how to sign in, or how to access their account, explain that their Login ID is their registered Email Address and password, and invoke navigateToPage with target: "login".`;
 
-  if (userContext?.role === 'admin') {
+  if (userContext?.role === ROLES.ADMIN) {
     return `${baseHeader}
 Logged-in User Context (ADMINISTRATOR):
 • Name: ${userContext.firstName}
@@ -192,7 +192,7 @@ You have full administrative capabilities.
 6. Keep your conversational response warm, clear, professional, and well formatted with markdown bullet points.`;
   }
 
-  if (userContext?.role === 'coach') {
+  if (userContext?.role === ROLES.COACH) {
     return `${baseHeader}
 Logged-in User Context (COACH / TUTOR):
 • Name: ${userContext.firstName}
@@ -210,7 +210,7 @@ You have restricted administrative capabilities over your ASSIGNED STUDENTS.
 6. Keep your tone encouraging, instructional, concise, and focused on student handwriting mastery.`;
   }
 
-  if (userContext?.role === 'student') {
+  if (userContext?.role === ROLES.STUDENT) {
     return `${baseHeader}
 Logged-in User Context (STUDENT / PARENT):
 • Name: ${userContext.firstName}

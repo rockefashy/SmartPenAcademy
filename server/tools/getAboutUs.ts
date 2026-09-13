@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { landingProperties } from '../../src/properties/landing.properties.ts';
 
 export const getAboutUsDeclaration: FunctionDeclaration = {

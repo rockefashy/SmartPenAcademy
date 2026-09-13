@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 
 export const markAlertReadDeclaration: FunctionDeclaration = {
@@ -19,7 +19,7 @@ export const markAlertReadDeclaration: FunctionDeclaration = {
 export const markAlertReadTool: AgentTool = {
   name: 'markAlertRead',
   declaration: markAlertReadDeclaration,
-  allowedRoles: ['admin'],
+  allowedRoles: [ROLES.ADMIN],
   accessDeniedMessage: 'Access Denied: Only administrators can acknowledge operational alerts.',
   rateLimit: { maxCalls: 30, windowMs: 60 * 1000 },
   async execute(args: any, _context: AgentToolContext): Promise<AgentToolResult> {

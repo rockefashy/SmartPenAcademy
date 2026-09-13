@@ -50,7 +50,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { EnrollmentPage } from './EnrollmentPage';
-import { StudentProfile, StudentStatus, DemoBooking, AdminAlert, CoachProfile } from '../types';
+import { StudentProfile, StudentStatus, DemoBooking, AdminAlert, CoachProfile, ROLES } from '../types';
 import { adminProperties } from '../properties/admin.properties';
 import { commonProperties } from '../properties/common.properties';
 import { useAuth } from '../context/AuthContext';
@@ -2171,7 +2171,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               return (
                 <div className="space-y-3.5">
                   {filtered.map((coach) => {
-                    const isCurrentUserAdminMatch = coach.designation?.toLowerCase().includes('principal') || coach.role === 'admin';
+                    const isCurrentUserAdminMatch = coach.designation?.toLowerCase().includes('principal') || coach.role === ROLES.ADMIN;
                     const isInactive = coach.status === 'Inactive';
 
                     return (

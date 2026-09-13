@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { auditLogsQuerySchema } from '../schemas.ts';
 
@@ -20,7 +20,7 @@ export const getAuditLogsDeclaration: FunctionDeclaration = {
 export const getAuditLogsTool: AgentTool = {
   name: 'getAuditLogs',
   declaration: getAuditLogsDeclaration,
-  allowedRoles: ['admin'],
+  allowedRoles: [ROLES.ADMIN],
   accessDeniedMessage: 'Access Denied: Only administrators can view security and audit logs.',
   rateLimit: { maxCalls: 20, windowMs: 60 * 1000 },
   async execute(args: any, _context: AgentToolContext): Promise<AgentToolResult> {

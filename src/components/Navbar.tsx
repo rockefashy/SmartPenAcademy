@@ -1,3 +1,4 @@
+import { ROLES } from '../types';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
 import React, { useState, useEffect } from 'react';
@@ -155,7 +156,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
             <div className="flex items-center gap-2">
               {isAuthenticated ? (
                 <div className="flex items-center gap-1.5 sm:gap-2">
-                  {user?.role === 'student' && user.siblingStudents && user.siblingStudents.length > 1 && (
+                  {user?.role === ROLES.STUDENT && user.siblingStudents && user.siblingStudents.length > 1 && (
                     <div className="hidden sm:block">
                       <Select
                         value={user.studentId || ''}
@@ -174,7 +175,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                   )}
 
                   <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-100/90 hover:bg-slate-100 px-2 sm:px-3 py-1 sm:py-1.5 rounded-2xl border border-slate-200/90 shadow-2xs transition-colors">
-                    {user?.role === 'admin' ? (
+                    {user?.role === ROLES.ADMIN ? (
                       <Button
                         type="button"
                         variant="ghost"
@@ -197,7 +198,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                           </p>
                         </div>
                       </Button>
-                    ) : user?.role === 'coach' ? (
+                    ) : user?.role === ROLES.COACH ? (
                       <Button
                         type="button"
                         variant="ghost"
@@ -365,7 +366,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
             </a>
 
             {/* Conditional Portal Links: Show Admin / Coach Portal if staff, Student Portal if student */}
-            {isAuthenticated && (user?.role === 'admin' || user?.role === 'coach') && (
+            {isAuthenticated && (user?.role === ROLES.ADMIN || user?.role === ROLES.COACH) && (
               <Button
                 type="button"
                 variant="ghost"
@@ -379,11 +380,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                 }`}
                 id="nav-link-admin"
               >
-                {user?.role === 'coach' ? 'Coach Portal' : commonProperties.nav.adminDashboard}
+                {user?.role === ROLES.COACH ? 'Coach Portal' : commonProperties.nav.adminDashboard}
               </Button>
             )}
 
-            {isAuthenticated && user?.role === 'student' && (
+            {isAuthenticated && user?.role === ROLES.STUDENT && (
               <Button
                 type="button"
                 variant="ghost"
@@ -411,7 +412,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
             {/* User Info Bar if Logged In on Mobile */}
             {isAuthenticated && (
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200">
-                {user?.role === 'admin' ? (
+                {user?.role === ROLES.ADMIN ? (
                   <Button
                     type="button"
                     variant="ghost"
@@ -437,7 +438,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                 ) : (
                   <div className="flex items-center gap-3">
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-black shadow-xs ${
-                      user?.role === 'coach' ? 'bg-amber-600' : 'bg-[#F46E20]'
+                      user?.role === ROLES.COACH ? 'bg-amber-600' : 'bg-[#F46E20]'
                     }`}>
                       {user?.firstName?.charAt(0) || 'U'}
                     </div>
@@ -446,7 +447,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                         {user?.firstName}
                       </p>
                       <p className="text-xs text-slate-500 capitalize">
-                        {user?.role === 'coach' ? (user.designation || 'Coach') : 'Student'}
+                        {user?.role === ROLES.COACH ? (user.designation || 'Coach') : 'Student'}
                       </p>
                     </div>
                   </div>
@@ -554,7 +555,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
               </Button>
 
               {/* Conditional Portal Links: Show Admin / Coach Portal if staff, Student Portal if student */}
-              {isAuthenticated && (user?.role === 'admin' || user?.role === 'coach') && (
+              {isAuthenticated && (user?.role === ROLES.ADMIN || user?.role === ROLES.COACH) && (
                 <Button
                   type="button"
                   variant="ghost"
@@ -572,13 +573,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                 >
                   <div className="flex items-center gap-3">
                     <ShieldCheck className="w-4 h-4 text-[#0E3589]" />
-                    <span>{user?.role === 'coach' ? 'Coach Portal' : commonProperties.nav.adminDashboard}</span>
+                    <span>{user?.role === ROLES.COACH ? 'Coach Portal' : commonProperties.nav.adminDashboard}</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </Button>
               )}
 
-              {isAuthenticated && user?.role === 'student' && (
+              {isAuthenticated && user?.role === ROLES.STUDENT && (
                 <Button
                   type="button"
                   variant="ghost"

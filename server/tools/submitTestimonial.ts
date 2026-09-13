@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { createTestimonialSchema } from '../schemas.ts';
 
@@ -41,7 +41,7 @@ export const submitTestimonialDeclaration: FunctionDeclaration = {
 export const submitTestimonialTool: AgentTool = {
   name: 'submitTestimonial',
   declaration: submitTestimonialDeclaration,
-  allowedRoles: ['admin', 'student'],
+  allowedRoles: [ROLES.ADMIN, ROLES.STUDENT],
   selfServiceOnly: false,
   accessDeniedMessage: 'Access Denied: Testimonials can only be submitted by admin, parent, or student.',
   rateLimit: { maxCalls: 5, windowMs: 60 * 1000 },
@@ -55,7 +55,7 @@ export const submitTestimonialTool: AgentTool = {
       };
     }
 
-    let targetStudentId = args?.studentId || (user.role === 'student' ? user.studentId : undefined);
+    let targetStudentId = args?.studentId || (user?.role === ROLES.STUDENT ? user.studentId : undefined);
     let student = targetStudentId ? await db.getStudentById(targetStudentId) : null;
 
     if (!student && args?.studentName) {

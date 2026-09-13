@@ -33,7 +33,7 @@ import { SmartPenLogo } from '../components/SmartPenLogo';
 import { HeroAgentPanel } from '../components/HeroAgentPanel';
 import { ChatMessage } from '../components/SmartPenAIAgentCore';
 import { api } from '../services/api';
-import { Testimonial, User, StudentProfile } from '../types';
+import { Testimonial, User, StudentProfile, ROLES } from '../types';
 
 interface LandingPageProps {
   onNavigate: (view: string, extraId?: string, defaultSection?: number) => void;
@@ -506,9 +506,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             onClick={() => {
               if (!currentUser) {
                 onOpenLogin();
-              } else if (currentUser.role === 'admin') {
+              } else if (currentUser?.role === ROLES.ADMIN) {
                 onNavigate('admin', undefined, 'roster' as any);
-              } else if (currentUser.role === 'student') {
+              } else if (currentUser?.role === ROLES.STUDENT) {
                 onNavigate('parentPortal', currentUser.studentId, 'testimony' as any);
               } else {
                 onNavigate('coach', undefined, 'students' as any);

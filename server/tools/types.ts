@@ -1,5 +1,7 @@
 import { FunctionDeclaration } from '@google/genai';
-import { User, AuditExecutionMode } from '../../src/types';
+import { User, AuditExecutionMode, ROLES, UserRole } from '../../src/types';
+export { ROLES };
+export type { UserRole };
 
 export interface AgentToolContext {
   user: User | null;
@@ -16,7 +18,7 @@ export interface AgentToolResult {
 export interface AgentTool {
   name: string;
   declaration: FunctionDeclaration;
-  allowedRoles?: ('admin' | 'coach' | 'student')[];
+  allowedRoles?: UserRole[];
   selfServiceOnly?: boolean;
   accessDeniedMessage?: string;
   rateLimit: {

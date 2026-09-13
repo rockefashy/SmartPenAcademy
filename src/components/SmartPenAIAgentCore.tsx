@@ -16,7 +16,7 @@ import {
   BookOpen,
   LogIn
 } from 'lucide-react';
-import { User, StudentProfile } from '../types';
+import { User, StudentProfile, ROLES } from '../types';
 
 export interface ChatMessage {
   id: string;
@@ -151,7 +151,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
 
 
 
-  const roleLabel = currentUser?.role === 'admin' ? 'Admin' : 'Student';
+  const roleLabel = currentUser?.role === ROLES.ADMIN ? 'Admin' : 'Student';
 
   return (
     <div
@@ -313,7 +313,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
                     </Button>
                   )}
 
-                  {m.actionType === 'enroll' && currentUser?.role === 'admin' && (
+                  {m.actionType === 'enroll' && currentUser?.role === ROLES.ADMIN && (
                     <Button
                       type="button"
                       variant="primary"

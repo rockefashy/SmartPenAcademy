@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { findStudent, verifyToolStudentAccess } from './helpers.ts';
 
 export const getStudentProfileDeclaration: FunctionDeclaration = {
@@ -20,14 +20,14 @@ export const getStudentProfileDeclaration: FunctionDeclaration = {
 export const getStudentProfileTool: AgentTool = {
   name: 'getStudentProfile',
   declaration: getStudentProfileDeclaration,
-  allowedRoles: ['admin', 'coach', 'student'],
+  allowedRoles: [ROLES.ADMIN, ROLES.COACH, ROLES.STUDENT],
   accessDeniedMessage: 'Access Denied: Only administrators, coaches, and students can view student profiles.',
   rateLimit: { maxCalls: 30, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
     const { user } = context;
     let query = args?.studentNameOrId;
 
-    if (user?.role === 'student') {
+    if (user?.role === ROLES.STUDENT) {
       if (!user.studentId) {
         return {
           result: null,
@@ -58,7 +58,7 @@ export const getStudentProfileTool: AgentTool = {
       };
     }
 
-    if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
+    if (user?.role === ROLES.COACH && !verifyToolStudentAccess(user, student)) {
       return {
         result: null,
         summary: `Privacy Scoping: Coach access is restricted to assigned students. "${student.firstName}" is not assigned to your coaching roster.`,

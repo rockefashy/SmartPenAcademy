@@ -27,7 +27,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { authProperties } from '../properties/auth.properties';
 import { SmartPenLogo } from './SmartPenLogo';
-import { User, UserRole, StudentOption } from '../types';
+import { User, UserRole, StudentOption, ROLES } from '../types';
 import { formatGradeClass } from '../utils/formatters';
 
 interface LoginModalProps {
@@ -520,16 +520,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-blue-100 text-[#0E3589] flex items-center justify-center font-bold">
-                            {role === 'admin' && <ShieldCheck className="w-5 h-5" />}
-                            {role === 'coach' && <Award className="w-5 h-5" />}
-                            {role === 'student' && <GraduationCap className="w-5 h-5" />}
+                            {role === ROLES.ADMIN && <ShieldCheck className="w-5 h-5" />}
+                            {role === ROLES.COACH && <Award className="w-5 h-5" />}
+                            {role === ROLES.STUDENT && <GraduationCap className="w-5 h-5" />}
                           </div>
                           <div>
                             <div className="text-sm font-bold text-slate-900 capitalize">
-                              {role === 'admin' ? 'Institute Administration' : role === 'coach' ? 'Coach / Instructor Portal' : 'Student & Parent Portal'}
+                              {role === ROLES.ADMIN ? 'Institute Administration' : role === ROLES.COACH ? 'Coach / Instructor Portal' : 'Student & Parent Portal'}
                             </div>
                             <div className="text-xs text-slate-500">
-                              {role === 'admin' ? 'Manage institute, students, coaches, and fees' : role === 'coach' ? 'Manage attendance and progress of assigned students' : 'Track handwriting progress, evaluations, and attendance'}
+                              {role === ROLES.ADMIN ? 'Manage institute, students, coaches, and fees' : role === ROLES.COACH ? 'Manage attendance and progress of assigned students' : 'Track handwriting progress, evaluations, and attendance'}
                             </div>
                           </div>
                         </div>

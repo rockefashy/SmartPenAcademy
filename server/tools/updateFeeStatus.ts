@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { findStudent, verifyToolStudentAccess, validateWithSchema } from './helpers.ts';
 
@@ -60,7 +60,7 @@ type UpdateFeeStatusInput = z.infer<typeof updateFeeStatusSchema>;
 export const updateFeeStatusTool: AgentTool = {
   name: 'updateFeeStatus',
   declaration: updateFeeStatusDeclaration,
-  allowedRoles: ['admin', 'coach'],
+  allowedRoles: [ROLES.ADMIN, ROLES.COACH],
   accessDeniedMessage: 'Access Denied: Only administrators and assigned coaches can modify fee records.',
   rateLimit: { maxCalls: 15, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
@@ -133,7 +133,7 @@ export const updateFeeStatusTool: AgentTool = {
     }
 
     // 3. Authorization & Scoping check for coaches
-    if (user?.role === 'coach' && student) {
+    if (user?.role === ROLES.COACH && student) {
       if (!verifyToolStudentAccess(user, student)) {
         return {
           result: null,

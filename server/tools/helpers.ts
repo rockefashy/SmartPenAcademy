@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { db } from '../supabaseDb.ts';
 import { User, StudentProfile, CoachProfile } from '../../src/types';
-import { AgentToolResult } from './types.ts';
+import { AgentToolResult, ROLES } from './types.ts';
 
 export interface ValidationResult<T> {
   success: boolean;
@@ -130,13 +130,13 @@ export function verifyToolStudentAccess(
   if (!userContext) return false;
   if (!student || !student.id) return false;
 
-  if (userContext.role === 'admin') return true;
-  if (userContext.role === 'coach') {
+  if (userContext.role === ROLES.ADMIN) return true;
+  if (userContext.role === ROLES.COACH) {
     if (!student.coachId) return false;
     const coachKeys = new Set([userContext.id, userContext.coachId].filter(Boolean));
     return coachKeys.has(student.coachId);
   }
-  if (userContext.role === 'student') {
+  if (userContext.role === ROLES.STUDENT) {
     return userContext.studentId === student.id;
   }
   return false;

@@ -9,7 +9,7 @@ import helmet from 'helmet';
 import { z } from 'zod';
 import { createServer as createViteServer } from 'vite';
 import { sendPaginated } from './server/pagination.ts';
-import { AuditExecutionMode } from './src/types.ts';
+import { AuditExecutionMode, ROLES } from './src/types.ts';
 import { db } from './server/supabaseDb.ts';
 import { handleAIAgentChat } from './server/aiAgent.ts';
 import { Logger } from './server/logger.ts';
@@ -268,7 +268,7 @@ const authenticateJwt = async (req: AuthRequest, res: Response, next: NextFuncti
 };
 
 const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
-  if (!req.user || req.user.role !== 'admin') {
+  if (!req.user || req.user?.role !== ROLES.ADMIN) {
     res.status(403).json({ error: 'Access forbidden. Administrator privileges required.' });
     return;
   }
@@ -276,7 +276,7 @@ const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction): void
 };
 
 const requireCoachOrAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
-  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'coach')) {
+  if (!req.user || (req.user?.role !== ROLES.ADMIN && req.user?.role !== ROLES.COACH)) {
     res.status(403).json({ error: 'Access forbidden. Coach or Administrator privileges required.' });
     return;
   }
@@ -286,14 +286,14 @@ const requireCoachOrAdmin = (req: AuthRequest, res: Response, next: NextFunction
 // Helper for checking access to a given student
 const canAccessStudent = async (user: AuthRequest['user'], studentId: string): Promise<boolean> => {
   if (!user) return false;
-  if (user.role === 'admin') return true;
-  if (user.role === 'coach') {
+  if (user?.role === ROLES.ADMIN) return true;
+  if (user?.role === ROLES.COACH) {
     const student = await db.getStudentById(studentId);
     if (!student || !student.coachId) return false;
     const coachKeys = new Set([user.id, user.coachId].filter(Boolean));
     return coachKeys.has(student.coachId);
   }
-  if (user.role === 'student') {
+  if (user?.role === ROLES.STUDENT) {
     if (user.studentId === studentId || user.id === studentId) return true;
     const currentStoredUser = await db.findUserById(user.id);
     if (currentStoredUser) {
@@ -500,7 +500,7 @@ const issueUserSession = async (user: any, res: Response, targetStudentId?: stri
   let activeFirstName = user.firstName;
   let activeLastName = user.lastName;
 
-  if (user.role === 'student') {
+  if (user?.role === ROLES.STUDENT) {
     const rawSiblings = await db.getSiblingStudentsForUser(user);
     siblingStudents = rawSiblings.map(s => ({
       id: s.id,
@@ -565,7 +565,7 @@ const loginSchema = z.object({
   username: z.string().optional(),
   phoneNumber: z.string().optional(),
   password: z.string().min(1, 'Password is required.'),
-  role: z.enum(['admin', 'coach', 'student']).optional(),
+  role: z.enum([ROLES.ADMIN, ROLES.COACH, ROLES.STUDENT]).optional(),
 });
 
 app.post('/api/auth/login', authRateLimiter, asyncHandler(async (req: Request, res: Response) => {
@@ -662,7 +662,7 @@ app.post('/api/auth/login', authRateLimiter, asyncHandler(async (req: Request, r
   }
 
   // Sibling resolution for student/family accounts (Identity-First 1:N schema)
-  const studentAccounts = validPasswordUsers.filter(u => u.role === 'student');
+  const studentAccounts = validPasswordUsers.filter(u => u.role === ROLES.STUDENT);
   if (studentAccounts.length > 0) {
     // 1-to-N Scenario: More than one student user record matched this password
     if (studentAccounts.length > 1) {
@@ -775,7 +775,7 @@ app.post('/api/auth/login', authRateLimiter, asyncHandler(async (req: Request, r
 
 const selectRoleSchema = z.object({
   selectionToken: z.string().min(1, 'selectionToken is required.'),
-  selectedRole: z.enum(['admin', 'coach', 'student'])
+  selectedRole: z.enum([ROLES.ADMIN, ROLES.COACH, ROLES.STUDENT])
 });
 
 // Role selection resolution endpoint
@@ -890,7 +890,7 @@ const switchStudentSchema = z.object({
 
 // Switch active student profile in current session (for siblings)
 app.post('/api/auth/switch-student', authenticateJwt, asyncHandler(async (req: AuthRequest, res: Response) => {
-  if (!req.user || req.user.role !== 'student') {
+  if (!req.user || req.user?.role !== ROLES.STUDENT) {
     throw new AuthorizationError('Student profile switching is only applicable for student sessions.');
   }
 
@@ -1107,7 +1107,7 @@ const assignCoachSchema = z.object({
 app.get('/api/coaches', authenticateJwt, asyncHandler(async (req: AuthRequest, res: Response) => {
   const coaches = await db.getAllCoaches();
 
-  if (req.user?.role === 'admin') {
+  if (req.user?.role === ROLES.ADMIN) {
     return res.json(coaches);
   }
 
@@ -1338,7 +1338,7 @@ const supabaseSessionSchema = z.object({
   email: z.string().email('Valid email is required for session synchronization.'),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
-  role: z.enum(['admin', 'coach', 'student']).optional(),
+  role: z.enum([ROLES.ADMIN, ROLES.COACH, ROLES.STUDENT]).optional(),
   studentId: z.string().optional(),
   id: z.string().optional(),
   username: z.string().optional(),
@@ -1484,7 +1484,7 @@ app.get('/api/auth/me', authenticateJwt, asyncHandler(async (req: AuthRequest, r
   let activeFirstName = user.firstName;
   let activeLastName = user.lastName;
 
-  if (user.role === 'student') {
+  if (user?.role === ROLES.STUDENT) {
     const rawSiblings = await db.getSiblingStudentsForUser(user);
     siblingStudents = rawSiblings.map(s => ({
       id: s.id,
@@ -1536,7 +1536,7 @@ app.patch('/api/auth/me', authenticateJwt, asyncHandler(async (req: AuthRequest,
   if (!req.user) throw new AuthenticationError('Not authenticated');
 
   // Explicit check: Coaches cannot edit their own details. Only Admin can do that.
-  if (req.user.role === 'coach') {
+  if (req.user?.role === ROLES.COACH) {
     throw new AuthorizationError('Access denied: Coaches cannot edit their own details. Only an Administrator can update coach details.');
   }
 
@@ -1665,14 +1665,14 @@ app.get('/api/students', authenticateJwt, asyncHandler(async (req: AuthRequest, 
   const { page, limit } = queryParsed.data;
   const paginationOptions = (page && limit) ? { page, limit } : undefined;
 
-  if (req.user.role === 'admin') {
+  if (req.user?.role === ROLES.ADMIN) {
     const students = await db.getAllStudents(paginationOptions);
     if (page && limit) {
       const total = await db.getStudentsCount();
       return sendPaginated(res, students, total, { page, limit });
     }
     return res.json(students);
-  } else if (req.user.role === 'coach') {
+  } else if (req.user?.role === ROLES.COACH) {
     const coachKey = req.user.coachId || req.user.id;
     const coachAlt = req.user.coachId ? req.user.id : undefined;
     const students = await db.getStudentsByCoachId(coachKey, coachAlt, paginationOptions);
@@ -1825,7 +1825,7 @@ app.put('/api/students/:id', authenticateJwt, requireCoachOrAdmin, verifyStudent
   const studentId = paramsParsed.data.id;
   const updateData = { ...bodyParsed.data };
 
-  if (req.user?.role === 'coach') {
+  if (req.user?.role === ROLES.COACH) {
     const targetStudent = await db.getStudentById(studentId);
     if (targetStudent?.status === 'Inactive') {
       throw new AuthorizationError('Inactive students are read-only for coaches.');
@@ -1848,7 +1848,7 @@ app.put('/api/students/:id', authenticateJwt, requireCoachOrAdmin, verifyStudent
     actorRole: req.user?.role,
     actorStudentId: studentId,
     action: 'student_update',
-    summary: `${req.user?.role === 'coach' ? 'Coach' : 'Administrator'} ${req.user?.firstName || req.user?.username} updated profile for student ${updated.firstName} (${studentId})`,
+    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'} ${req.user?.firstName || req.user?.username} updated profile for student ${updated.firstName} (${studentId})`,
     arguments: { studentId, updates: updateData },
     result: { studentId, firstName: updated.firstName }
   });
@@ -1943,7 +1943,7 @@ app.get('/api/attendance/month/:yearMonth', authenticateJwt, requireCoachOrAdmin
   let targetStudentIds: string[] | undefined = undefined;
 
   // Database-level isolation for coach role:
-  if (req.user?.role === 'coach') {
+  if (req.user?.role === ROLES.COACH) {
     const coachKey = req.user.coachId || req.user.id;
     const coachAlt = req.user.coachId ? req.user.id : undefined;
     const coachStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
@@ -2008,7 +2008,7 @@ app.post('/api/attendance/batch', authenticateJwt, requireCoachOrAdmin, attendan
   const { records } = parsed.data;
 
   // If coach, verify that coach only marks attendance for assigned students
-  if (req.user?.role === 'coach') {
+  if (req.user?.role === ROLES.COACH) {
     const coachKey = req.user.coachId || req.user.id;
     const coachAlt = req.user.coachId ? req.user.id : undefined;
     const coachStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
@@ -2172,7 +2172,7 @@ app.get('/api/fees/month/:yearMonth', authenticateJwt, requireCoachOrAdmin, asyn
   let targetStudentIds: string[] | undefined = undefined;
 
   // Database-level isolation for coach role:
-  if (req.user?.role === 'coach') {
+  if (req.user?.role === ROLES.COACH) {
     const coachKey = req.user.coachId || req.user.id;
     const coachAlt = req.user.coachId ? req.user.id : undefined;
     const coachStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
@@ -2247,7 +2247,7 @@ app.post('/api/fees', authenticateJwt, paymentRateLimiter, requireCoachOrAdmin, 
     actorRole: req.user?.role,
     actorStudentId: fee.studentId,
     action: 'fee_record_create',
-    summary: `${req.user?.role === 'coach' ? 'Coach' : 'Administrator'} recorded fee of ₹${fee.amount || 0} (${fee.status || 'Pending'}) for student ID: ${fee.studentId} - Ref: ${fee.receiptNumber || 'N/A'}`,
+    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'} recorded fee of ₹${fee.amount || 0} (${fee.status || 'Pending'}) for student ID: ${fee.studentId} - Ref: ${fee.receiptNumber || 'N/A'}`,
     arguments: { studentId: fee.studentId, amount: fee.amount, status: fee.status, receiptNumber: fee.receiptNumber, milestone: fee.milestone },
     result: { feeId: saved.id, amount: saved.amount, status: saved.status }
   });
@@ -2284,7 +2284,7 @@ app.put('/api/fees/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(asyn
     actorRole: req.user?.role,
     actorStudentId: updated.studentId,
     action: 'fee_record_update',
-    summary: `${req.user?.role === 'coach' ? 'Coach' : 'Administrator'} updated fee record #${id} (Status: ${updated.status}, Amount: ₹${updated.amount})`,
+    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'} updated fee record #${id} (Status: ${updated.status}, Amount: ₹${updated.amount})`,
     arguments: { feeId: id, updates: bodyParsed.data },
     result: { feeId: updated.id, status: updated.status, amount: updated.amount }
   });
@@ -2321,7 +2321,7 @@ app.patch('/api/fees/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(as
     actorRole: req.user?.role,
     actorStudentId: updated.studentId,
     action: 'fee_record_update',
-    summary: `${req.user?.role === 'coach' ? 'Coach' : 'Administrator'} modified fee record #${id} (Status: ${updated.status}, Amount: ₹${updated.amount})`,
+    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'} modified fee record #${id} (Status: ${updated.status}, Amount: ₹${updated.amount})`,
     arguments: { feeId: id, updates: bodyParsed.data },
     result: { feeId: updated.id, status: updated.status, amount: updated.amount }
   });
@@ -2354,7 +2354,7 @@ app.delete('/api/fees/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(a
     actorRole: req.user?.role,
     actorStudentId: existingFee.studentId,
     action: 'fee_record_delete',
-    summary: `${req.user?.role === 'coach' ? 'Coach' : 'Administrator'} deleted fee ledger record #${id}`,
+    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'} deleted fee ledger record #${id}`,
     arguments: { feeId: id },
     result: { success: true }
   });

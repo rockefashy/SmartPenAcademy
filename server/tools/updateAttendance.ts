@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { findStudent, verifyToolStudentAccess } from './helpers.ts';
 import { db } from '../supabaseDb.ts';
 import { attendanceBatchSchema } from '../schemas.ts';
@@ -35,7 +35,7 @@ export const updateAttendanceDeclaration: FunctionDeclaration = {
 export const updateAttendanceTool: AgentTool = {
   name: 'updateAttendance',
   declaration: updateAttendanceDeclaration,
-  allowedRoles: ['admin', 'coach'],
+  allowedRoles: [ROLES.ADMIN, ROLES.COACH],
   accessDeniedMessage: 'Access Denied: Only administrators and assigned coaches can update student attendance records.',
   rateLimit: { maxCalls: 15, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
@@ -44,7 +44,7 @@ export const updateAttendanceTool: AgentTool = {
     const rawList = Array.isArray(args?.studentNames) ? args.studentNames : [args?.studentNames || 'all'];
     const targetDate = args?.date === 'today' || !args?.date ? today : args.date;
     const status = args?.status === 'Absent' ? 'Absent' : 'Present';
-    const notes = args?.notes || (user?.role === 'coach' ? `Marked by Coach ${user.firstName}` : 'Marked via SmartPen AI Assistant');
+    const notes = args?.notes || (user?.role === ROLES.COACH ? `Marked by Coach ${user.firstName}` : 'Marked via SmartPen AI Assistant');
 
     const updatedStudents: { id: string; name: string }[] = [];
     const recordsToSave: any[] = [];
@@ -54,7 +54,7 @@ export const updateAttendanceTool: AgentTool = {
     // If command says 'all', get eligible active students
     if (rawList.some((s: string) => typeof s === 'string' && (s.toLowerCase() === 'all' || s.toLowerCase() === 'all students'))) {
       let targetStudents = (await db.getAllStudents()).filter(s => s.status === 'Active');
-      if (user?.role === 'coach') {
+      if (user?.role === ROLES.COACH) {
         targetStudents = targetStudents.filter(s => verifyToolStudentAccess(user, s));
       }
       targetStudents.forEach(st => {
@@ -71,7 +71,7 @@ export const updateAttendanceTool: AgentTool = {
       for (const item of rawList) {
         const student = await findStudent(String(item));
         if (student) {
-          if (user?.role === 'coach' && !verifyToolStudentAccess(user, student)) {
+          if (user?.role === ROLES.COACH && !verifyToolStudentAccess(user, student)) {
             unauthorized.push(student.firstName);
             continue;
           }

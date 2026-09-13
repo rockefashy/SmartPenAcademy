@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { validateWithSchema } from './helpers.ts';
 
@@ -33,13 +33,13 @@ type GetOverdueFeeSummaryInput = z.infer<typeof getOverdueFeeSummarySchema>;
 export const getOverdueFeeSummaryTool: AgentTool = {
   name: 'getOverdueFeeSummary',
   declaration: getOverdueFeeSummaryDeclaration,
-  allowedRoles: ['admin', 'coach'],
+  allowedRoles: [ROLES.ADMIN, ROLES.COACH],
   accessDeniedMessage: 'Access Denied: Only administrators and coaches can view overdue fee summaries.',
   rateLimit: { maxCalls: 20, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
     const { user, today } = context;
 
-    if (!user || (user.role !== 'admin' && user.role !== 'coach')) {
+    if (!user || (user?.role !== ROLES.ADMIN && user?.role !== ROLES.COACH)) {
       return {
         result: null,
         summary: 'Access Denied: Only administrators and coaches can view overdue fee summaries.',
@@ -65,7 +65,7 @@ export const getOverdueFeeSummaryTool: AgentTool = {
     let fees: any[] = [];
     const studentNameMap = new Map<string, string>();
 
-    if (user.role === 'coach') {
+    if (user?.role === ROLES.COACH) {
       const coachKey = user.coachId || user.id;
       const coachAlt = user.coachId ? user.id : undefined;
       const assignedStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
@@ -153,7 +153,7 @@ export const getOverdueFeeSummaryTool: AgentTool = {
       yearMonth: targetMonth,
       totalOutstanding,
       affectedStudentsCount: studentsList.length,
-      scope: user.role === 'coach' ? 'Assigned Roster' : 'Academy-Wide',
+      scope: user?.role === ROLES.COACH ? 'Assigned Roster' : 'Academy-Wide',
       students: studentsList
     };
 

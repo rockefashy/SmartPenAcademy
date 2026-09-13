@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { findStudent, findCoach } from './helpers.ts';
 
@@ -25,7 +25,7 @@ export const assignCoachToStudentDeclaration: FunctionDeclaration = {
 export const assignCoachToStudentTool: AgentTool = {
   name: 'assignCoachToStudent',
   declaration: assignCoachToStudentDeclaration,
-  allowedRoles: ['admin'],
+  allowedRoles: [ROLES.ADMIN],
   accessDeniedMessage: 'Access Denied: Only administrators can assign or reassign coaches.',
   rateLimit: { maxCalls: 15, windowMs: 60 * 1000 },
   async execute(args: any, _context: AgentToolContext): Promise<AgentToolResult> {

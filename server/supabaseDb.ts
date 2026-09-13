@@ -13,7 +13,8 @@ import {
   DemoBooking,
   AdminAlert,
   Testimonial,
-  ToolAuditLog
+  ToolAuditLog,
+  ROLES
 } from '../src/types';
 import { serverSupabase } from './supabase.ts';
 
@@ -552,7 +553,7 @@ export class SupabaseDatabase {
     let coachId: string | undefined = undefined;
     let studentId: string | undefined = undefined;
 
-    if (data.role === 'coach') {
+    if (data.role === ROLES.COACH) {
       try {
         const { data: coachData } = await supabase
           .from('coaches')
@@ -566,7 +567,7 @@ export class SupabaseDatabase {
       } catch {
         // fallback
       }
-    } else if (data.role === 'student') {
+    } else if (data.role === ROLES.STUDENT) {
       try {
         const { data: studentData } = await supabase
           .from('students')
@@ -1613,7 +1614,7 @@ export class SupabaseDatabase {
       .eq('id', userId)
       .maybeSingle();
 
-    if (targetUser?.role === 'coach') {
+    if (targetUser?.role === ROLES.COACH) {
       return { success: false, error: 'Access denied: Coaches cannot edit their own details. Only an Administrator can update coach details.' };
     }
 
@@ -1674,7 +1675,7 @@ export class SupabaseDatabase {
       return mapCoachRow(coachData, studentCount, linkedUser);
     }
 
-    if (linkedUser && linkedUser.role === 'coach') {
+    if (linkedUser && linkedUser.role === ROLES.COACH) {
       const firstName = linkedUser.first_name || 'Coach';
       const lastName = linkedUser.last_name || '';
       return mapCoachRow({

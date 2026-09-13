@@ -37,14 +37,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
-import { 
-  StudentProfile, 
-  ProgressReport, 
-  AttendanceRecord, 
-  FeeRecord, 
-  StudentWorkImage,
-  Testimonial
-} from '../types';
+import { StudentProfile, ProgressReport, AttendanceRecord, FeeRecord, StudentWorkImage, Testimonial, ROLES } from '../types';
 import { parentPortalProperties } from '../properties/parentPortal.properties';
 import { commonProperties } from '../properties/common.properties';
 import { ProgressReportCard } from '../components/ProgressReportCard';
@@ -260,7 +253,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 font-sans space-y-6">
       {/* Admin Preview Mode Banner with Return Navigation */}
-      {user?.role === 'admin' && (
+      {user?.role === ROLES.ADMIN && (
         <div 
           className="bg-gradient-to-r from-blue-950 via-[#0E3589] to-indigo-900 text-white rounded-3xl p-4 sm:p-5 shadow-lg border-2 border-blue-400/40 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in duration-200"
           id="admin-portal-preview-banner"
@@ -352,7 +345,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
               Welcome, {student.firstName}!
             </h1>
-            {user?.role === 'student' && user.siblingStudents && user.siblingStudents.length > 1 && (
+            {user?.role === ROLES.STUDENT && user.siblingStudents && user.siblingStudents.length > 1 && (
               <div className="flex items-center gap-1.5 bg-orange-50 px-2.5 py-1 rounded-xl border border-orange-200">
                 <span className="text-[11px] font-bold text-[#F46E20]">Family Profiles:</span>
                 <Select
@@ -376,7 +369,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
         </div>
 
         {/* Quick Return button in header for Admin */}
-        {user?.role === 'admin' && (
+        {user?.role === ROLES.ADMIN && (
           <div className="flex items-center gap-2">
             <Button
               onClick={() => onNavigate('studentDetail', student.id)}

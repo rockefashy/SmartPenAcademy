@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { validateWithSchema } from './helpers.ts';
 
@@ -27,13 +27,13 @@ type GetCoachWorkloadSummaryInput = z.infer<typeof getCoachWorkloadSummarySchema
 export const getCoachWorkloadSummaryTool: AgentTool = {
   name: 'getCoachWorkloadSummary',
   declaration: getCoachWorkloadSummaryDeclaration,
-  allowedRoles: ['admin'],
+  allowedRoles: [ROLES.ADMIN],
   accessDeniedMessage: 'Access Denied: Only administrators can view coach workload summaries.',
   rateLimit: { maxCalls: 20, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
     const { user } = context;
 
-    if (!user || user.role !== 'admin') {
+    if (!user || user?.role !== ROLES.ADMIN) {
       return {
         result: null,
         summary: 'Access Denied: Only administrators can view coach workload summaries.',

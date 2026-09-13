@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { validateWithSchema } from './helpers.ts';
 
@@ -37,13 +37,13 @@ type GetAttendanceRiskStudentsInput = z.infer<typeof getAttendanceRiskStudentsSc
 export const getAttendanceRiskStudentsTool: AgentTool = {
   name: 'getAttendanceRiskStudents',
   declaration: getAttendanceRiskStudentsDeclaration,
-  allowedRoles: ['admin', 'coach'],
+  allowedRoles: [ROLES.ADMIN, ROLES.COACH],
   accessDeniedMessage: 'Access Denied: Only administrators and coaches can view attendance risk summaries.',
   rateLimit: { maxCalls: 15, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
     const { user, today } = context;
 
-    if (!user || (user.role !== 'admin' && user.role !== 'coach')) {
+    if (!user || (user?.role !== ROLES.ADMIN && user?.role !== ROLES.COACH)) {
       return {
         result: null,
         summary: 'Access Denied: Only administrators and coaches can view attendance risk summaries.',
@@ -70,7 +70,7 @@ export const getAttendanceRiskStudentsTool: AgentTool = {
 
     // 3. Resolve active students with role-based scoping
     let targetStudents: any[] = [];
-    if (user.role === 'coach') {
+    if (user?.role === ROLES.COACH) {
       const coachKey = user.coachId || user.id;
       const coachAlt = user.coachId ? user.id : undefined;
       const roster = await db.getStudentsByCoachId(coachKey, coachAlt);
@@ -159,7 +159,7 @@ export const getAttendanceRiskStudentsTool: AgentTool = {
     const result = {
       windowDays,
       cutoffDate,
-      scope: user.role === 'coach' ? 'Assigned Roster' : 'Academy-Wide',
+      scope: user?.role === ROLES.COACH ? 'Assigned Roster' : 'Academy-Wide',
       totalChecked: targetStudents.length,
       atRiskCount: atRiskList.length,
       atRiskStudents: atRiskList

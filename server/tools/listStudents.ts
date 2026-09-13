@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { validateWithSchema, toolLimitSchema, applyFilterOrLimit } from './helpers.ts';
 import { db } from '../supabaseDb.ts';
 
@@ -28,7 +28,7 @@ export const listStudentsDeclaration: FunctionDeclaration = {
 export const listStudentsTool: AgentTool = {
   name: 'listStudents',
   declaration: listStudentsDeclaration,
-  allowedRoles: ['admin', 'coach'],
+  allowedRoles: [ROLES.ADMIN, ROLES.COACH],
   accessDeniedMessage: 'Access Denied: Only administrators and coaches can view student rosters.',
   rateLimit: { maxCalls: 30, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
@@ -46,7 +46,7 @@ export const listStudentsTool: AgentTool = {
     const requestedLimit = limitValidation.data;
 
     // 1. Role Scoping
-    const students = user?.role === 'coach'
+    const students = user?.role === ROLES.COACH
       ? await db.getStudentsByCoachId(user.coachId || user.id, user.coachId ? user.id : undefined)
       : await db.getAllStudents();
 
@@ -65,7 +65,7 @@ export const listStudentsTool: AgentTool = {
     }
 
     // 3. Shared Filter-or-Limit Evaluation
-    const entityLabel = user?.role === 'coach' 
+    const entityLabel = user?.role === ROLES.COACH 
       ? 'students on your coaching roster' 
       : 'enrolled students across academy';
 
@@ -87,7 +87,7 @@ export const listStudentsTool: AgentTool = {
       `${idx + 1}. **${s.firstName}** (${s.gradeClass}) - ${s.preferredDays} @ ${s.preferredSlot} [${s.status}]${s.coachName ? ` • Coach: ${s.coachName}` : ''}`
     ).join('\n');
 
-    const title = user?.role === 'coach' 
+    const title = user?.role === ROLES.COACH 
       ? `Your Assigned Students (${filteredResult.items.length} of ${filteredResult.totalCount})` 
       : `Enrolled Students (${filteredResult.items.length} of ${filteredResult.totalCount})`;
 

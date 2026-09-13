@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 
 export const getDemoBookingsDeclaration: FunctionDeclaration = {
@@ -14,7 +14,7 @@ export const getDemoBookingsDeclaration: FunctionDeclaration = {
 export const getDemoBookingsTool: AgentTool = {
   name: 'getDemoBookings',
   declaration: getDemoBookingsDeclaration,
-  allowedRoles: ['admin'],
+  allowedRoles: [ROLES.ADMIN],
   accessDeniedMessage: 'Access Denied: Only administrators can access prospective trial bookings.',
   rateLimit: { maxCalls: 30, windowMs: 60 * 1000 },
   async execute(_args: any, _context: AgentToolContext): Promise<AgentToolResult> {

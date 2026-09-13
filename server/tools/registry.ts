@@ -1,5 +1,5 @@
 import { FunctionDeclaration } from '@google/genai';
-import { AgentTool } from './types.ts';
+import { AgentTool, ROLES } from './types.ts';
 
 // 1. Core Original Tools
 import { updateAttendanceTool } from './updateAttendance.ts';
@@ -131,7 +131,7 @@ export function getToolsForRole(role?: string): FunctionDeclaration[] {
       }
 
       // Admin has unrestricted access to all general/staff operational tools
-      if (role === 'admin') return true;
+      if (role === ROLES.ADMIN) return true;
 
       // Other roles must match declared allowedRoles
       return t.allowedRoles.includes(role as any);

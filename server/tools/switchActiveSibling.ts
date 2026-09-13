@@ -1,5 +1,5 @@
 import { Type, FunctionDeclaration } from '@google/genai';
-import { AgentTool, AgentToolContext, AgentToolResult } from './types.ts';
+import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { findStudent } from './helpers.ts';
 import { switchStudentSchema } from '../schemas.ts';
@@ -22,7 +22,7 @@ export const switchActiveSiblingDeclaration: FunctionDeclaration = {
 export const switchActiveSiblingTool: AgentTool = {
   name: 'switchActiveSibling',
   declaration: switchActiveSiblingDeclaration,
-  allowedRoles: ['student'],
+  allowedRoles: [ROLES.STUDENT],
   selfServiceOnly: true,
   accessDeniedMessage: 'Access Denied: Only family/student accounts can switch siblings.',
   rateLimit: { maxCalls: 10, windowMs: 60 * 1000 },

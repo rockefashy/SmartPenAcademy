@@ -3095,12 +3095,15 @@ app.get('/api/testimonials', asyncHandler(async (req: Request, res: Response) =>
   return res.json(testimonials);
 }));
 
-app.get('/api/testimonials/student/:id', authenticateJwt, verifyStudentAccess('id'), asyncHandler(async (req: AuthRequest, res: Response) => {
+app.get('/api/testimonials/student/:id', asyncHandler(async (req: Request, res: Response) => {
   const testimonials = await db.getTestimonials(req.params.id);
   return res.json(testimonials);
 }));
 
-app.post('/api/testimonials', asyncHandler(async (req: Request, res: Response) => {
+app.post('/api/testimonials', authenticateJwt, asyncHandler(async (req: AuthRequest, res: Response) => {
+  if (!req.user || !['admin', 'coach', 'student'].includes(req.user.role)) {
+    throw new AuthorizationError('Access denied: Testimonials can only be submitted by admin, coach, parent, or student.');
+  }
   const parsed = createTestimonialSchema.safeParse(req.body);
   if (!parsed.success) {
     throw new ValidationError(parsed.error.issues[0]?.message || 'Invalid testimonial payload');
@@ -3139,9 +3142,9 @@ app.post('/api/testimonials', asyncHandler(async (req: Request, res: Response) =
   });
 
   recordAudit({
-    actorId: studentId,
-    actorUsername: parentName || 'Parent',
-    actorRole: 'student',
+    actorId: req.user?.id || studentId,
+    actorUsername: req.user?.username || req.user?.firstName || parentName || 'User',
+    actorRole: req.user?.role || 'student',
     actorStudentId: studentId,
     action: 'testimonial_create',
     summary: `New parent review submitted by ${parentName || 'Parent'} for student ${studentName} (Rating: ${rating}★)`,

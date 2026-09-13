@@ -786,11 +786,15 @@ export const api = {
   async submitTestimonial(testimonyData: Partial<Testimonial>): Promise<Testimonial> {
     const res = await fetch('/api/testimonials', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      credentials: 'include',
       body: JSON.stringify(testimonyData),
     });
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to submit testimony');
     }
     return res.json();

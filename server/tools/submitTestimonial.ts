@@ -5,10 +5,22 @@ import { createTestimonialSchema } from '../schemas.ts';
 
 export const submitTestimonialDeclaration: FunctionDeclaration = {
   name: 'submitTestimonial',
-  description: 'Submit parent feedback, star rating, and student handwriting transformation review.',
+  description: 'Submit parent feedback, star rating, and student handwriting transformation review. Can be submitted by admin, coach, parent, or student.',
   parameters: {
     type: Type.OBJECT,
     properties: {
+      studentId: {
+        type: Type.STRING,
+        description: 'Student ID for whom the testimonial is being submitted (required for admin/coach, optional for parents/students).'
+      },
+      studentName: {
+        type: Type.STRING,
+        description: 'Student name for whom the testimonial is being submitted.'
+      },
+      parentName: {
+        type: Type.STRING,
+        description: 'Name of the parent providing the review.'
+      },
       rating: {
         type: Type.NUMBER,
         description: 'Star rating from 1 to 5.'
@@ -29,39 +41,54 @@ export const submitTestimonialDeclaration: FunctionDeclaration = {
 export const submitTestimonialTool: AgentTool = {
   name: 'submitTestimonial',
   declaration: submitTestimonialDeclaration,
-  allowedRoles: ['student'],
-  selfServiceOnly: true,
-  accessDeniedMessage: 'Access Denied: Only students and parents can submit testimonials.',
+  allowedRoles: ['admin', 'coach', 'student'],
+  selfServiceOnly: false,
+  accessDeniedMessage: 'Access Denied: Testimonials can only be submitted by admin, coach, parent, or student.',
   rateLimit: { maxCalls: 5, windowMs: 60 * 1000 },
   async execute(args: any, context: AgentToolContext): Promise<AgentToolResult> {
     const { user } = context;
-    if (!user?.studentId) {
+    if (!user || !['admin', 'coach', 'student'].includes(user.role)) {
       return {
         result: null,
-        summary: 'Access Denied: No student profile linked to your account.',
+        summary: 'Access Denied: Testimonials can only be submitted by admin, coach, parent, or student.',
         success: false
       };
     }
 
-    const student = await db.getStudentById(user.studentId);
+    let targetStudentId = args?.studentId || (user.role === 'student' ? user.studentId : undefined);
+    let student = targetStudentId ? await db.getStudentById(targetStudentId) : null;
+
+    if (!student && args?.studentName) {
+      const allStudents = await db.getAllStudents();
+      student = allStudents.find(s => 
+        s.firstName.toLowerCase() === args.studentName.trim().toLowerCase() ||
+        `${s.firstName} ${s.lastName || ''}`.trim().toLowerCase() === args.studentName.trim().toLowerCase()
+      ) || null;
+      if (student) {
+        targetStudentId = student.id;
+      }
+    }
+
     if (!student) {
       return {
         result: null,
-        summary: 'Could not locate student profile.',
+        summary: targetStudentId 
+          ? `Could not locate student profile with ID "${targetStudentId}".`
+          : 'Please specify the studentId or studentName for whom this testimonial is being submitted.',
         success: false
       };
     }
 
     const payload = {
       studentId: student.id,
-      studentName: student.firstName,
-      parentName: student.parentName || user.firstName || 'Parent',
+      studentName: `${student.firstName} ${student.lastName || ''}`.trim(),
+      parentName: args?.parentName || student.parentName || user.firstName || 'Parent',
       grade: student.gradeClass || '',
       schoolName: student.schoolName || '',
       rating: Number(args?.rating) || 5,
       title: args?.title || 'Parent Feedback',
       review: String(args?.review || '').trim(),
-      status: 'Pending'
+      status: 'Published'
     };
 
     const parsed = createTestimonialSchema.safeParse(payload);
@@ -77,7 +104,7 @@ export const submitTestimonialTool: AgentTool = {
 
     return {
       result: saved,
-      summary: `🎉 **Thank you for your feedback!** Your ${saved.rating}-star review for **${student.firstName}** has been submitted and is pending coach approval for the website!`,
+      summary: `🎉 **Thank you for your feedback!** The ${saved.rating}-star review for **${student.firstName}** has been recorded successfully!`,
       success: true
     };
   }

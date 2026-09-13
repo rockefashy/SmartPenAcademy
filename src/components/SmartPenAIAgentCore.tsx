@@ -13,7 +13,8 @@ import {
   Users,
   Calendar,
   CreditCard,
-  BookOpen
+  BookOpen,
+  LogIn
 } from 'lucide-react';
 import { User, StudentProfile } from '../types';
 
@@ -22,7 +23,7 @@ export interface ChatMessage {
   sender: 'bot' | 'user' | 'system';
   text: string;
   timestamp: string;
-  actionType?: 'demo' | 'gpay' | 'enroll' | 'portal' | 'syllabus';
+  actionType?: 'demo' | 'gpay' | 'enroll' | 'portal' | 'syllabus' | 'login';
 }
 
 interface SmartPenAIAgentCoreProps {
@@ -30,6 +31,7 @@ interface SmartPenAIAgentCoreProps {
   currentStudent?: StudentProfile | null;
   onNavigate?: (page: string, extraId?: string, defaultSection?: number) => void;
   onOpenDemoModal?: () => void;
+  onOpenLogin?: () => void;
   messages: ChatMessage[];
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   isFloatingModal?: boolean;
@@ -43,6 +45,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
   currentStudent,
   onNavigate,
   onOpenDemoModal,
+  onOpenLogin,
   messages,
   setMessages,
   isFloatingModal = false,
@@ -110,7 +113,8 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
         for (const tr of res.toolResults) {
           if (tr.toolName === 'navigateToPage' && tr.result?.target) {
             const t = String(tr.result.target).toLowerCase();
-            if (t.includes('demo')) actionType = 'demo';
+            if (t.includes('login') || t.includes('signin') || t.includes('sign in') || t.includes('auth') || t.includes('credential')) actionType = 'login';
+            else if (t.includes('demo')) actionType = 'demo';
             else if (t.includes('enroll')) actionType = 'enroll';
             else if (t.includes('gpay')) actionType = 'gpay';
             else if (t.includes('syllabus')) actionType = 'syllabus';
@@ -309,7 +313,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
                     </Button>
                   )}
 
-                  {m.actionType === 'enroll' && (
+                  {m.actionType === 'enroll' && currentUser?.role === 'admin' && (
                     <Button
                       type="button"
                       variant="primary"
@@ -336,6 +340,22 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
                       className="text-[11px] py-1 px-2.5 bg-slate-900 hover:bg-slate-800 text-white border-transparent"
                     >
                       Explore 8-Class Syllabus →
+                    </Button>
+                  )}
+
+                  {m.actionType === 'login' && (
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        if (onOpenLogin) onOpenLogin();
+                        else if (onNavigate) onNavigate('parentPortal');
+                      }}
+                      leftIcon={<LogIn className="w-3 h-3" />}
+                      className="text-[11px] py-1 px-2.5"
+                    >
+                      Sign In to Portal →
                     </Button>
                   )}
 

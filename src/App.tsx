@@ -227,6 +227,20 @@ function MainApp() {
         );
 
       case 'enroll':
+        // Auth Guard: Student enrollment is exclusively accessible to Administrators
+        if (!isAuthenticated || !token || user?.role !== 'admin') {
+          return (
+            <LandingPage
+              onNavigate={handleNavigate}
+              onOpenLogin={openLoginModal}
+              onOpenDemoBooking={() => setIsDemoModalOpen(true)}
+              currentUser={user}
+              messages={chatMessages}
+              setMessages={setChatMessages}
+            />
+          );
+        }
+
         return (
           <EnrollmentPage
             onNavigate={(view, studentId, defaultSection, prefillData) =>
@@ -482,6 +496,7 @@ function MainApp() {
         currentUser={user}
         onNavigate={handleNavigate} 
         onOpenDemoBooking={() => setIsDemoModalOpen(true)}
+        onOpenLogin={openLoginModal}
         messages={chatMessages}
         setMessages={setChatMessages}
         hideFloatingTrigger={currentView === 'landing'}

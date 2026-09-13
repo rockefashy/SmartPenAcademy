@@ -7,6 +7,7 @@ interface HeroAgentPanelProps {
   currentUser?: User | null;
   currentStudent?: StudentProfile | null;
   onOpenDemoBooking?: () => void;
+  onOpenLogin?: () => void;
   messages: ChatMessage[];
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
@@ -16,6 +17,7 @@ export const HeroAgentPanel: React.FC<HeroAgentPanelProps> = ({
   currentUser, 
   currentStudent,
   onOpenDemoBooking,
+  onOpenLogin,
   messages,
   setMessages 
 }) => {
@@ -26,6 +28,7 @@ export const HeroAgentPanel: React.FC<HeroAgentPanelProps> = ({
         currentStudent={currentStudent}
         onNavigate={onNavigate}
         onOpenDemoModal={onOpenDemoBooking}
+        onOpenLogin={onOpenLogin}
         messages={messages}
         setMessages={setMessages}
         isFloatingModal={false}

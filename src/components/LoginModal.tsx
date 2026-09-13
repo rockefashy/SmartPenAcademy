@@ -163,7 +163,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       if (response.requiresStudentSelection && response.selectionToken) {
         setSelectionToken(response.selectionToken);
         setAvailableStudents(response.availableStudents || []);
-        setSelectionMessage(response.message || 'Multiple student profiles registered under this phone number. Please select which student to access:');
+        setSelectionMessage(response.message || 'Multiple student profiles registered under this family email. Please select which student to access:');
         setCurrentView('select-student');
         return;
       }
@@ -392,7 +392,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 {currentView === 'change' && authProperties.changePasswordModal.title}
               </h2>
               <p className="text-xs text-blue-100 mt-1">
-                {currentView === 'login' && 'Sign in with your Email, Username, or Phone Number'}
+                {currentView === 'login' && authProperties.loginModal.subtitle}
                 {currentView === 'select-role' && 'Choose your access role for this session'}
                 {currentView === 'select-student' && 'Select student profile to continue'}
                 {currentView === 'forgot' && 'We will send a secure password reset link to your email'}
@@ -416,16 +416,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   <form onSubmit={handleLoginSubmit} className="space-y-4" id="form-unified-login">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                        Email, Username, or Phone Number
+                        {authProperties.loginModal.emailLabel}
                       </label>
                       <Input
                         id="input-login-identifier"
-                        type="text"
+                        type="email"
                         required
                         value={identifier}
                         onChange={(e) => setIdentifier(e.target.value)}
-                        placeholder="e.g. parent@example.com, coach_anil, or 9876543210"
-                        leftIcon={<UserIcon className="w-4 h-4" />}
+                        placeholder={authProperties.loginModal.emailPlaceholder}
+                        leftIcon={<Mail className="w-4 h-4" />}
                       />
                       <p className="text-[11px] text-slate-500 mt-1">
                         Coaches, Parents, and Students sign in through this unified form.

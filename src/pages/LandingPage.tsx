@@ -213,6 +213,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               currentUser={currentUser}
               currentStudent={currentStudent}
               onOpenDemoBooking={onOpenDemoBooking}
+              onOpenLogin={onOpenLogin}
               messages={messages}
               setMessages={setMessages}
             />

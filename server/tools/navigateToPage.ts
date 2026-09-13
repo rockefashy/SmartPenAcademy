@@ -9,7 +9,7 @@ export const navigateToPageDeclaration: FunctionDeclaration = {
     properties: {
       target: {
         type: Type.STRING,
-        description: 'The destination target: "enroll" (Student Enrollment / Registration), "demo" (Book a Free Demo Class), "gpay" (GPAY Fee Payment to 8861751000), "parentPortal" (Parent / Student Portal), "about" (About Us & Founder), "syllabus" (Course Curriculum & Modules), "admin" (Admin Workspace).'
+        description: 'The destination target: "login" (Sign In with Registered Email), "enroll" (Student Enrollment / Registration), "demo" (Book a Free Demo Class), "gpay" (GPAY Fee Payment to 8861751000), "parentPortal" (Parent / Student Portal), "about" (About Us & Founder), "syllabus" (Course Curriculum & Modules), "admin" (Admin Workspace).'
       },
       reason: {
         type: Type.STRING,
@@ -32,7 +32,11 @@ export const navigateToPageTool: AgentTool = {
     let resolvedView = 'enroll';
     let actionDescription = 'Opening student registration form...';
 
-    if (target.includes('demo') || target.includes('trial') || target.includes('free class')) {
+    if (target.includes('login') || target.includes('signin') || target.includes('sign in') || target.includes('auth') || target.includes('credential')) {
+      pageTitle = 'Sign In to Portal';
+      resolvedView = 'login';
+      actionDescription = 'Opening portal sign-in window...';
+    } else if (target.includes('demo') || target.includes('trial') || target.includes('free class')) {
       pageTitle = 'Free Demo Class Booking';
       resolvedView = 'demo';
       actionDescription = 'Opening Free Demo Class booking window...';
@@ -63,10 +67,21 @@ export const navigateToPageTool: AgentTool = {
       pageTitle = 'Administrator Workspace';
       resolvedView = 'admin';
       actionDescription = 'Navigating to Administrator Workspace...';
-    } else {
+    } else if (target.includes('enroll') || target.includes('registration') || target.includes('admission')) {
+      if (user?.role !== 'admin') {
+        return {
+          result: null,
+          summary: 'Access Denied: Student enrollment is managed exclusively by the Academy Administrator. Please book a Free Demo Class first or contact the academy directly.',
+          success: false
+        };
+      }
       pageTitle = 'Student Enrollment';
       resolvedView = 'enroll';
       actionDescription = 'Navigating to Student Registration page...';
+    } else {
+      pageTitle = 'Free Demo Class Booking';
+      resolvedView = 'demo';
+      actionDescription = 'Opening Free Demo Class booking window...';
     }
 
     const navPayload = {

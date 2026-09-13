@@ -472,30 +472,13 @@ export class SupabaseDatabase {
     }
 
     // 2. Direct targeted query fallback if RPC didn't return matches
-    let resolvedUserIds: string[] = [];
-    let directMatchedStudentId: string | null = null;
     if (userCandidates.length === 0) {
-      try {
-        const { data: stdRecord } = await supabase
-          .from('students')
-          .select('id, user_id')
-          .or(`id.eq.${clean},id.ilike.${clean}`)
-          .maybeSingle();
-        if (stdRecord?.user_id) {
-          resolvedUserIds.push(stdRecord.user_id);
-          directMatchedStudentId = stdRecord.id;
-        }
-      } catch {
-        // ignore
-      }
-
       const filterConditions = [
-        `email.ilike.${clean}`,
-        `phone.eq.${phoneDigits || clean}`,
-        `id.eq.${clean}`
+        `email.ilike.${clean}`
       ];
-      if (resolvedUserIds.length > 0) {
-        filterConditions.push(`id.in.(${resolvedUserIds.join(',')})`);
+      // Retain phone lookup for planned future phone authentication enhancement
+      if (phoneDigits && phoneDigits.length >= 10) {
+        filterConditions.push(`phone.eq.${phoneDigits}`);
       }
 
       const { data, error } = await supabase
@@ -544,7 +527,7 @@ export class SupabaseDatabase {
 
     return userCandidates.map((u: any) => {
       const coachInfo = coachMap.get(u.id);
-      const studentId = directMatchedStudentId || studentMap.get(u.id);
+      const studentId = studentMap.get(u.id);
       const mapped = mapUserRow(u, coachInfo?.designation || null);
       if (coachInfo) mapped.coachId = coachInfo.id;
       if (studentId) mapped.studentId = studentId;

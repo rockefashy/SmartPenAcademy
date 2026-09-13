@@ -14,11 +14,11 @@ export const authProperties = {
   },
   
   validation: {
-    identifierRequired: "Please provide your registered email, username, or phone number.",
+    identifierRequired: "Please enter your registered email address.",
     passwordRequired: "Password is required, minimum 8 characters.",
     passwordMinLength: "Password must be at least 8 characters long.",
     invalidCredentials: "Invalid credentials or password. Please verify and try again.",
-    accountNotFound: "No account found matching this identifier.",
+    accountNotFound: "No account found matching this email address.",
     roleRequired: "Please select a valid portal role.",
     studentRequired: "Please select a student profile.",
     coachNameRequired: "Coach full name is required.",

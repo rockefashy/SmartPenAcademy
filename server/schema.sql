@@ -370,9 +370,6 @@ BEGIN
     AND (
       LOWER(u.email) = LOWER(trim(p_identifier))
       OR u.phone = trim(p_identifier)
-      OR u.id IN (
-        SELECT s.user_id FROM public.students s WHERE LOWER(s.id) = LOWER(trim(p_identifier)) AND s.user_id IS NOT NULL
-      )
     );
 END;
 $$;

@@ -584,7 +584,7 @@ app.post('/api/auth/login', authRateLimiter, asyncHandler(async (req: Request, r
       arguments: { identifier: loginIdentifier },
       status: 'failed'
     });
-    throw new ValidationError('Identifier (Email, Username, or Phone) and password are required.');
+    throw new ValidationError('Registered email address and password are required.');
   }
 
   // Look up candidate users matching email, username, or phone
@@ -1414,7 +1414,7 @@ app.post('/api/auth/logout', asyncHandler(async (req: Request, res: Response) =>
 
 // Zod schema for forgot-password
 const forgotPasswordSchema = z.object({
-  identifier: z.string().min(1, 'Please provide username or registered email.'),
+  identifier: z.string().min(1, 'Please enter your registered email address.'),
 });
 
 app.post('/api/auth/forgot-password', authRateLimiter, asyncHandler(async (req: Request, res: Response) => {
@@ -1433,7 +1433,7 @@ app.post('/api/auth/forgot-password', authRateLimiter, asyncHandler(async (req: 
       arguments: { identifier },
       status: 'failed'
     });
-    throw new NotFoundError('No account found with this username or email.');
+    throw new NotFoundError('No account found with this email address.');
   }
 
   // Admin, coach, and student can all request password reset via email

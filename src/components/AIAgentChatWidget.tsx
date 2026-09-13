@@ -9,6 +9,7 @@ interface AIAgentChatWidgetProps {
   currentStudent?: StudentProfile | null;
   onNavigate?: (page: string, extraId?: string, defaultSection?: number) => void;
   onOpenDemoBooking?: () => void;
+  onOpenLogin?: () => void;
   messages: ChatMessage[];
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   isOpen?: boolean;
@@ -21,6 +22,7 @@ export const AIAgentChatWidget: React.FC<AIAgentChatWidgetProps> = ({
   currentStudent,
   onNavigate,
   onOpenDemoBooking,
+  onOpenLogin,
   messages,
   setMessages,
   isOpen: controlledIsOpen,
@@ -94,6 +96,7 @@ export const AIAgentChatWidget: React.FC<AIAgentChatWidgetProps> = ({
               currentStudent={currentStudent}
               onNavigate={onNavigate}
               onOpenDemoModal={onOpenDemoBooking}
+              onOpenLogin={onOpenLogin}
               messages={messages}
               setMessages={setMessages}
               isFloatingModal={true}

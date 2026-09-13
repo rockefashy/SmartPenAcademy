@@ -17,6 +17,7 @@ export interface User {
   designation?: string | null;
   authorizedStudentIds?: string[];
   siblingStudents?: { id: string; firstName?: string; displayName?: string; age?: number }[];
+  tokenVersion?: number;
 }
 
 export type CoachStatus = 'Active' | 'Inactive';

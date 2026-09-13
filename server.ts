@@ -537,7 +537,11 @@ const issueUserSession = async (user: any, res: Response, targetStudentId?: stri
     designation: user.designation,
     siblingStudents,
     // Embed the current token_version so authenticateJwt can detect post-password-change tokens
-    tokenVersion: typeof user.tokenVersion === 'number' ? user.tokenVersion : (typeof user.token_version === 'number' ? user.token_version : 0)
+    tokenVersion: typeof user.tokenVersion === 'number'
+      ? user.tokenVersion
+      : (typeof user.token_version === 'number'
+        ? user.token_version
+        : ((await db.findUserTokenVersion(user.id)) ?? 1))
   };
 
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });

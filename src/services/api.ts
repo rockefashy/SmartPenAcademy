@@ -180,7 +180,10 @@ export const api = {
       headers: getAuthHeaders(),
       credentials: 'include',
     });
-    if (!res.ok) throw new Error('Failed to fetch coaches');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to fetch coaches (${res.status})`);
+    }
     return res.json();
   },
 
@@ -298,8 +301,12 @@ export const api = {
   async getStudents(): Promise<StudentProfile[]> {
     const res = await fetch('/api/students', {
       headers: getAuthHeaders(),
+      credentials: 'include',
     });
-    if (!res.ok) throw new Error('Failed to fetch students');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to fetch students (${res.status})`);
+    }
     return res.json();
   },
 
@@ -666,8 +673,12 @@ export const api = {
   async getDemoBookings(): Promise<DemoBooking[]> {
     const res = await fetch('/api/demo-bookings', {
       headers: getAuthHeaders(),
+      credentials: 'include',
     });
-    if (!res.ok) throw new Error('Failed to fetch demo bookings');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to fetch demo bookings (${res.status})`);
+    }
     return res.json();
   },
 
@@ -719,8 +730,12 @@ export const api = {
   async getAlerts(): Promise<AdminAlert[]> {
     const res = await fetch('/api/alerts', {
       headers: getAuthHeaders(),
+      credentials: 'include',
     });
-    if (!res.ok) throw new Error('Failed to fetch alerts');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to fetch alerts (${res.status})`);
+    }
     return res.json();
   },
 

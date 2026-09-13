@@ -29,6 +29,7 @@ export interface StoredUser extends User {
   resetPasswordToken?: string;
   resetPasswordExpiry?: number;
   createdAt?: string;
+  tokenVersion?: number;
 }
 
 function getSupabase() {
@@ -69,7 +70,8 @@ function mapUserRow(row: any, coachDesignation?: string | null): StoredUser {
     passwordHash: row.password_hash || undefined,
     resetPasswordToken: row.reset_password_token || undefined,
     resetPasswordExpiry: row.reset_password_expiry ? Number(row.reset_password_expiry) : undefined,
-    createdAt: row.created_at || undefined
+    createdAt: row.created_at || undefined,
+    tokenVersion: typeof row.token_version === 'number' ? row.token_version : 1
   };
 }
 

@@ -126,11 +126,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             {/* Main Headline */}
             <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 leading-tight tracking-tight">
-              {landingProperties.hero.titlePrefix}{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0E3589] via-[#0084F4] to-[#F46E20]">
                 {landingProperties.hero.titleHighlight}
-              </span>{' '}
-              {landingProperties.hero.titleSuffix}
+              </span>
             </h1>
 
             {/* Description */}

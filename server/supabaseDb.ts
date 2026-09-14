@@ -1411,9 +1411,6 @@ export class SupabaseDatabase {
     const updateData: any = {
       updated_at: new Date().toISOString()
     };
-
-    if (updates.firstName !== undefined) updateData.first_name = updates.firstName.trim();
-    if (updates.lastName !== undefined) updateData.last_name = updates.lastName.trim();
     if (updates.age !== undefined) updateData.age = Number(updates.age);
     if (updates.gradeClass !== undefined) updateData.grade = updates.gradeClass;
     if (updates.schoolName !== undefined) updateData.school_name = updates.schoolName;
@@ -1484,24 +1481,43 @@ export class SupabaseDatabase {
     }
     updatedStudent = data;
 
+    let firstName = updates.firstName?.trim();
+    let lastName = updates.lastName?.trim();
+
     // Also update public.users if contact info, name, or password is updated
-    if (updates.email !== undefined || updates.whatsappMobile !== undefined || updates.firstName !== undefined || updates.lastName !== undefined || (updates.password && updates.password.trim().length >= 8)) {
+    if (updates.email !== undefined || updates.whatsappMobile !== undefined || firstName !== undefined || lastName !== undefined || (updates.password && updates.password.trim().length >= 8)) {
       const userUpdates: any = {
         updated_at: new Date().toISOString()
       };
       if (updates.email !== undefined) userUpdates.email = updates.email.toLowerCase().trim();
       if (updates.whatsappMobile !== undefined) userUpdates.phone = updates.whatsappMobile.trim();
-      if (updates.firstName !== undefined) userUpdates.first_name = updates.firstName.trim();
-      if (updates.lastName !== undefined) userUpdates.last_name = updates.lastName.trim();
+      if (firstName !== undefined) userUpdates.first_name = firstName;
+      if (lastName !== undefined) userUpdates.last_name = lastName;
       if (updates.password && updates.password.trim().length >= 8) {
         userUpdates.password_hash = bcrypt.hashSync(updates.password.trim(), 10);
       }
 
-      if (updatedStudent?.user_id) {
+      let targetUserId = updatedStudent?.user_id;
+      if (!targetUserId) {
+        const { data: directUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', id)
+          .maybeSingle();
+        if (directUser?.id) {
+          targetUserId = directUser.id;
+          await supabase
+            .from('students')
+            .update({ user_id: targetUserId })
+            .eq('id', id);
+        }
+      }
+
+      if (targetUserId) {
         await supabase
           .from('users')
           .update(userUpdates)
-          .eq('id', updatedStudent.user_id);
+          .eq('id', targetUserId);
       }
     }
 
@@ -1870,11 +1886,6 @@ export class SupabaseDatabase {
     const patch: any = {
       updated_at: new Date().toISOString()
     };
-
-    if (firstName !== undefined) patch.first_name = firstName;
-    if (lastName !== undefined) patch.last_name = lastName;
-    if (updates.email !== undefined) patch.email = updates.email.toLowerCase().trim();
-    if (updates.phoneNumber !== undefined) patch.phone = updates.phoneNumber.trim();
     if (updates.address !== undefined) patch.address = updates.address.trim() || null;
     if (updates.dateOfJoining !== undefined) patch.date_of_joining = updates.dateOfJoining?.trim() || null;
     if (updates.status !== undefined) patch.status = updates.status;

@@ -145,6 +145,22 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <span>for neat handwriting &amp; joyful learning</span>
           </div>
         </div>
+
+        {/* Technology Partner Credit */}
+        <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center justify-center text-[11px] text-slate-500">
+          <p className="flex items-center gap-1.5 flex-wrap justify-center">
+            <span>{landingProperties.footer.poweredByPrefix}</span>
+            <a
+              href={landingProperties.footer.partnerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-400 hover:text-amber-400 transition-colors font-medium inline-flex items-center gap-1"
+            >
+              <span className="font-semibold text-slate-300 hover:text-amber-300">{landingProperties.footer.partnerName}</span>
+              <span className="text-slate-500 hover:text-amber-400/80 font-normal">({landingProperties.footer.partnerDisplayUrl})</span>
+            </a>
+          </p>
+        </div>
       </div>
     </footer>
   );

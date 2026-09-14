@@ -49,7 +49,7 @@ export const commonProperties = {
     present: "Present",
     absent: "Absent",
     ages: "Ages 4 - 18",
-    certified: "ISO Verified Pedagogy",
+    certified: "Certified Coach",
     freeDemo: "Free Demo Class (4 - 7 PM)",
   },
 

@@ -1,9 +1,7 @@
 export const landingProperties = {
   hero: {
     badge: "✨ Book for a Free Demo Class • All Days (4 - 7 PM)",
-    titlePrefix: "Empower Your Child with",
-    titleHighlight: "Beautiful, Confident Handwriting",
-    titleSuffix: "& Exam Excellence",
+    titleHighlight: "Empower Your Child with Better Handwriting & Greater Confidence",
     description: "Founded by Mrs. Deepthy Rock, SmartPen Academy transforms messy scribbles and hand fatigue into neat, swift, and high-scoring handwriting for students aged 4 to 18 through structured, step-by-step coaching.",
     ctaPrimary: "Enroll Student Now",
     ctaSecondary: "Book for a Free Demo Class",
@@ -243,10 +241,14 @@ export const landingProperties = {
   },
 
   footer: {
-    brandDescription: "SmartPen Academy is an ISO-certified handwriting coaching institution dedicated to helping students ages 4 to 18 build legible, swift, and confident handwriting for life.",
+    brandDescription: "SmartPen Academy is a handwriting coaching institution dedicated to helping students ages 4 to 18 build legible, swift, and confident handwriting for life.",
     quickLinks: "Quick Links",
     programs: "Programs",
     legal: "© 2026 SmartPen Academy. All Rights Reserved. Founded by Mrs. Deepthy Rock.",
-    disclaimer: "All student progress reports, writing samples, and certificates are tracked securely via SmartPen Academic Systems."
+    disclaimer: "All student progress reports, writing samples, and certificates are tracked securely via SmartPen Academic Systems.",
+    poweredByPrefix: "Empowered by",
+    partnerName: "RockeLogic Technology Partners",
+    partnerDisplayUrl: "www.rockelogic.com",
+    partnerUrl: "https://www.rockelogic.com"
   }
 };

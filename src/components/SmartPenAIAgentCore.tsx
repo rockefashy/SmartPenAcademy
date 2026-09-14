@@ -171,7 +171,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
 
           <div>
             <div className="flex items-center gap-1.5">
-              <h3 className="font-black text-sm tracking-tight text-white">SmartPen AI Agent</h3>
+              <h3 className="font-black text-sm tracking-tight text-white">SmartPen Assistant</h3>
             </div>
           </div>
         </div>

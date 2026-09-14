@@ -4,7 +4,7 @@ import { landingProperties } from '../../src/properties/landing.properties.ts';
 
 export const getAboutUsDeclaration: FunctionDeclaration = {
   name: 'getAboutUs',
-  description: 'Get details about SmartPen Academy, its founder Mrs. Deepthy Rock, coaching methodology, ISO certification, location, online classes, and direct contact coordinates (8861751000).',
+  description: 'Get details about SmartPen Academy, its founder Mrs. Deepthy Rock, coaching methodology, certification, location, online classes, and direct contact coordinates (8861751000).',
   parameters: {
     type: Type.OBJECT,
     properties: {}

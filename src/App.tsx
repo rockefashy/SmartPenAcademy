@@ -21,7 +21,7 @@ import { AIAgentChatWidget } from './components/AIAgentChatWidget';
 import { ChatMessage } from './components/SmartPenAIAgentCore';
 import { Lock, Loader2 } from 'lucide-react';
 
-function MainApp() {
+function MainApp({ initialView }: { initialView?: string } = {}) {
   const { 
     isLoginModalOpen, 
     closeLoginModal, 
@@ -66,7 +66,18 @@ function MainApp() {
 
   // Navigation State
   const getInitialView = () => {
+    if (initialView) {
+      if (['about', 'enroll'].includes(initialView)) return initialView;
+      return 'landing';
+    }
     if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname.replace(/^\/|\/$/g, '');
+      if (['about', 'enroll'].includes(pathname)) {
+        return pathname;
+      }
+      if (['syllabus', 'workshops', 'testimonials', 'free-demo'].includes(pathname)) {
+        return 'landing';
+      }
       const params = new URLSearchParams(window.location.search);
       const qToken = params.get('token');
       if (qToken) {
@@ -97,7 +108,7 @@ function MainApp() {
     }
     return 'landing';
   };
-  const [currentView, setCurrentView] = useState<string>(getInitialView);
+    const [currentView, setCurrentView] = useState<string>(getInitialView);
 
   React.useEffect(() => {
     const handleHashChange = () => {
@@ -136,7 +147,31 @@ function MainApp() {
   const [parentPortalInitialTab, setParentPortalInitialTab] = useState<'overview' | 'progress' | 'works' | 'attendance' | 'fees' | 'testimony'>('overview');
   
   // Free Demo Class Booking Modal State
-  const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(false);
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(() => {
+    if (initialView === 'free-demo') return true;
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname.replace(/^\/|\/$/g, '');
+      return pathname === 'free-demo' || window.location.hash === '#free-demo';
+    }
+    return false;
+  });
+
+  // Smooth scroll to public section on direct landing (e.g. /syllabus, /workshops, /testimonials)
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.replace(/^\/|\/$/g, '');
+      const timer = setTimeout(() => {
+        if (path === 'syllabus' || window.location.hash === '#syllabus-section') {
+          document.getElementById('syllabus-section')?.scrollIntoView({ behavior: 'smooth' });
+        } else if (path === 'workshops' || window.location.hash === '#workshops-section') {
+          document.getElementById('workshops-section')?.scrollIntoView({ behavior: 'smooth' });
+        } else if (path === 'testimonials' || window.location.hash === '#testimonials-section') {
+          document.getElementById('testimonials-section')?.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // Shared Persistent Chat History across Home and Popup Assistant
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -190,8 +225,8 @@ function MainApp() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Render Loading Spinner while validating stored JWT session on first load
-  if (isLoading) {
+  // Render Loading Spinner while validating stored JWT session on first load for protected routes
+  if (isLoading && ['admin', 'studentDetail', 'parentPortal'].includes(currentView)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-3">
@@ -506,10 +541,10 @@ function MainApp() {
   );
 }
 
-export default function App() {
+export default function App({ initialView }: { initialView?: string } = {}) {
   return (
     <AuthProvider>
-      <MainApp />
+      <MainApp initialView={initialView} />
     </AuthProvider>
   );
 }

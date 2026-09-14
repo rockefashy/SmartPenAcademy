@@ -3298,6 +3298,20 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
+
+    // Explicit zero-redirect static route handlers for public pre-rendered pages
+    const publicStaticRoutes = ['/about', '/syllabus', '/workshops', '/testimonials', '/free-demo'];
+    publicStaticRoutes.forEach((route) => {
+      const filePath = path.join(distPath, route.slice(1), 'index.html');
+      app.get([route, `${route}/`], (req, res) => {
+        if (fs.existsSync(filePath)) {
+          res.sendFile(filePath);
+        } else {
+          res.sendFile(path.join(distPath, 'index.html'));
+        }
+      });
+    });
+
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });

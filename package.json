@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "monitor:render": "tsx scripts/monitor-render-logs.ts"
+    "monitor:render": "tsx scripts/monitor-render-logs.ts",
+    "db:cleanup": "tsx scripts/db-cleanup.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

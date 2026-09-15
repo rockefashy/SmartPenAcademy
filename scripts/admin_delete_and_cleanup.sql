@@ -314,31 +314,207 @@ $$;
 
 
 -- ----------------------------------------------------------------------------
--- 4. USAGE EXAMPLES (Run these directly in Supabase SQL Editor as needed)
+-- 4. FUNCTION: delete_demo_booking
+-- Deletes a specific demo booking and any associated alert notifications.
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.delete_demo_booking(
+  p_booking_id TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+  v_deleted_count INT := 0;
+  v_deleted_alerts INT := 0;
+BEGIN
+  -- 1. Delete matching demo booking
+  WITH deleted AS (
+    DELETE FROM public.demo_bookings
+    WHERE id = p_booking_id
+    RETURNING student_name
+  )
+  SELECT COUNT(*) INTO v_deleted_count FROM deleted;
+
+  IF v_deleted_count = 0 THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'message', format('Demo booking %s not found', p_booking_id)
+    );
+  END IF;
+
+  -- 2. Delete any alert notifications referencing this demo booking
+  WITH deleted_a AS (
+    DELETE FROM public.alerts
+    WHERE message ILIKE format('%%%s%%', p_booking_id)
+    RETURNING 1
+  )
+  SELECT COUNT(*) INTO v_deleted_alerts FROM deleted_a;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'deleted_booking_id', p_booking_id,
+    'deleted_alerts', v_deleted_alerts
+  );
+END;
+$$;
+
+
+-- ----------------------------------------------------------------------------
+-- 5. FUNCTION: delete_demo_bookings
+-- Deletes demo bookings, optionally filtered by status ('New', 'Cancelled', 'ALL').
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.delete_demo_bookings(
+  p_status TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+  v_deleted_count INT := 0;
+BEGIN
+  IF p_status IS NULL OR UPPER(p_status) = 'ALL' THEN
+    WITH deleted AS (
+      DELETE FROM public.demo_bookings
+      RETURNING 1
+    )
+    SELECT COUNT(*) INTO v_deleted_count FROM deleted;
+  ELSE
+    WITH deleted AS (
+      DELETE FROM public.demo_bookings
+      WHERE LOWER(status) = LOWER(p_status)
+      RETURNING 1
+    )
+    SELECT COUNT(*) INTO v_deleted_count FROM deleted;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'deleted_demo_bookings', v_deleted_count,
+    'filter_status', COALESCE(p_status, 'ALL')
+  );
+END;
+$$;
+
+
+-- ----------------------------------------------------------------------------
+-- 6. FUNCTION: delete_test_and_demo_records
+-- One-click cleanup for live prod testing. Detects and deletes all demo bookings,
+-- students, coaches, and user logins matching test/demo patterns.
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.delete_test_and_demo_records(
+  p_dry_run BOOLEAN DEFAULT FALSE
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+  r RECORD;
+  v_deleted_students INT := 0;
+  v_deleted_coaches INT := 0;
+  v_deleted_demo_bookings INT := 0;
+  v_deleted_orphan_users INT := 0;
+  v_target_students TEXT[];
+  v_target_coaches TEXT[];
+BEGIN
+  -- 1. Identify test students (names like Test%, Demo%, or test phones)
+  SELECT ARRAY_AGG(id) INTO v_target_students
+  FROM public.students
+  WHERE first_name ILIKE '%test%'
+     OR last_name ILIKE '%test%'
+     OR first_name ILIKE '%demo%'
+     OR last_name ILIKE '%demo%'
+     OR emergency_contact_phone IN ('9999999999', '0000000000', '1234567890');
+
+  -- 2. Identify test coaches
+  SELECT ARRAY_AGG(id) INTO v_target_coaches
+  FROM public.coaches
+  WHERE first_name ILIKE '%test%'
+     OR last_name ILIKE '%test%'
+     OR first_name ILIKE '%demo%'
+     OR last_name ILIKE '%demo%';
+
+  IF NOT p_dry_run THEN
+    -- Delete identified test students using cascade
+    IF v_target_students IS NOT NULL THEN
+      FOREACH r.id IN ARRAY v_target_students LOOP
+        PERFORM public.delete_student_cascade(r.id, TRUE);
+        v_deleted_students := v_deleted_students + 1;
+      END LOOP;
+    END IF;
+
+    -- Delete identified test coaches using cascade
+    IF v_target_coaches IS NOT NULL THEN
+      FOREACH r.id IN ARRAY v_target_coaches LOOP
+        PERFORM public.delete_coach_cascade(r.id, TRUE);
+        v_deleted_coaches := v_deleted_coaches + 1;
+      END LOOP;
+    END IF;
+
+    -- Delete demo bookings created during testing
+    WITH deleted_demos AS (
+      DELETE FROM public.demo_bookings
+      WHERE student_name ILIKE '%test%'
+         OR student_name ILIKE '%demo%'
+         OR parent_phone IN ('9999999999', '0000000000', '1234567890')
+      RETURNING 1
+    )
+    SELECT COUNT(*) INTO v_deleted_demo_bookings FROM deleted_demos;
+
+    -- Delete orphan test users
+    WITH deleted_u AS (
+      DELETE FROM public.users
+      WHERE (email ILIKE '%test%' OR email ILIKE '%demo%' OR email ILIKE '%@example.com%')
+        AND id NOT IN (SELECT user_id FROM public.students WHERE user_id IS NOT NULL)
+        AND id NOT IN (SELECT user_id FROM public.coaches WHERE user_id IS NOT NULL)
+      RETURNING 1
+    )
+    SELECT COUNT(*) INTO v_deleted_orphan_users FROM deleted_u;
+  ELSE
+    v_deleted_students := COALESCE(ARRAY_LENGTH(v_target_students, 1), 0);
+    v_deleted_coaches := COALESCE(ARRAY_LENGTH(v_target_coaches, 1), 0);
+    SELECT COUNT(*) INTO v_deleted_demo_bookings FROM public.demo_bookings
+    WHERE student_name ILIKE '%test%' OR student_name ILIKE '%demo%' OR parent_phone IN ('9999999999', '0000000000', '1234567890');
+    SELECT COUNT(*) INTO v_deleted_orphan_users FROM public.users
+    WHERE email ILIKE '%test%' OR email ILIKE '%demo%' OR email ILIKE '%@example.com%';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'dry_run', p_dry_run,
+    'test_students_deleted', v_deleted_students,
+    'test_coaches_deleted', v_deleted_coaches,
+    'test_demo_bookings_deleted', v_deleted_demo_bookings,
+    'test_users_deleted', v_deleted_orphan_users
+  );
+END;
+$$;
+
+
+-- ----------------------------------------------------------------------------
+-- 7. USAGE EXAMPLES (Run these directly in Supabase SQL Editor)
 -- ----------------------------------------------------------------------------
 
 -- Example A: Clean up all orphan records
 -- SELECT public.cleanup_orphan_records();
 
--- Example B: Delete a specific student (replace 'std-xxxx' with target ID)
--- SELECT public.delete_student_cascade('std-xxxx', TRUE);
+-- Example B: Delete a specific student (replace with target ID)
+-- SELECT public.delete_student_cascade('std-xxxx');
 
--- Example C: Delete a specific coach (replace 'cch-xxxx' with target ID)
--- SELECT public.delete_coach_cascade('cch-xxxx', TRUE);
+-- Example C: Delete a specific coach (replace with target ID)
+-- SELECT public.delete_coach_cascade('cch-xxxx');
 
--- Example D: Inspect potential orphans BEFORE deleting (Dry-Run Query):
-/*
-SELECT 'orphan_attendance' AS type, COUNT(*) FROM public.attendance WHERE student_id NOT IN (SELECT id FROM public.students)
-UNION ALL
-SELECT 'orphan_fees', COUNT(*) FROM public.fees WHERE student_id NOT IN (SELECT id FROM public.students)
-UNION ALL
-SELECT 'orphan_progress', COUNT(*) FROM public.progress_trackers WHERE student_id NOT IN (SELECT id FROM public.students)
-UNION ALL
-SELECT 'orphan_works', COUNT(*) FROM public.student_works WHERE student_id NOT IN (SELECT id FROM public.students)
-UNION ALL
-SELECT 'orphan_reminders', COUNT(*) FROM public.fee_reminders WHERE student_id NOT IN (SELECT id FROM public.students)
-UNION ALL
-SELECT 'orphan_student_users', COUNT(*) FROM public.users WHERE role = 'student' AND id NOT IN (SELECT user_id FROM public.students WHERE user_id IS NOT NULL)
-UNION ALL
-SELECT 'orphan_coach_users', COUNT(*) FROM public.users WHERE role = 'coach' AND id NOT IN (SELECT user_id FROM public.coaches WHERE user_id IS NOT NULL);
-*/
+-- Example D: Delete a specific demo booking
+-- SELECT public.delete_demo_booking('demo-xxxx');
+
+-- Example E: Delete all demo bookings
+-- SELECT public.delete_demo_bookings('ALL');
+
+-- Example F: Delete all test/demo testing records created during live prod tests (DRY-RUN preview first):
+-- SELECT public.delete_test_and_demo_records(TRUE);   -- Dry run preview
+-- SELECT public.delete_test_and_demo_records(FALSE);  -- Actual execution
+

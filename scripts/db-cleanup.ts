@@ -44,8 +44,9 @@ Run the SQL script directly in the Supabase Dashboard SQL Editor without needing
 }
 
 interface CliOptions {
-  action: 'list-orphans' | 'cleanup-orphans' | 'delete-student' | 'delete-coach' | 'help';
+  action: 'list-orphans' | 'cleanup-orphans' | 'delete-student' | 'delete-coach' | 'delete-demo' | 'delete-all-demos' | 'purge-test-data' | 'help';
   targetId?: string;
+  statusFilter?: string;
   dryRun: boolean;
   keepUser: boolean;
 }
@@ -69,11 +70,20 @@ function parseCliArgs(args: string[]): CliOptions {
       options.action = 'list-orphans';
     } else if (arg === '--cleanup-orphans') {
       options.action = 'cleanup-orphans';
+    } else if (arg === '--purge-test-data') {
+      options.action = 'purge-test-data';
+    } else if (arg === '--delete-all-demos') {
+      options.action = 'delete-all-demos';
+    } else if (arg === '--status' && args[i + 1]) {
+      options.statusFilter = args[++i];
     } else if (arg === '--delete-student' && args[i + 1]) {
       options.action = 'delete-student';
       options.targetId = args[++i];
     } else if (arg === '--delete-coach' && args[i + 1]) {
       options.action = 'delete-coach';
+      options.targetId = args[++i];
+    } else if (arg === '--delete-demo' && args[i + 1]) {
+      options.action = 'delete-demo';
       options.targetId = args[++i];
     }
   }
@@ -93,6 +103,9 @@ Commands:
   --cleanup-orphans [--dry-run]          Delete/fix all orphaned records across all tables
   --delete-student <id> [--dry-run]      Hard delete student, cascading child records & user
   --delete-coach <id> [--dry-run]        Hard delete coach, unassign students & delete user
+  --delete-demo <id> [--dry-run]         Delete a specific demo booking & its alerts
+  --delete-all-demos [--status <status>] Delete all demo bookings (e.g. --status New or Cancelled)
+  --purge-test-data [--dry-run]          Purge all test/demo students, coaches & bookings from prod testing
   --keep-user                            (Optional) Preserve the linked users auth record
   --help, -h                             Show this help message
 `);
@@ -323,6 +336,109 @@ async function auditAndCleanOrphans(purge: boolean): Promise<void> {
 }
 
 // -----------------------------------------------------------------------------
+// 4. DELETE DEMO BOOKINGS
+// -----------------------------------------------------------------------------
+async function deleteDemoBooking(bookingId: string, dryRun: boolean): Promise<void> {
+  console.log(`\n=== DELETING DEMO BOOKING: ${bookingId} ${dryRun ? '(DRY RUN)' : ''} ===`);
+  const supabase = getSupabaseClient();
+
+  const { data: booking, error: fetchErr } = await supabase
+    .from('demo_bookings')
+    .select('id, student_name, parent_phone, status')
+    .eq('id', bookingId)
+    .single();
+
+  if (fetchErr || !booking) {
+    console.error(`[db-cleanup] Demo booking not found: ${bookingId}`);
+    return;
+  }
+
+  console.log(`Found Booking: ${booking.student_name} (${booking.parent_phone}) | Status: ${booking.status}`);
+
+  if (!dryRun) {
+    const { error: delErr } = await supabase.from('demo_bookings').delete().eq('id', bookingId);
+    if (delErr) console.error(`Error deleting demo booking:`, delErr.message);
+
+    // Also clean any alert referencing this booking
+    await supabase.from('alerts').delete().ilike('message', `%${bookingId}%`);
+  }
+
+  console.log(`\nDone! Demo booking ${bookingId} ${dryRun ? 'would be' : 'successfully'} deleted.\n`);
+}
+
+async function deleteAllDemoBookings(statusFilter: string | undefined, dryRun: boolean): Promise<void> {
+  const filterLabel = statusFilter || 'ALL';
+  console.log(`\n=== DELETING DEMO BOOKINGS (${filterLabel}) ${dryRun ? '(DRY RUN)' : ''} ===`);
+  const supabase = getSupabaseClient();
+
+  let query = supabase.from('demo_bookings').select('id, student_name, parent_phone, status');
+  if (statusFilter && statusFilter.toUpperCase() !== 'ALL') {
+    query = query.ilike('status', statusFilter);
+  }
+
+  const { data: bookings } = await query;
+  console.log(`Found ${bookings?.length || 0} matching demo bookings.`);
+
+  if (!dryRun && bookings && bookings.length > 0) {
+    const ids = bookings.map(b => b.id);
+    for (let i = 0; i < ids.length; i += 100) {
+      await supabase.from('demo_bookings').delete().in('id', ids.slice(i, i + 100));
+    }
+    console.log(`Successfully deleted ${bookings.length} demo booking(s).\n`);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 5. PURGE TEST & DEMO DATA CREATED DURING PROD TESTING
+// -----------------------------------------------------------------------------
+async function purgeTestData(dryRun: boolean): Promise<void> {
+  console.log(`\n=== PURGING TEST & DEMO DATA ${dryRun ? '(DRY RUN)' : ''} ===\n`);
+  const supabase = getSupabaseClient();
+
+  // 1. Test students
+  const { data: allStudents } = await supabase.from('students').select('id, first_name, last_name, emergency_contact_phone, user_id');
+  const testStudents = (allStudents || []).filter(s => {
+    const name = `${s.first_name} ${s.last_name}`.toLowerCase();
+    const phone = s.emergency_contact_phone || '';
+    return name.includes('test') || name.includes('demo') || ['9999999999', '0000000000', '1234567890'].includes(phone);
+  });
+  console.log(`Found ${testStudents.length} test/demo students:`, testStudents.map(s => `${s.first_name} ${s.last_name} (${s.id})`).join(', '));
+
+  // 2. Test coaches
+  const { data: allCoaches } = await supabase.from('coaches').select('id, first_name, last_name, user_id');
+  const testCoaches = (allCoaches || []).filter(c => {
+    const name = `${c.first_name} ${c.last_name}`.toLowerCase();
+    return name.includes('test') || name.includes('demo');
+  });
+  console.log(`Found ${testCoaches.length} test/demo coaches:`, testCoaches.map(c => `${c.first_name} ${c.last_name} (${c.id})`).join(', '));
+
+  // 3. Test demo bookings
+  const { data: allDemos } = await supabase.from('demo_bookings').select('id, student_name, parent_phone');
+  const testDemos = (allDemos || []).filter(d => {
+    const name = (d.student_name || '').toLowerCase();
+    const phone = d.parent_phone || '';
+    return name.includes('test') || name.includes('demo') || ['9999999999', '0000000000', '1234567890'].includes(phone);
+  });
+  console.log(`Found ${testDemos.length} test demo bookings.`);
+
+  if (!dryRun) {
+    for (const s of testStudents) {
+      await deleteStudentCascade(s.id, false, false);
+    }
+    for (const c of testCoaches) {
+      await deleteCoachCascade(c.id, false, false);
+    }
+    if (testDemos.length > 0) {
+      const demoIds = testDemos.map(d => d.id);
+      await supabase.from('demo_bookings').delete().in('id', demoIds);
+      console.log(`Deleted ${testDemos.length} test demo booking(s).`);
+    }
+  }
+
+  console.log(`\nTest and Demo Data Purge Complete!\n`);
+}
+
+// -----------------------------------------------------------------------------
 // MAIN ENTRYPOINT
 // -----------------------------------------------------------------------------
 async function main(): Promise<void> {
@@ -334,6 +450,19 @@ async function main(): Promise<void> {
       break;
     case 'cleanup-orphans':
       await auditAndCleanOrphans(!options.dryRun);
+      break;
+    case 'purge-test-data':
+      await purgeTestData(options.dryRun);
+      break;
+    case 'delete-all-demos':
+      await deleteAllDemoBookings(options.statusFilter, options.dryRun);
+      break;
+    case 'delete-demo':
+      if (!options.targetId) {
+        console.error('Please specify a demo booking ID, e.g. --delete-demo demo-1234');
+        process.exit(1);
+      }
+      await deleteDemoBooking(options.targetId, options.dryRun);
       break;
     case 'delete-student':
       if (!options.targetId) {

@@ -28,8 +28,6 @@ SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_user_id TEXT;
-  v_student_exists BOOLEAN;
-  v_shared_user_count INT := 0;
   v_deleted_attendance INT := 0;
   v_deleted_fees INT := 0;
   v_deleted_progress INT := 0;
@@ -38,7 +36,7 @@ DECLARE
   v_deleted_alerts INT := 0;
   v_user_deleted BOOLEAN := FALSE;
 BEGIN
-  -- 1. Verify student exists
+  -- 1. Verify student exists and retrieve linked user_id
   SELECT user_id INTO v_user_id
   FROM public.students
   WHERE id = p_student_id;
@@ -50,14 +48,7 @@ BEGIN
     );
   END IF;
 
-  -- 2. Check if user_id is shared by siblings/other students
-  IF v_user_id IS NOT NULL THEN
-    SELECT COUNT(*) INTO v_shared_user_count
-    FROM public.students
-    WHERE user_id = v_user_id AND id <> p_student_id;
-  END IF;
-
-  -- 3. Delete cascading child records
+  -- 2. Delete cascading child records
   WITH deleted AS (DELETE FROM public.attendance WHERE student_id = p_student_id RETURNING 1)
   SELECT COUNT(*) INTO v_deleted_attendance FROM deleted;
 
@@ -76,14 +67,14 @@ BEGIN
   WITH deleted AS (DELETE FROM public.alerts WHERE student_id = p_student_id RETURNING 1)
   SELECT COUNT(*) INTO v_deleted_alerts FROM deleted;
 
-  -- Testimonials: unlink student_id (preserve review text)
+  -- Testimonials: unlink student_id (preserve review content)
   UPDATE public.testimonials SET student_id = NULL WHERE student_id = p_student_id;
 
-  -- 4. Delete the student record itself
+  -- 3. Delete the student record itself
   DELETE FROM public.students WHERE id = p_student_id;
 
-  -- 5. Delete associated user if requested and not shared by siblings
-  IF p_delete_user AND v_user_id IS NOT NULL AND v_shared_user_count = 0 THEN
+  -- 4. Delete the student's user account directly
+  IF p_delete_user AND v_user_id IS NOT NULL THEN
     DELETE FROM public.users WHERE id = v_user_id;
     v_user_deleted := TRUE;
   END IF;
@@ -97,8 +88,7 @@ BEGIN
     'deleted_student_works', v_deleted_works,
     'deleted_fee_reminders', v_deleted_reminders,
     'deleted_alerts', v_deleted_alerts,
-    'associated_user_deleted', v_user_deleted,
-    'user_shared_by_siblings', (v_shared_user_count > 0)
+    'associated_user_deleted', v_user_deleted
   );
 END;
 $$;

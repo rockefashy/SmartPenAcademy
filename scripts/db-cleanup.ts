@@ -118,22 +118,6 @@ async function deleteStudentCascade(studentId: string, dryRun: boolean, keepUser
 
   console.log(`Found Student: ${student.first_name} ${student.last_name} (User ID: ${student.user_id || 'none'})`);
 
-  // 2. Check if user_id is shared by siblings
-  let isSharedUser = false;
-  if (student.user_id) {
-    const { data: siblings } = await supabase
-      .from('students')
-      .select('id, first_name, last_name')
-      .eq('user_id', student.user_id)
-      .neq('id', studentId);
-
-    if (siblings && siblings.length > 0) {
-      isSharedUser = true;
-      console.log(`Note: User ID ${student.user_id} is shared with ${siblings.length} sibling(s):`, siblings.map(s => `${s.first_name} (${s.id})`).join(', '));
-      console.log(`User account will be PRESERVED for the sibling(s).`);
-    }
-  }
-
   // Count child records
   const tables = [
     { name: 'attendance', col: 'student_id' },
@@ -171,7 +155,7 @@ async function deleteStudentCascade(studentId: string, dryRun: boolean, keepUser
   }
 
   // Delete linked user row
-  if (student.user_id && !isSharedUser && !keepUser) {
+  if (student.user_id && !keepUser) {
     console.log(`  -> users: deleting login user ${student.user_id}`);
     if (!dryRun) {
       const { error } = await supabase.from('users').delete().eq('id', student.user_id);

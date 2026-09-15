@@ -1153,10 +1153,9 @@ app.post('/api/coaches', authenticateJwt, requireAdmin, asyncHandler(async (req:
 
   recordAudit({
     actorId: req.user?.id,
-    actorUsername: req.user?.username,
     actorRole: req.user?.role,
     action: 'coach_create',
-    summary: `Administrator ${req.user?.firstName || req.user?.username} onboarded new Coach: ${coach.firstName} (${coach.email})`,
+    summary: `Administrator ${`${req.user?.firstName || ''} ${req.user?.lastName || ''}`.trim()} onboarded new Coach: ${coach.firstName} (${coach.email})`,
     arguments: { firstName: coach.firstName, email: coach.email, phoneNumber: coach.phoneNumber, designation: coach.designation },
     result: { coachId: coach.id, email: coach.email }
   });
@@ -1742,7 +1741,6 @@ app.post('/api/students/enroll', authenticateJwt, requireAdmin, asyncHandler(asy
   if (isDuplicate) {
     recordAudit({
       actorId: req.user?.id,
-      actorUsername: req.user?.username,
       actorRole: req.user?.role,
       action: 'student_enroll_duplicate_blocked',
       summary: `Enrollment blocked: Student ${firstName} is already enrolled.`,
@@ -1753,7 +1751,6 @@ app.post('/api/students/enroll', authenticateJwt, requireAdmin, asyncHandler(asy
   }
 
   const newId = `std-${Date.now()}`;
-  const username = (data as any).username || data.email.toLowerCase().trim();
   const password = data.password ? data.password.trim() : undefined;
 
   const newStudent = {
@@ -1764,7 +1761,6 @@ app.post('/api/students/enroll', authenticateJwt, requireAdmin, asyncHandler(asy
     parentName: data.parentName.trim(),
     email: data.email.toLowerCase().trim(),
     id: newId,
-    username,
     password,
     passwordHash: inheritedPasswordHash,
     isSiblingEnrollment: Boolean(isSiblingEnrollment || inheritedPasswordHash),
@@ -1781,7 +1777,6 @@ app.post('/api/students/enroll', authenticateJwt, requireAdmin, asyncHandler(asy
 
   await recordAudit({
     actorId: req.user?.id,
-    actorUsername: req.user?.username,
     actorRole: req.user?.role,
     action: 'student_enroll',
     summary: `Enrolled new student: ${created.firstName} (Age: ${data.age}, Grade: ${(newStudent as any).gradeClass || 'N/A'}, Parent: ${newStudent.parentName}, Phone: ${phoneNumber})`,
@@ -1794,7 +1789,7 @@ app.post('/api/students/enroll', authenticateJwt, requireAdmin, asyncHandler(asy
       email: newStudent.email,
       whatsappMobile: phoneNumber
     },
-    result: { studentId: created.id, username }
+    result: { studentId: created.id, email: created.email }
   });
 
   sendEnrollmentEmails({
@@ -1810,7 +1805,7 @@ app.post('/api/students/enroll', authenticateJwt, requireAdmin, asyncHandler(asy
   return res.status(201).json({
     student: created,
     credentials: {
-      username,
+      email: data.email,
       parentEmail: data.email
     }
   });

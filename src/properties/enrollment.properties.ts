@@ -71,9 +71,9 @@ export const enrollmentProperties = {
 
   // Section 4: Preferred Schedule
   section4: {
-    title: "SECTION 4: PREFERRED SCHEDULE (Select 2 days & 1 time slot)",
-    preferredDays: "Preferred Days (Select any 2 days in a week)",
-    preferredDaysHint: "Choose exactly 2 days per week for batch alignment",
+    title: "SECTION 4: PREFERRED SCHEDULE (Select days & 1 time slot)",
+    preferredDays: "Preferred Days (Select any days in a week)",
+    preferredDaysHint: "Choose any days per week (1 to 7 days) for batch alignment",
     preferredDaysOptions: [
       "Monday",
       "Tuesday",
@@ -91,7 +91,9 @@ export const enrollmentProperties = {
       "5:00 - 6:00 PM",
       "5:30 - 6:30 PM",
       "6:00 - 7:00 PM"
-    ]
+    ],
+    enrollmentDate: "Enrollment Date / Start Date",
+    enrollmentDateHint: "Date when student joined or started classes"
   },
 
   // Section 5: Areas of Concern (Parent Observations)
@@ -130,7 +132,7 @@ export const enrollmentProperties = {
     emailInvalid: "Please enter a valid email address (e.g., parent@example.com).",
     passwordRequired: "Password is required, minimum 8 characters.",
     passwordMinLength: "Password must be at least 8 characters long.",
-    daysRequired: "Please select exactly 2 preferred days in a week (Section 4).",
+    daysRequired: "Please select at least 1 preferred day in a week (Section 4).",
     slotRequired: "Please select a preferred time slot in Section 4.",
     scriptRequired: "Please select at least one handwriting script in Section 3 (A).",
     moduleRequired: "Please select at least one academic module in Section 3 (B).",

@@ -89,13 +89,32 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
     };
   };
 
+  // Helper to normalize day string to standard option name
+  const normalizeDayName = (rawDay: string): string => {
+    const clean = rawDay.trim();
+    const lower = clean.toLowerCase();
+    const matched = enrollmentProperties.section4.preferredDaysOptions.find(
+      (opt) => opt.toLowerCase().startsWith(lower.slice(0, 3))
+    );
+    return matched || clean;
+  };
+
   // Helper to parse schedule days string
   const parseDays = (daysStr?: string): string[] => {
     if (!daysStr) return [];
     return daysStr
-      .split(/&|,|\band\b/i)
+      .split(/&|,|\band\b|\//i)
       .map((s) => s.trim())
-      .filter((s) => s && !['&', ',', 'and'].includes(s.toLowerCase()));
+      .filter((s) => s && !['&', ',', 'and', '/'].includes(s.toLowerCase()))
+      .map(normalizeDayName);
+  };
+
+  // Helper to sort days consistently Monday to Sunday
+  const formatDays = (days: string[]): string => {
+    const options = enrollmentProperties.section4.preferredDaysOptions;
+    return [...days]
+      .sort((a, b) => options.indexOf(a) - options.indexOf(b))
+      .join(' & ');
   };
 
   const initialValues = parsePrefillData(initialData);
@@ -122,6 +141,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
   // Status & Date of Leaving Governance (Admin Controlled)
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [dateOfLeaving, setDateOfLeaving] = useState<string>('');
+  const [enrollmentDate, setEnrollmentDate] = useState<string>('');
 
   // Section 3: Programs & Modules
   const [scriptsRequired, setScriptsRequired] = useState<string[]>([]);
@@ -179,6 +199,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
       setMediaConsent(studentToEdit.mediaConsent !== false);
       setStatus(studentToEdit.status || 'Active');
       setDateOfLeaving(studentToEdit.dateOfLeaving || '');
+      setEnrollmentDate(studentToEdit.enrollmentDate ? studentToEdit.enrollmentDate.split('T')[0] : '');
     } else if (initialData) {
       const parsed = parsePrefillData(initialData);
       setFirstName(parsed.firstName);
@@ -213,15 +234,9 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
   };
 
   const toggleDay = (day: string) => {
-    setSelectedDays((prev) => {
-      if (prev.includes(day)) {
-        return prev.filter((d) => d !== day);
-      }
-      if (prev.length >= 2) {
-        return [prev[1], day];
-      }
-      return [...prev, day];
-    });
+    setSelectedDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
   };
 
   const handleValidationError = (message: string, elementId?: string) => {
@@ -277,7 +292,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
       return;
     }
 
-    if (selectedDays.length !== 2) {
+    if (selectedDays.length < 1) {
       handleValidationError(enrollmentProperties.validation.daysRequired, "section-4-preferred-schedule");
       return;
     }
@@ -327,9 +342,10 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
           scriptsRequired,
           academicModules,
           diagnosticObservations,
-          preferredDays: selectedDays.join(' & '),
+          preferredDays: formatDays(selectedDays),
           preferredSlot,
           status,
+          enrollmentDate: enrollmentDate || undefined,
           dateOfLeaving: status === 'Inactive' ? (dateOfLeaving || new Date().toISOString().split('T')[0]) : null,
           practiceCommitment,
           feePolicyAccepted,
@@ -373,7 +389,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
           scriptsRequired,
           academicModules,
           diagnosticObservations,
-          preferredDays: selectedDays.join(' & '),
+          preferredDays: formatDays(selectedDays),
           preferredSlot,
           practiceCommitment,
           feePolicyAccepted,
@@ -957,7 +973,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                 {enrollmentProperties.section4.preferredDays} *
               </label>
               <span className="text-[11px] font-bold text-slate-500">
-                Selected: {selectedDays.length} / 2
+                Selected: {selectedDays.length} {selectedDays.length === 1 ? 'day' : 'days'}
               </span>
             </div>
             <p className="text-[11px] text-slate-500">
@@ -1016,6 +1032,25 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
               })}
             </div>
           </div>
+
+          {/* Optional Enrollment Date Edit in Edit Mode */}
+          {isEditMode && (
+            <div className="space-y-2 pt-3 border-t border-slate-100" id="input-enrollment-date-container">
+              <label className="block text-xs font-bold text-slate-700">
+                {enrollmentProperties.section4.enrollmentDate || 'Enrollment Date / Start Date'}
+              </label>
+              <p className="text-[11px] text-slate-500">
+                {enrollmentProperties.section4.enrollmentDateHint || 'Date when student joined or started classes'}
+              </p>
+              <Input
+                type="date"
+                value={enrollmentDate}
+                onChange={(e) => setEnrollmentDate(e.target.value)}
+                className="max-w-xs"
+                id="input-enrollment-date"
+              />
+            </div>
+          )}
         </div>
 
         {/* ========================================================================= */}

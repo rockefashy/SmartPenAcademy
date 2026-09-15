@@ -1407,6 +1407,7 @@ export class SupabaseDatabase {
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.coachId !== undefined) updateData.coach_id = updates.coachId || null;
     if (updates.preferredSlot !== undefined) updateData.preferred_slot = updates.preferredSlot;
+    if (updates.enrollmentDate !== undefined) updateData.enrollment_date = updates.enrollmentDate;
     if (updates.totalClasses !== undefined) updateData.total_classes = Number(updates.totalClasses);
     if (updates.attendedClasses !== undefined) updateData.attended_classes = Number(updates.attendedClasses);
 

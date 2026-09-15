@@ -1698,7 +1698,7 @@ app.get('/api/students/:id', authenticateJwt, verifyStudentAccess('id'), asyncHa
   return res.json(student);
 }));
 
-app.post('/api/students/enroll', asyncHandler(async (req: Request, res: Response) => {
+app.post('/api/students/enroll', authenticateJwt, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
   const parsed = enrollStudentSchema.safeParse(req.body);
   if (!parsed.success) {
     throw new ValidationError(parsed.error.issues[0]?.message || 'Invalid student enrollment data.');
@@ -1741,7 +1741,7 @@ app.post('/api/students/enroll', asyncHandler(async (req: Request, res: Response
   });
   if (isDuplicate) {
     recordAudit({
-      actorId: 'anonymous',
+      actorId: req.user?.id || 'admin',
       action: 'student_enroll_duplicate_blocked',
       summary: `Enrollment blocked: Student ${firstName} is already enrolled.`,
       arguments: { firstName, lastName, phoneNumber, email: data.email, age: data.age },
@@ -1778,7 +1778,7 @@ app.post('/api/students/enroll', asyncHandler(async (req: Request, res: Response
   const created = await db.createStudent(newStudent);
 
   await recordAudit({
-    actorId: 'anonymous',
+    actorId: req.user?.id || 'admin',
     action: 'student_enroll',
     summary: `Enrolled new student: ${created.firstName} (Age: ${data.age}, Grade: ${(newStudent as any).gradeClass || 'N/A'}, Parent: ${newStudent.parentName}, Phone: ${phoneNumber})`,
     arguments: {

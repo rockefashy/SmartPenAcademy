@@ -144,9 +144,17 @@ Sitemap: https://smartpenacademy.com/sitemap.xml
   console.log('[prerender] Generated dist/robots.txt');
 
   console.log('[prerender] Static pre-rendering completed successfully.');
+
+  // Clean up temporary dist-ssr directory
+  const ssrDir = path.resolve(rootDir, 'dist-ssr');
+  if (fs.existsSync(ssrDir)) {
+    fs.rmSync(ssrDir, { recursive: true, force: true });
+    console.log('[prerender] Cleaned up temporary dist-ssr directory.');
+  }
 }
 
 prerender().catch((err) => {
   console.error('[prerender] Error during pre-rendering:', err);
   process.exit(1);
 });
+

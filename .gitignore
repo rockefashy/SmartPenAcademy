@@ -4,8 +4,10 @@ dist/
 coverage/
 .DS_Store
 *.log
+!logs/render-errors.log
 .env*
 !.env.example
+.render-log-watermark.json
 
 supabase/.temp/
 .temp/

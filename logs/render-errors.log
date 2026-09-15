@@ -1,0 +1,14 @@
+# Smart Pen Academy - Render Error Log
+# Initialized: 2026-09-15T06:57:40.042Z
+# Note: Sensitive credentials and authorization tokens are automatically redacted.
+# ==============================================================================
+
+--------------------------------------------------------------------------------
+[2026-09-14T18:07:49.806577381Z] SERVICE: SmartPenAcademy (srv-da9ai49f2nfc73et0js0) | TYPE: app [resource=srv-da9ai49f2nfc73et0js0, instance=srv-da9ai49f2nfc73et0js0-l7wd5, level=error, type=app]
+{"timestamp":"2026-09-14T18:07:49.805Z","level":"ERROR","domain":"API","message":"Failed to update student std-1788715055421: Could not find the 'first_name' column of 'students' in the schema cache","meta":{"path":"/api/students/std-1788715055421","method":"PUT","statusCode":500,"errorCode":"INTERNAL_SERVER_ERROR","userId":"usr-admin-001","ip":"127.0.0.1"},"error":{"name":"Error","message":"Failed to update student std-1788715055421: Could not find the 'first_name' column of 'students' in the schema cache","stack":"Error: Failed to update student std-1788715055421: Could not find the 'first_name' column of 'students' in the schema cache\n    at SupabaseDatabase.updateStudent (/opt/render/project/src/dist/server.cjs:1181:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async /opt/render/project/src/dist/server.cjs:9712:19"}}
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+[2026-09-14T18:08:16.43881489Z] SERVICE: SmartPenAcademy (srv-da9ai49f2nfc73et0js0) | TYPE: app [resource=srv-da9ai49f2nfc73et0js0, instance=srv-da9ai49f2nfc73et0js0-l7wd5, level=error, type=app]
+{"timestamp":"2026-09-14T18:08:16.438Z","level":"ERROR","domain":"API","message":"Failed to update student std-1788715055421: Could not find the 'first_name' column of 'students' in the schema cache","meta":{"path":"/api/students/std-1788715055421","method":"PUT","statusCode":500,"errorCode":"INTERNAL_SERVER_ERROR","userId":"usr-admin-001","ip":"127.0.0.1"},"error":{"name":"Error","message":"Failed to update student std-1788715055421: Could not find the 'first_name' column of 'students' in the schema cache","stack":"Error: Failed to update student std-1788715055421: Could not find the 'first_name' column of 'students' in the schema cache\n    at SupabaseDatabase.updateStudent (/opt/render/project/src/dist/server.cjs:1181:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async /opt/render/project/src/dist/server.cjs:9712:19"}}
+--------------------------------------------------------------------------------

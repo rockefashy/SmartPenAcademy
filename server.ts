@@ -1741,7 +1741,9 @@ app.post('/api/students/enroll', authenticateJwt, requireAdmin, asyncHandler(asy
   });
   if (isDuplicate) {
     recordAudit({
-      actorId: req.user?.id || 'admin',
+      actorId: req.user?.id,
+      actorUsername: req.user?.username,
+      actorRole: req.user?.role,
       action: 'student_enroll_duplicate_blocked',
       summary: `Enrollment blocked: Student ${firstName} is already enrolled.`,
       arguments: { firstName, lastName, phoneNumber, email: data.email, age: data.age },
@@ -1778,7 +1780,9 @@ app.post('/api/students/enroll', authenticateJwt, requireAdmin, asyncHandler(asy
   const created = await db.createStudent(newStudent);
 
   await recordAudit({
-    actorId: req.user?.id || 'admin',
+    actorId: req.user?.id,
+    actorUsername: req.user?.username,
+    actorRole: req.user?.role,
     action: 'student_enroll',
     summary: `Enrolled new student: ${created.firstName} (Age: ${data.age}, Grade: ${(newStudent as any).gradeClass || 'N/A'}, Parent: ${newStudent.parentName}, Phone: ${phoneNumber})`,
     arguments: {

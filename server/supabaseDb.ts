@@ -1236,52 +1236,6 @@ export class SupabaseDatabase {
       }
     }
 
-    // 2. Check STUDENTS table:
-    // Sibling enrollment contract: Parents frequently have multiple children sharing the same emergency contact phone/email.
-    // A student record is ONLY a duplicate if the student's name ALSO matches.
-    if (cleanFirstName && cleanPhone.length >= 7) {
-      const { data: students, error: sError } = await supabase
-        .from('students')
-        .select('id, user_id, emergency_contact_phone');
-
-      if (!sError && students) {
-        const userIds = students.map(s => s.user_id).filter((id): id is string => Boolean(id));
-        let linkedUserMap = new Map<string, { first_name?: string; last_name?: string }>();
-        if (userIds.length > 0) {
-          const { data: linkedUsers } = await supabase
-            .from('users')
-            .select('id, first_name, last_name')
-            .in('id', userIds);
-          (linkedUsers || []).forEach(u => linkedUserMap.set(u.id, u));
-        }
-
-        for (const s of students) {
-          const sPhone = (s.emergency_contact_phone || '').replace(/\D/g, '');
-          const phoneMatches = Boolean(
-            sPhone.length >= 7 &&
-            (cleanPhone === sPhone || cleanPhone.endsWith(sPhone) || sPhone.endsWith(cleanPhone) || cleanPhone.includes(sPhone) || sPhone.includes(cleanPhone))
-          );
-
-          if (phoneMatches) {
-            const linkedUser = s.user_id ? linkedUserMap.get(s.user_id) : null;
-            if (linkedUser) {
-              const sFirst = (linkedUser.first_name || '').trim().toLowerCase();
-              const sLast = (linkedUser.last_name || '').trim().toLowerCase();
-
-              const nameMatches = Boolean(
-                cleanFirstName && sFirst === cleanFirstName &&
-                ((cleanLastName && sLast === cleanLastName) || (!cleanLastName && !sLast))
-              );
-
-              if (nameMatches) {
-                return true;
-              }
-            }
-          }
-        }
-      }
-    }
-
     return false;
   }
 

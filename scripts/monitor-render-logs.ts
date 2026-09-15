@@ -367,7 +367,7 @@ async function fetchLogs(
 }
 
 // -----------------------------------------------------------------------------
-// Watermark Management
+// Watermark & Start Time Management
 // -----------------------------------------------------------------------------
 function readWatermark(filepath: string, serviceId: string): WatermarkData | null {
   try {
@@ -382,6 +382,36 @@ function readWatermark(filepath: string, serviceId: string): WatermarkData | nul
     // Ignore corrupt watermark and reinitialize
   }
   return null;
+}
+
+function getEffectiveStartTime(config: CliArgs, serviceId: string): string | undefined {
+  if (config.resetWatermark) return undefined;
+
+  // 1. Local watermark state
+  const watermark = readWatermark(config.watermark, serviceId);
+  if (watermark?.lastTimestamp) {
+    return watermark.lastTimestamp;
+  }
+
+  // 2. Check if log file has previously recorded timestamps
+  try {
+    if (fs.existsSync(config.output)) {
+      const content = fs.readFileSync(config.output, 'utf8');
+      const matches = [...content.matchAll(/\[(\d{4}-\d{2}-\d{2}T[^\]]+)\] SERVICE:/g)];
+      if (matches.length > 0) {
+        return matches[matches.length - 1][1];
+      }
+    }
+  } catch {
+    // Ignore
+  }
+
+  // 3. For CI / GitHub Actions without local watermark, check the last 35 minutes
+  if (config.githubAction) {
+    return new Date(Date.now() - 35 * 60 * 1000).toISOString();
+  }
+
+  return undefined;
 }
 
 function writeWatermark(filepath: string, data: WatermarkData): void {
@@ -409,10 +439,14 @@ function appendErrorsToLog(
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  const isNewFile = !fs.existsSync(outputPath);
+  let content = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf8') : '';
+
+  // Remove clean-slate placeholder if present
+  content = content.replace(/# No unresolved runtime errors reported\.\r?\n?/g, '').trimEnd();
+
   const buffer: string[] = [];
 
-  if (isNewFile) {
+  if (!content.trim()) {
     buffer.push(
       `# Smart Pen Academy - Render Error Log`,
       `# Initialized: ${new Date().toISOString()}`,
@@ -420,6 +454,8 @@ function appendErrorsToLog(
       `# ==============================================================================`,
       ``
     );
+  } else {
+    buffer.push('');
   }
 
   for (const entry of errors) {
@@ -439,7 +475,8 @@ function appendErrorsToLog(
     );
   }
 
-  fs.appendFileSync(outputPath, buffer.join('\n'), 'utf8');
+  const finalContent = content ? `${content}\n${buffer.join('\n')}` : buffer.join('\n');
+  fs.writeFileSync(outputPath, finalContent, 'utf8');
 }
 
 // -----------------------------------------------------------------------------
@@ -450,13 +487,7 @@ async function runMonitoringCycle(
   service: RenderService,
   apiKey: string
 ): Promise<{ totalQueried: number; errorCount: number }> {
-  const watermark = config.resetWatermark
-    ? null
-    : readWatermark(config.watermark, service.id);
-
-  // If watermark exists, query from lastTimestamp.
-  // If no watermark exists, omit startTime to inspect the most recent batch of logs.
-  const startTime = watermark?.lastTimestamp;
+  const startTime = getEffectiveStartTime(config, service.id);
 
   console.log(
     `[monitor] Fetching ${config.type} logs for ${service.name} (${service.id})${
@@ -473,14 +504,11 @@ async function runMonitoringCycle(
     startTime
   );
 
-  // Filter out any entries strictly older or equal to watermark timestamp if same log ID
+  // Filter out any entries strictly older than or equal to startTime
   const newEntries = entries.filter((e) => {
     if (!e.timestamp) return true;
-    if (watermark?.lastTimestamp) {
-      if (e.timestamp < watermark.lastTimestamp) return false;
-      if (e.timestamp === watermark.lastTimestamp && e.id && e.id === watermark.lastLogId) {
-        return false;
-      }
+    if (startTime && e.timestamp <= startTime) {
+      return false;
     }
     return true;
   });

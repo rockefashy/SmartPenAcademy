@@ -261,10 +261,11 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
   const candidateModels = [
     preferredModel,
     'gemini-flash-latest',
-    'gemini-3.7-flash',
-    'gemini-3.6-flash',
+    'gemini-flash-lite-latest',
+    'gemini-3.5-flash-lite',
     'gemini-3.5-flash',
-    'gemini-flash-lite-latest'
+    'gemini-3.7-flash',
+    'gemini-3.6-flash'
   ].filter((v, i, a) => a.indexOf(v) === i);
 
   const systemInstruction = buildRoleSystemInstruction(userContext);
@@ -350,9 +351,10 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
 
           // Call without tools so the model synthesizes the final conversational response
           const followUpResponse = await fetchWithTimeout(modelToTry, followUpContents, false, 25000);
-          if (followUpResponse.text) {
+          const followUpText = followUpResponse.text?.trim();
+          if (followUpText) {
             return {
-              reply: followUpResponse.text,
+              reply: followUpText,
               toolResults
             };
           }
@@ -360,12 +362,10 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
           console.warn(`[AI_AGENT] Follow-up response synthesis with ${modelToTry} encountered error:`, followUpErr?.message || followUpErr);
         }
 
-        // Fallback to formatted tool summaries if second turn fails
-        const toolSummaries = toolResults.map(t => t.summary).join('\n\n');
-        const finalReply = response.text ? `${response.text}\n\n${toolSummaries}` : toolSummaries;
-
+        // Graceful fallback to verified tool execution summaries if second conversational turn fails/throttles
+        const toolSummaries = toolResults.map(t => t.summary).filter(Boolean).join('\n\n');
         return {
-          reply: finalReply,
+          reply: toolSummaries || "Your request was processed successfully.",
           toolResults
         };
       }

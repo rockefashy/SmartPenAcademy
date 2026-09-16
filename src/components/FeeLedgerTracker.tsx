@@ -215,7 +215,6 @@ export const FeeLedgerTracker: React.FC<FeeLedgerTrackerProps> = ({
         date: editFormData.date,
         yearMonth: cleanMilestone,
         milestone: cleanMilestone,
-        receiptNumber: editFormData.receiptNumber.trim() || undefined,
         amount: Number(editFormData.amount) || 1600,
         status: editFormData.status,
         paidDate: isPaid ? (editFormData.date || new Date().toISOString().split('T')[0]) : undefined,

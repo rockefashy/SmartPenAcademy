@@ -2396,7 +2396,13 @@ export class SupabaseDatabase {
       updateData.amount = Number(updates.amount);
     }
     if (updates.receiptNumber !== undefined || (updates as any).receiptNo !== undefined) {
-      throw new Error("receipt_number is immutable and cannot be updated.");
+      const incomingReceipt = String(updates.receiptNumber || (updates as any).receiptNo || '').trim();
+      if (incomingReceipt) {
+        const existing = await this.findFeeById(id);
+        if (existing?.receiptNumber && incomingReceipt !== existing.receiptNumber) {
+          throw new Error("receipt_number is immutable and cannot be updated.");
+        }
+      }
     }
     if (updates.paymentMethod !== undefined) updateData.payment_method = updates.paymentMethod;
     if (updates.notes !== undefined) updateData.notes = updates.notes;

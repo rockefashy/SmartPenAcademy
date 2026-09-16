@@ -2191,6 +2191,15 @@ app.patch('/api/fees/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(as
     throw new AuthorizationError('Access denied: You can only modify fee records for students assigned to you.');
   }
 
+  // Defensive immutability guard: if client passes a receiptNumber, ensure it does not attempt to mutate an existing receiptNumber
+  if (bodyParsed.data.receiptNumber !== undefined) {
+    const incomingReceipt = bodyParsed.data.receiptNumber.trim();
+    if (existingFee.receiptNumber && incomingReceipt && incomingReceipt !== existingFee.receiptNumber) {
+      throw new ValidationError('receipt_number is immutable and cannot be modified.');
+    }
+    delete (bodyParsed.data as any).receiptNumber;
+  }
+
   const updated = await db.updateFeeRecord(id, bodyParsed.data as any);
   if (!updated) {
     throw new NotFoundError('Fee record not found');

@@ -9,6 +9,26 @@ import helmet from 'helmet';
 import { z } from 'zod';
 import { createServer as createViteServer } from 'vite';
 import { sendPaginated } from './server/pagination.ts';
+import {
+  attendanceItemSchema,
+  attendanceBatchSchema,
+  createFeeSchema,
+  updateFeeSchema,
+  createDemoBookingSchema,
+  patchDemoBookingSchema,
+  enrollStudentSchema,
+  updateStudentSchema,
+  switchStudentSchema,
+  createCoachSchema,
+  updateCoachSchema,
+  assignCoachSchema,
+  progressTrackerSchema,
+  studentWorkUploadSchema,
+  bulkDeleteWorksSchema,
+  createTestimonialSchema,
+  patchTestimonialSchema,
+  auditLogsQuerySchema
+} from './server/schemas.ts';
 import { AuditExecutionMode, ROLES } from './src/types.ts';
 import { db } from './server/supabaseDb.ts';
 import { handleAIAgentChat } from './server/aiAgent.ts';
@@ -884,9 +904,7 @@ app.post('/api/auth/select-student', asyncHandler(async (req: Request, res: Resp
   return await issueUserSession(effectiveUser, res, chosenStudent.id);
 }));
 
-const switchStudentSchema = z.object({
-  studentId: z.string().min(1, 'Target studentId is required.')
-});
+// switchStudentSchema imported from ./server/schemas.ts
 
 // Switch active student profile in current session (for siblings)
 app.post('/api/auth/switch-student', authenticateJwt, asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -1044,60 +1062,7 @@ app.post('/api/auth/reset-password', authRateLimiter, asyncHandler(async (req: R
 
 // ================= COACHES & ADMINISTRATION SCHEMAS & API (BATCH 2) =================
 
-const createCoachSchema = z.object({
-  firstName: z.string().trim().min(1, 'Coach first name is required'),
-  lastName: z.string().trim().optional().default(''),
-  email: z.string().email('Valid coach email address is required'),
-  phoneNumber: z.string().min(10, 'A valid 10-digit phone number is required'),
-  password: z.string().min(8, 'Coach initial password must be at least 8 characters'),
-  address: z.string().optional().default(''),
-  dateOfJoining: z.string().optional(),
-  dateOfLeaving: z.string().optional(),
-  status: z.enum(['Active', 'Inactive']).optional().default('Active'),
-  educationalQualification: z.string().optional().default(''),
-  designation: z.string().optional().default('Associate Tutor'),
-  specializations: z.array(z.string()).optional(),
-  emergencyContactName: z.string().optional().default(''),
-  emergencyContactPhone: z.string().optional().default(''),
-  notes: z.string().optional().default('')
-}).refine(data => {
-  if (data.dateOfJoining && data.dateOfLeaving) {
-    return new Date(data.dateOfLeaving) >= new Date(data.dateOfJoining);
-  }
-  return true;
-}, {
-  message: 'Date of leaving cannot be earlier than date of joining.',
-  path: ['dateOfLeaving']
-});
-
-const updateCoachSchema = z.object({
-  firstName: z.string().trim().optional(),
-  lastName: z.string().trim().optional(),
-  email: z.string().email('Valid coach email address is required').optional(),
-  phoneNumber: z.string().optional(),
-  address: z.string().optional(),
-  dateOfJoining: z.string().optional(),
-  dateOfLeaving: z.string().optional(),
-  status: z.enum(['Active', 'Inactive']).optional(),
-  educationalQualification: z.string().optional(),
-  designation: z.string().optional(),
-  specializations: z.array(z.string()).optional(),
-  emergencyContactName: z.string().optional(),
-  emergencyContactPhone: z.string().optional(),
-  notes: z.string().optional()
-}).refine(data => {
-  if (data.dateOfJoining && data.dateOfLeaving) {
-    return new Date(data.dateOfLeaving) >= new Date(data.dateOfJoining);
-  }
-  return true;
-}, {
-  message: 'Date of leaving cannot be earlier than date of joining.',
-  path: ['dateOfLeaving']
-});
-
-const assignCoachSchema = z.object({
-  coachId: z.string().nullable().optional()
-});
+// createCoachSchema, updateCoachSchema, assignCoachSchema imported from ./server/schemas.ts
 
 // Coaches API
 
@@ -1607,55 +1572,7 @@ const studentIdParamSchema = z.object({
   id: z.string().min(1, 'Student ID parameter is required')
 });
 
-const enrollStudentSchema = z.object({
-  firstName: z.string().trim().min(1, 'Student first name is required.'),
-  lastName: z.string().trim().optional(),
-  parentName: z.string().min(1, 'Parent/Guardian name is required.'),
-  email: z.string().email('Valid parent contact email is required.'),
-  age: z.coerce.number().int().min(4, 'Student age must be a valid number between 4 and 18.').max(18, 'Student age must be a valid number between 4 and 18.'),
-  whatsappMobile: z.string().optional(),
-  phoneNumber: z.string().optional(),
-  phone: z.string().optional(),
-  password: z.string().optional(),
-  isSiblingEnrollment: z.boolean().optional(),
-  siblingOfStudentName: z.string().optional(),
-  modeOfLearning: z.enum(['In-person', 'Online']).optional(),
-  status: z.enum(['Active', 'Inactive']).optional(),
-  enrollmentDate: z.string().optional(),
-  gradeClass: z.string().optional(),
-  schoolName: z.string().optional(),
-  handwritingStyle: z.string().optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  preferredDays: z.union([z.array(z.string()), z.string()]).optional(),
-  preferredSlot: z.string().optional(),
-  notes: z.string().optional()
-}).passthrough();
-
-const updateStudentSchema = z.object({
-  firstName: z.string().trim().optional(),
-  lastName: z.string().trim().optional(),
-  parentName: z.string().optional(),
-  email: z.string().email().optional(),
-  age: z.coerce.number().int().min(4).max(18).optional(),
-  whatsappMobile: z.string().optional(),
-  phoneNumber: z.string().optional(),
-  phone: z.string().optional(),
-  gradeClass: z.string().optional(),
-  schoolName: z.string().optional(),
-  handwritingStyle: z.string().optional(),
-  modeOfLearning: z.enum(['In-person', 'Online']).optional(),
-  status: z.enum(['Active', 'Inactive']).optional(),
-  enrollmentDate: z.string().optional(),
-  dateOfLeaving: z.string().optional().nullable(),
-  coachId: z.string().optional().nullable(),
-  coachName: z.string().optional().nullable(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  preferredDays: z.union([z.array(z.string()), z.string()]).optional(),
-  preferredSlot: z.string().optional(),
-  notes: z.string().optional()
-}).passthrough();
+// enrollStudentSchema, updateStudentSchema imported from ./server/schemas.ts
 
 // 2. Students API (Protected by JWT)
 app.get('/api/students', authenticateJwt, asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -1905,21 +1822,7 @@ const attendanceStudentIdParamSchema = z.object({
   id: z.string().min(1, 'Student ID parameter is required')
 });
 
-const attendanceItemSchema = z.object({
-  id: z.string().optional(),
-  studentId: z.string().min(1, 'Student ID is required'),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
-  yearMonth: z.string().optional(),
-  classNumber: z.number().int().positive().optional(),
-  status: z.enum(['Present', 'Absent', 'Excused', 'Late']).default('Present'),
-  notes: z.string().optional().nullable(),
-  coachNotes: z.string().optional().nullable(),
-  markedBy: z.string().optional().nullable()
-}).passthrough();
-
-const attendanceBatchSchema = z.object({
-  records: z.array(attendanceItemSchema).min(1, 'Records array must contain at least one attendance record.')
-});
+// attendanceItemSchema, attendanceBatchSchema imported from ./server/schemas.ts
 
 const deleteAttendanceParamSchema = z.object({
   id: z.string().min(1, 'Attendance ID parameter is required')
@@ -2132,32 +2035,7 @@ const feeIdParamSchema = z.object({
   id: z.string().min(1, 'Fee record ID parameter is required')
 });
 
-const createFeeSchema = z.object({
-  id: z.string().optional(),
-  studentId: z.string().min(1, 'studentId is required'),
-  amount: z.coerce.number().positive('amount must be a positive number'),
-  date: z.string().optional(),
-  paidDate: z.string().optional(),
-  yearMonth: z.string().optional(),
-  milestone: z.string().optional(),
-  status: z.enum(['Paid', 'Pending', 'Overdue', 'Waived']).optional(),
-  receiptNumber: z.string().optional(),
-  paymentMethod: z.string().optional(),
-  notes: z.string().optional()
-}).passthrough();
-
-const updateFeeSchema = z.object({
-  studentId: z.string().optional(),
-  amount: z.coerce.number().positive('amount must be a positive number').optional(),
-  date: z.string().optional(),
-  paidDate: z.string().optional(),
-  yearMonth: z.string().optional(),
-  milestone: z.string().optional(),
-  status: z.enum(['Paid', 'Pending', 'Overdue', 'Waived']).optional(),
-  receiptNumber: z.string().optional(),
-  paymentMethod: z.string().optional(),
-  notes: z.string().optional()
-}).passthrough();
+// createFeeSchema, updateFeeSchema imported from ./server/schemas.ts
 
 // 4. Fees API (Protected by JWT)
 app.get('/api/fees/month/:yearMonth', authenticateJwt, requireCoachOrAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -2376,19 +2254,7 @@ const trackerIdParamSchema = z.object({
   id: z.string().min(1, 'Progress tracker ID parameter is required')
 });
 
-const progressTrackerSchema = z.object({
-  id: z.string().optional(),
-  studentId: z.string().min(1, 'studentId is required'),
-  evaluationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'evaluationDate must be in YYYY-MM-DD format'),
-  gripScore: z.coerce.number().optional(),
-  letterFormationScore: z.coerce.number().optional(),
-  spacingScore: z.coerce.number().optional(),
-  speedScore: z.coerce.number().optional(),
-  postureScore: z.coerce.number().optional(),
-  overallScore: z.coerce.number().optional(),
-  remarks: z.string().optional(),
-  coachNotes: z.string().optional()
-}).passthrough();
+// progressTrackerSchema, studentWorkUploadSchema, bulkDeleteWorksSchema imported from ./server/schemas.ts
 
 const studentWorkStudentIdParamSchema = z.object({
   id: z.string().min(1, 'Student ID parameter is required')
@@ -2396,18 +2262,6 @@ const studentWorkStudentIdParamSchema = z.object({
 
 const studentWorkIdParamSchema = z.object({
   id: z.string().min(1, 'Student work ID parameter is required')
-});
-
-const studentWorkUploadSchema = z.object({
-  studentId: z.string().min(1, 'studentId is required'),
-  imageData: z.string().min(1, 'imageData is required'),
-  captureDate: z.string().optional(),
-  category: z.string().optional(),
-  comments: z.string().optional()
-}).passthrough();
-
-const bulkDeleteWorksSchema = z.object({
-  ids: z.array(z.string().min(1)).min(1, 'ids array must contain at least one ID')
 });
 
 const reportStudentIdParamSchema = z.object({
@@ -2871,23 +2725,7 @@ app.post('/api/reminders/send', authenticateJwt, requireCoachOrAdmin, verifyStud
 
 // ================= DEMO BOOKINGS SCHEMAS & API (BATCH 1) =================
 
-const createDemoBookingSchema = z.object({
-  studentName: z.string().min(1, 'Student name is required'),
-  parentName: z.string().optional().default('Parent'),
-  age: z.union([z.number(), z.string()]).transform(v => Number(v)).refine(n => !isNaN(n) && n >= 4 && n <= 18, 'Age must be between 4 and 18'),
-  contactNumber: z.string().min(10, 'A valid 10-digit mobile number is required'),
-  preferredDate: z.string().min(1, 'Preferred date is required'),
-  preferredTimeSlot: z.string().min(1, 'Preferred time slot is required'),
-  modeOfLearning: z.enum(['In-person', 'Online', 'In-Person', 'Hybrid']).optional().default('In-person'),
-  notes: z.string().optional()
-});
-
-const patchDemoBookingSchema = z.object({
-  status: z.enum(['Scheduled', 'Contacted', 'Completed', 'Enrolled', 'Cancelled']).optional(),
-  notes: z.string().optional(),
-  preferredDate: z.string().optional(),
-  preferredTimeSlot: z.string().optional()
-});
+// createDemoBookingSchema, patchDemoBookingSchema imported from ./server/schemas.ts
 
 // 9. Free Demo Class Bookings API (Admin Protected for viewing & updating)
 app.get('/api/demo-bookings', authenticateJwt, requireAdmin, asyncHandler(async (req: Request, res: Response) => {
@@ -2976,10 +2814,7 @@ app.delete('/api/demo-bookings/:id', authenticateJwt, requireCoachOrAdmin, async
   return res.json({ success: true });
 }));
 
-const auditLogsQuerySchema = z.object({
-  page: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive()).optional(),
-  limit: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().positive()).optional()
-});
+// auditLogsQuerySchema imported from ./server/schemas.ts
 
 // Tool Audit Logs API (Admin Only)
 app.get('/api/ai/audit-logs', authenticateJwt, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -2999,29 +2834,6 @@ app.get('/api/ai/audit-logs', authenticateJwt, requireAdmin, asyncHandler(async 
 }));
 
 // ================= ALERTS & TESTIMONIALS SCHEMAS & API (BATCH 1) =================
-
-const createTestimonialSchema = z.object({
-  studentId: z.string().min(1, 'studentId is required'),
-  studentName: z.string().min(1, 'studentName is required'),
-  parentName: z.string().optional().default('Parent'),
-  grade: z.string().optional().default(''),
-  schoolName: z.string().optional().default(''),
-  relationship: z.string().optional().default('Parent'),
-  rating: z.union([z.number(), z.string()]).transform(v => Number(v)).refine(n => !isNaN(n) && n >= 1 && n <= 5, 'Rating must be between 1 and 5'),
-  title: z.string().optional().default(''),
-  review: z.string().min(1, 'review text is required'),
-  beforeAfterTag: z.string().optional().default('5 Star Transformation'),
-  image: z.string().optional(),
-  mediaConsent: z.boolean().optional().default(true)
-});
-
-const patchTestimonialSchema = z.object({
-  status: z.enum(['Pending', 'Approved', 'Featured']).optional(),
-  rating: z.number().min(1).max(5).optional(),
-  title: z.string().optional(),
-  review: z.string().optional(),
-  beforeAfterTag: z.string().optional()
-});
 
 // 10. Admin Alerts Module API (Protected by JWT)
 app.get('/api/alerts', authenticateJwt, requireAdmin, asyncHandler(async (req: Request, res: Response) => {

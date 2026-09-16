@@ -41,7 +41,7 @@ export const moderateTestimonialTool: AgentTool = {
       };
     }
 
-    const targetStatus = args.status === 'Published' ? 'Published' : (args.status === 'Featured' ? 'Featured' : 'Pending');
+    const targetStatus = (args.status === 'Approved' || args.status === 'Published') ? 'Approved' : (args.status === 'Featured' ? 'Featured' : 'Pending');
     const parsed = patchTestimonialSchema.safeParse({ status: targetStatus });
     if (!parsed.success) {
       return {

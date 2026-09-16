@@ -17,10 +17,6 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS public.coaches (
   id TEXT PRIMARY KEY,
   user_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  email TEXT,
-  phone TEXT,
   address TEXT,
   date_of_joining DATE DEFAULT CURRENT_DATE,
   status TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
@@ -41,8 +37,6 @@ CREATE TABLE IF NOT EXISTS public.coaches (
 CREATE TABLE IF NOT EXISTS public.students (
   id TEXT PRIMARY KEY,
   user_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
   age INTEGER NOT NULL,
   grade TEXT,
   school_name TEXT,
@@ -143,6 +137,16 @@ CREATE TABLE IF NOT EXISTS public.fees (
   verified_at TIMESTAMPTZ,
   currency TEXT DEFAULT 'INR',
   created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
+-- 8b. RECEIPT COUNTERS (Atomic Concurrency-Safe Receipt Sequence)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.receipt_counters (
+  student_id TEXT NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+  date_key TEXT NOT NULL,
+  last_seq INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (student_id, date_key)
 );
 
 -- ============================================================================
@@ -261,6 +265,7 @@ CREATE TABLE IF NOT EXISTS public.tool_audit_logs (
   error_message TEXT,
   duration_ms INTEGER,
   execution_mode TEXT DEFAULT 'direct_api',
+  actor_username TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -390,6 +395,7 @@ ALTER TABLE public.coaches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.receipt_counters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.progress_trackers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.student_works ENABLE ROW LEVEL SECURITY;
 

@@ -125,7 +125,7 @@ export async function sendEnrollmentEmails(student: {
   whatsappMobile?: string;
   email: string;
   password?: string;
-  preferredDays?: string;
+  preferredDays?: string[] | string;
   preferredSlot?: string;
   scriptsRequired?: string[];
   academicModules?: string[];
@@ -206,7 +206,7 @@ export async function sendEnrollmentEmails(student: {
         ${student.dominantHand ? `<div class="credential-item"><span class="label">Dominant Hand:</span><span class="value">${student.dominantHand} Handed</span></div>` : ''}
         ${student.gradeClass ? `<div class="credential-item"><span class="label">Grade/Class:</span><span class="value">${student.gradeClass}</span></div>` : ''}
         ${student.schoolName ? `<div class="credential-item"><span class="label">School:</span><span class="value">${student.schoolName}</span></div>` : ''}
-        ${student.preferredDays ? `<div class="credential-item"><span class="label">Schedule Days:</span><span class="value">${student.preferredDays}</span></div>` : ''}
+        ${student.preferredDays ? `<div class="credential-item"><span class="label">Schedule Days:</span><span class="value">${Array.isArray(student.preferredDays) ? student.preferredDays.join(' & ') : student.preferredDays}</span></div>` : ''}
         ${student.preferredSlot ? `<div class="credential-item"><span class="label">Time Slot:</span><span class="value">${student.preferredSlot}</span></div>` : ''}
       </div>
 
@@ -249,7 +249,7 @@ export async function sendEnrollmentEmails(student: {
       <li><strong>WhatsApp / Phone:</strong> ${student.whatsappMobile || 'N/A'}</li>
       <li><strong>Registered Email (Login ID):</strong> ${student.email}</li>
       <li><strong>Password:</strong> ${loginPassword}</li>
-      <li><strong>Preferred Days:</strong> ${student.preferredDays || 'N/A'}</li>
+      <li><strong>Preferred Days:</strong> ${Array.isArray(student.preferredDays) ? student.preferredDays.join(' & ') : (student.preferredDays || 'N/A')}</li>
       <li><strong>Preferred Slot:</strong> ${student.preferredSlot || 'N/A'}</li>
       <li><strong>Scripts:</strong> ${(student.scriptsRequired || []).join(', ') || 'N/A'}</li>
       <li><strong>Modules:</strong> ${(student.academicModules || []).join(', ') || 'N/A'}</li>
@@ -477,7 +477,7 @@ export async function sendStudentUpdatedEmails(student: {
   gradeClass?: string;
   schoolName?: string;
   modeOfLearning?: string;
-  preferredDays?: string;
+  preferredDays?: string[] | string;
   preferredSlot?: string;
   scriptsRequired?: string[];
   academicModules?: string[];
@@ -529,7 +529,7 @@ export async function sendStudentUpdatedEmails(student: {
         ${student.dominantHand ? `<div class="item"><span class="label">Dominant Hand:</span><span class="value">${student.dominantHand} Handed</span></div>` : ""}
         ${student.gradeClass ? `<div class="item"><span class="label">Grade/Class:</span><span class="value">${student.gradeClass}</span></div>` : ""}
         ${student.schoolName ? `<div class="item"><span class="label">School:</span><span class="value">${student.schoolName}</span></div>` : ""}
-        ${student.preferredDays ? `<div class="item"><span class="label">Schedule Days:</span><span class="value">${student.preferredDays}</span></div>` : ""}
+        ${student.preferredDays ? `<div class="item"><span class="label">Schedule Days:</span><span class="value">${Array.isArray(student.preferredDays) ? student.preferredDays.join(' & ') : student.preferredDays}</span></div>` : ""}
         ${student.preferredSlot ? `<div class="item"><span class="label">Time Slot:</span><span class="value">${student.preferredSlot}</span></div>` : ""}
         ${student.whatsappMobile ? `<div class="item"><span class="label">WhatsApp Contact:</span><span class="value">${student.whatsappMobile}</span></div>` : ""}
       </div>

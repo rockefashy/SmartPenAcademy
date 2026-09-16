@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS public.students (
   coach_id TEXT REFERENCES public.coaches(id) ON DELETE SET NULL,
   user_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
   preferred_slot TEXT,
+  preferred_days TEXT[] DEFAULT '{}',
   total_classes INTEGER DEFAULT 8,
   attended_classes INTEGER DEFAULT 0,
   notes TEXT,
@@ -63,6 +64,8 @@ ALTER TABLE public.students ADD COLUMN IF NOT EXISTS emergency_contact_phone TEX
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS school_name TEXT;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS parent_name TEXT;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS preferred_slot TEXT;
+ALTER TABLE public.students ADD COLUMN IF NOT EXISTS preferred_days TEXT[] DEFAULT '{}';
+CREATE INDEX IF NOT EXISTS idx_students_preferred_days ON public.students USING GIN (preferred_days);
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS total_classes INTEGER DEFAULT 8;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS attended_classes INTEGER DEFAULT 0;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS diagnostic_observations JSONB DEFAULT '[]'::jsonb;

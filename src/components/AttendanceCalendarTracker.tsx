@@ -21,7 +21,7 @@ import {
   MessageSquare,
   Save
 } from 'lucide-react';
-import { AttendanceRecord, StudentProfile } from '../types';
+import { AttendanceRecord, StudentProfile, formatPreferredDays } from '../types';
 import { api } from '../services/api';
 
 interface AttendanceCalendarTrackerProps {
@@ -34,9 +34,9 @@ interface AttendanceCalendarTrackerProps {
 /**
  * Parses preferredDays string into numeric days of week (0 = Sun, 1 = Mon, ..., 6 = Sat)
  */
-export function parseEnrolledDays(preferredDays?: string): number[] {
+export function parseEnrolledDays(preferredDays?: string[] | string): number[] {
   if (!preferredDays) return [1, 3, 5]; // Default Mon, Wed, Fri
-  const str = preferredDays.toLowerCase();
+  const str = (Array.isArray(preferredDays) ? preferredDays.join(' ') : preferredDays).toLowerCase();
   if (str.includes('daily') || str.includes('all day') || str.includes('all days')) {
     return [0, 1, 2, 3, 4, 5, 6];
   }
@@ -355,7 +355,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
             {/* Student's Enrolled Batch Schedule Indicator */}
             <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0E3589] bg-blue-50/80 px-2.5 py-0.5 rounded-lg border border-blue-200">
               <Clock className="w-3 h-3 text-[#0E3589]" />
-              Enrolled: {student.preferredDays || 'Mon / Wed / Fri'} • {student.preferredSlot || '5:00 - 6:00 PM'}
+              Enrolled: {formatPreferredDays(student.preferredDays, ' / ') || 'Mon / Wed / Fri'} • {student.preferredSlot || '5:00 - 6:00 PM'}
             </span>
           </div>
         </div>
@@ -443,7 +443,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
             <span className="px-1.5 py-0.2 rounded bg-blue-100 text-[#0E3589] border border-blue-200 text-[9px] font-extrabold">
               Batch
             </span>
-            <span className="text-[11px] sm:text-xs">Enrolled Batch ({student.preferredDays || 'Mon/Wed/Fri'})</span>
+            <span className="text-[11px] sm:text-xs">Enrolled Batch ({formatPreferredDays(student.preferredDays, '/') || 'Mon/Wed/Fri'})</span>
           </div>
 
           <div className="flex items-center gap-1.5 text-slate-700 font-semibold bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
@@ -554,7 +554,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
                           ? 'bg-emerald-200/70 text-emerald-900' 
                           : 'bg-blue-100 text-[#0E3589] border border-blue-200'
                       }`}
-                      title={`Enrolled Batch Day (${student.preferredDays})`}
+                      title={`Enrolled Batch Day (${formatPreferredDays(student.preferredDays, ', ')})`}
                     >
                       Batch
                     </span>

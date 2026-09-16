@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
-import { StudentProfile, ProgressReport, AttendanceRecord, FeeRecord, StudentWorkImage, Testimonial, ROLES } from '../types';
+import { StudentProfile, ProgressReport, AttendanceRecord, FeeRecord, StudentWorkImage, Testimonial, ROLES, formatPreferredDays } from '../types';
 import { parentPortalProperties } from '../properties/parentPortal.properties';
 import { commonProperties } from '../properties/common.properties';
 import { ProgressReportCard } from '../components/ProgressReportCard';
@@ -524,7 +524,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
               <div className="min-w-0">
                 <h3 className="font-extrabold text-slate-900 text-sm">Class Schedule</h3>
                 <p className="text-xs text-slate-600 font-semibold truncate mt-0.5">
-                  {student.preferredDays} • {student.preferredSlot}
+                  {formatPreferredDays(student.preferredDays, ' • ') || 'Days not set'} • {student.preferredSlot || 'Slot not set'}
                 </p>
               </div>
             </div>

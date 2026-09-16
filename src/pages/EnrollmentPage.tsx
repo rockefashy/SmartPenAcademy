@@ -99,9 +99,12 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
     return matched || clean;
   };
 
-  // Helper to parse schedule days string
-  const parseDays = (daysStr?: string): string[] => {
+  // Helper to parse schedule days string or array
+  const parseDays = (daysStr?: string[] | string): string[] => {
     if (!daysStr) return [];
+    if (Array.isArray(daysStr)) {
+      return daysStr.map(normalizeDayName);
+    }
     return daysStr
       .split(/&|,|\band\b|\//i)
       .map((s) => s.trim())
@@ -342,7 +345,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
           scriptsRequired,
           academicModules,
           diagnosticObservations,
-          preferredDays: formatDays(selectedDays),
+          preferredDays: selectedDays.map(d => d.slice(0, 3).toUpperCase()),
           preferredSlot,
           status,
           enrollmentDate: enrollmentDate || undefined,
@@ -389,7 +392,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
           scriptsRequired,
           academicModules,
           diagnosticObservations,
-          preferredDays: formatDays(selectedDays),
+          preferredDays: selectedDays.map(d => d.slice(0, 3).toUpperCase()),
           preferredSlot,
           practiceCommitment,
           feePolicyAccepted,
@@ -995,7 +998,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    {day.slice(0, 3)}
+                    {day.slice(0, 3).toUpperCase()}
                   </Button>
                 );
               })}

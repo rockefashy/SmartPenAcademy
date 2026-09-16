@@ -50,7 +50,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { EnrollmentPage } from './EnrollmentPage';
-import { StudentProfile, StudentStatus, DemoBooking, AdminAlert, CoachProfile, ROLES } from '../types';
+import { StudentProfile, StudentStatus, DemoBooking, AdminAlert, CoachProfile, ROLES, formatPreferredDays } from '../types';
 import { adminProperties } from '../properties/admin.properties';
 import { commonProperties } from '../properties/common.properties';
 import { useAuth } from '../context/AuthContext';
@@ -1269,7 +1269,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                           {/* Preferred Timing */}
                           <td className="py-3.5 px-4">
                             <div>
-                              <p className="font-bold text-slate-800">{student.preferredDays}</p>
+                              <p className="font-bold text-slate-800">{formatPreferredDays(student.preferredDays, ' • ') || 'Not set'}</p>
                               <p className="text-[11px] text-blue-700 font-semibold flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
                                 {student.preferredSlot}

@@ -119,13 +119,56 @@ function mapCoachRow(row: any, studentCount = 0, userRow?: any): CoachProfile {
   };
 }
 
+export function normalizeToDayArray(raw?: string[] | string | null): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw
+      .map(d => {
+        const u = String(d).trim().toUpperCase();
+        if (u.startsWith('SUN')) return 'SUN';
+        if (u.startsWith('MON')) return 'MON';
+        if (u.startsWith('TUE')) return 'TUE';
+        if (u.startsWith('WED')) return 'WED';
+        if (u.startsWith('THU')) return 'THU';
+        if (u.startsWith('FRI')) return 'FRI';
+        if (u.startsWith('SAT')) return 'SAT';
+        return u;
+      })
+      .filter(Boolean);
+  }
+  if (typeof raw === 'string') {
+    return raw
+      .split(/[,&/]|(\band\b)/i)
+      .map(s => s.trim())
+      .filter(s => s && !['&', ',', 'and', '/'].includes(s.toLowerCase()))
+      .map(d => {
+        const u = d.toUpperCase();
+        if (u.startsWith('SUN')) return 'SUN';
+        if (u.startsWith('MON')) return 'MON';
+        if (u.startsWith('TUE')) return 'TUE';
+        if (u.startsWith('WED')) return 'WED';
+        if (u.startsWith('THU')) return 'THU';
+        if (u.startsWith('FRI')) return 'FRI';
+        if (u.startsWith('SAT')) return 'SAT';
+        return u;
+      })
+      .filter(Boolean);
+  }
+  return [];
+}
+
 function mapStudentRow(row: any, userRow?: any, resolvedCoachName?: string | null): StudentProfile {
   const firstName = userRow?.first_name || row.first_name || '';
   const lastName = userRow?.last_name || row.last_name || '';
   const displayName = `${firstName} ${lastName}`.trim() || firstName;
 
   let dominantHand: 'Right' | 'Left' = 'Right';
-  let preferredDays: string | undefined = row.preferred_days || undefined;
+  let preferredDays: string[] | undefined = undefined;
+  if (Array.isArray(row.preferred_days) && row.preferred_days.length > 0) {
+    preferredDays = normalizeToDayArray(row.preferred_days);
+  } else if (typeof row.preferred_days === 'string' && row.preferred_days.trim()) {
+    preferredDays = normalizeToDayArray(row.preferred_days);
+  }
   let relationship: string | undefined = undefined;
   let scriptsRequired: string[] = [];
   let academicModules: string[] = [];
@@ -137,7 +180,9 @@ function mapStudentRow(row: any, userRow?: any, resolvedCoachName?: string | nul
       const parsed = JSON.parse(row.notes);
       if (parsed && typeof parsed === 'object') {
         if (parsed.dominantHand) dominantHand = parsed.dominantHand === 'Left' ? 'Left' : 'Right';
-        if (parsed.preferredDays) preferredDays = parsed.preferredDays;
+        if ((!preferredDays || preferredDays.length === 0) && parsed.preferredDays) {
+          preferredDays = normalizeToDayArray(parsed.preferredDays);
+        }
         if (parsed.relationship) relationship = parsed.relationship;
         if (Array.isArray(parsed.scriptsRequired)) scriptsRequired = parsed.scriptsRequired;
         if (Array.isArray(parsed.academicModules)) academicModules = parsed.academicModules;
@@ -177,7 +222,7 @@ function mapStudentRow(row: any, userRow?: any, resolvedCoachName?: string | nul
     userId: row.user_id || userRow?.id || undefined,
     coachId: row.coach_id || undefined,
     coachName: resolvedCoachName || row.coach_name || undefined,
-    preferredDays,
+    preferredDays: preferredDays && preferredDays.length > 0 ? preferredDays : undefined,
     preferredSlot: row.preferred_slot || undefined,
     scriptsRequired,
     academicModules,
@@ -675,7 +720,7 @@ export class SupabaseDatabase {
 
     let query = supabase
       .from('students')
-      .select('id, user_id, coach_id, age, grade, school_name, parent_name, mode_of_learning, emergency_contact_name, emergency_contact_phone, status, preferred_slot, total_classes, attended_classes, notes, avatar_url, diagnostic_observations, created_at, updated_at');
+      .select('id, user_id, coach_id, age, grade, school_name, parent_name, mode_of_learning, emergency_contact_name, emergency_contact_phone, status, preferred_slot, preferred_days, total_classes, attended_classes, notes, avatar_url, diagnostic_observations, created_at, updated_at');
 
     if (orConditions.length > 0) {
       query = query.or(orConditions.join(','));
@@ -729,7 +774,7 @@ export class SupabaseDatabase {
 
     const { data: students, error } = await supabase
       .from('students')
-      .select('id, user_id, coach_id, age, grade, school_name, parent_name, mode_of_learning, emergency_contact_name, emergency_contact_phone, status, preferred_slot, total_classes, attended_classes, notes, avatar_url, diagnostic_observations, created_at, updated_at')
+      .select('id, user_id, coach_id, age, grade, school_name, parent_name, mode_of_learning, emergency_contact_name, emergency_contact_phone, status, preferred_slot, preferred_days, total_classes, attended_classes, notes, avatar_url, diagnostic_observations, created_at, updated_at')
       .or(orConditions.join(','));
 
     if (error || !students) return [];
@@ -1315,9 +1360,10 @@ export class SupabaseDatabase {
     }
 
     // 2. Insert into students table with forward-written user_id
+    const preferredDaysArray = normalizeToDayArray(student.preferredDays);
     const metaNotesPayload: any = {
       dominantHand: student.dominantHand || 'Right',
-      preferredDays: student.preferredDays || undefined,
+      preferredDays: preferredDaysArray.length > 0 ? preferredDaysArray.join(' & ') : undefined,
       relationship: student.relationship || undefined,
       scriptsRequired: Array.isArray(student.scriptsRequired) ? student.scriptsRequired : [],
       academicModules: Array.isArray(student.academicModules) ? student.academicModules : [],
@@ -1338,6 +1384,7 @@ export class SupabaseDatabase {
       status: student.status || 'Active',
       coach_id: student.coachId || null,
       preferred_slot: student.preferredSlot || null,
+      preferred_days: preferredDaysArray,
       total_classes: student.totalClasses !== undefined && student.totalClasses !== null ? Number(student.totalClasses) : 8,
       attended_classes: student.attendedClasses !== undefined && student.attendedClasses !== null ? Number(student.attendedClasses) : 0,
       notes: JSON.stringify(metaNotesPayload),
@@ -1407,6 +1454,9 @@ export class SupabaseDatabase {
     if (updates.status !== undefined) updateData.status = updates.status;
     if (updates.coachId !== undefined) updateData.coach_id = updates.coachId || null;
     if (updates.preferredSlot !== undefined) updateData.preferred_slot = updates.preferredSlot;
+    if (updates.preferredDays !== undefined) {
+      updateData.preferred_days = normalizeToDayArray(updates.preferredDays);
+    }
     if (updates.enrollmentDate !== undefined) updateData.enrollment_date = updates.enrollmentDate;
     if (updates.totalClasses !== undefined) updateData.total_classes = Number(updates.totalClasses);
     if (updates.attendedClasses !== undefined) updateData.attended_classes = Number(updates.attendedClasses);
@@ -1428,7 +1478,10 @@ export class SupabaseDatabase {
       }
 
       if (updates.dominantHand !== undefined) existingMeta.dominantHand = updates.dominantHand;
-      if (updates.preferredDays !== undefined) existingMeta.preferredDays = updates.preferredDays;
+      if (updates.preferredDays !== undefined) {
+        const norm = normalizeToDayArray(updates.preferredDays);
+        existingMeta.preferredDays = norm.length > 0 ? norm.join(' & ') : undefined;
+      }
       if (updates.relationship !== undefined) existingMeta.relationship = updates.relationship;
       if (updates.notes !== undefined) existingMeta.customNotes = updates.notes;
       if (updates.scriptsRequired !== undefined) existingMeta.scriptsRequired = updates.scriptsRequired;

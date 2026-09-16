@@ -94,7 +94,7 @@ export interface StudentProfile {
   diagnosticObservations?: string[];
 
   // Preferred schedule
-  preferredDays?: string; // e.g. 'Mon / Wed / Fri' or 'Tue / Thu / Sat'
+  preferredDays?: string[] | string; // e.g. ['MON', 'WED', 'FRI'] or 'MON & WED & FRI'
   preferredSlot?: string; // e.g. '5:00 - 6:00 PM', '5:30 - 6:30 PM', '6:00 - 7:00 PM'
 
   // Consents
@@ -365,3 +365,14 @@ export interface LoginResponse {
 
 
 export type SessionUser = User;
+
+export const SCHEDULE_DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
+export type ScheduleDay = typeof SCHEDULE_DAYS[number];
+
+export function formatPreferredDays(days?: string[] | string | null, delimiter: string = ' & '): string {
+  if (!days) return '';
+  if (Array.isArray(days)) {
+    return days.join(delimiter);
+  }
+  return String(days);
+}

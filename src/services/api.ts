@@ -11,7 +11,8 @@ import {
   DemoBooking,
   AdminAlert,
   Testimonial,
-  LoginResponse
+  LoginResponse,
+  formatPreferredDays
 } from '../types';
 import { supabaseAuthService } from './supabaseAuthService';
 
@@ -532,7 +533,7 @@ export const api = {
       `"${s.schoolName.replace(/"/g, '""')}"`,
       `"${s.dominantHand}"`,
       `"${s.gripClassification || 'Tripod'}"`,
-      `"${s.preferredDays}"`,
+      `"${formatPreferredDays(s.preferredDays, ' & ')}"`,
       `"${s.preferredSlot}"`,
       `"${s.status}"`,
       `"${s.enrollmentDate}"`,

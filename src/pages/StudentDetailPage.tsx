@@ -30,7 +30,7 @@ import {
   Award
 } from 'lucide-react';
 import { api } from '../services/api';
-import { StudentProfile, AttendanceRecord, FeeRecord, StudentWorkImage, ProgressReport, ProgressTracker, StudentStatus, DominantHand, SkillRating, ROLES } from '../types';
+import { StudentProfile, AttendanceRecord, FeeRecord, StudentWorkImage, ProgressReport, ProgressTracker, StudentStatus, DominantHand, SkillRating, ROLES, formatPreferredDays } from '../types';
 import { studentDetailProperties } from '../properties/studentDetail.properties';
 import { StarRating } from '../components/StarRating';
 import { formatGradeClass, formatDominantHand } from '../utils/formatters';
@@ -77,6 +77,53 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
   // Edit Profile Form State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState<Partial<StudentProfile>>({});
+
+  // Derive selected schedule days array for toggle chips in edit mode
+  const selectedScheduleDays: string[] = React.useMemo(() => {
+    const raw = profileForm.preferredDays;
+    if (!raw) return [];
+    if (Array.isArray(raw)) {
+      return raw.map(d => {
+        const u = String(d).trim().toUpperCase();
+        if (u.startsWith('SUN')) return 'SUN';
+        if (u.startsWith('MON')) return 'MON';
+        if (u.startsWith('TUE')) return 'TUE';
+        if (u.startsWith('WED')) return 'WED';
+        if (u.startsWith('THU')) return 'THU';
+        if (u.startsWith('FRI')) return 'FRI';
+        if (u.startsWith('SAT')) return 'SAT';
+        return u;
+      }).filter(Boolean);
+    }
+    return String(raw)
+      .split(/[,&/]|(\band\b)/i)
+      .map(s => s.trim())
+      .filter(s => s && !['&', ',', 'and', '/'].includes(s.toLowerCase()))
+      .map(d => {
+        const u = d.toUpperCase();
+        if (u.startsWith('SUN')) return 'SUN';
+        if (u.startsWith('MON')) return 'MON';
+        if (u.startsWith('TUE')) return 'TUE';
+        if (u.startsWith('WED')) return 'WED';
+        if (u.startsWith('THU')) return 'THU';
+        if (u.startsWith('FRI')) return 'FRI';
+        if (u.startsWith('SAT')) return 'SAT';
+        return u;
+      })
+      .filter(Boolean);
+  }, [profileForm.preferredDays]);
+
+  const handleToggleScheduleDay = (day: string) => {
+    const next = selectedScheduleDays.includes(day)
+      ? selectedScheduleDays.filter(d => d !== day)
+      : [...selectedScheduleDays, day];
+    const canonicalOrder = studentDetailProperties.section1.preferredDaysOptions;
+    next.sort((a, b) => canonicalOrder.indexOf(a) - canonicalOrder.indexOf(b));
+    setProfileForm(prev => ({
+      ...prev,
+      preferredDays: next
+    }));
+  };
 
   // Attendance Form State
   const [attDate, setAttDate] = useState(new Date().toISOString().split('T')[0]);
@@ -694,20 +741,48 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
                     onChange={(e) => setProfileForm({ ...profileForm, schoolName: e.target.value })}
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Preferred Days</label>
-                  <Input
-                    type="text"
-                    value={profileForm.preferredDays || ''}
-                    onChange={(e) => setProfileForm({ ...profileForm, preferredDays: e.target.value })}
-                  />
+                <div className="md:col-span-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-700">
+                      {studentDetailProperties.section1.preferredDaysLabel}
+                    </label>
+                    <span className="text-[11px] font-bold text-slate-500">
+                      Selected: {selectedScheduleDays.length} {selectedScheduleDays.length === 1 ? 'day' : 'days'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    {studentDetailProperties.section1.preferredDaysHint}
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 pt-1">
+                    {studentDetailProperties.section1.preferredDaysOptions.map((day) => {
+                      const isSelected = selectedScheduleDays.includes(day);
+                      return (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          key={day}
+                          onClick={() => handleToggleScheduleDay(day)}
+                          className={`min-h-[44px] flex items-center justify-center py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                            isSelected
+                              ? 'bg-[#0E3589] border-[#0E3589] text-white shadow-xs'
+                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          {day}
+                        </Button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Preferred Time Slot</label>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {studentDetailProperties.section1.preferredSlotLabel}
+                  </label>
                   <Input
                     type="text"
                     value={profileForm.preferredSlot || ''}
                     onChange={(e) => setProfileForm({ ...profileForm, preferredSlot: e.target.value })}
+                    placeholder="e.g. 5:00 - 6:00 PM"
                   />
                 </div>
               </div>
@@ -755,8 +830,8 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
 
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Schedule &amp; Slot</span>
-                  <p className="text-sm font-black text-slate-900">{student.preferredDays}</p>
-                  <p className="text-xs text-[#0E3589] font-bold">{student.preferredSlot}</p>
+                  <p className="text-sm font-black text-slate-900">{formatPreferredDays(student.preferredDays, ' • ') || 'Not specified'}</p>
+                  <p className="text-xs text-[#0E3589] font-bold">{student.preferredSlot || 'No slot assigned'}</p>
                   {student.schoolName && <p className="text-xs text-slate-600">School: {student.schoolName}</p>}
                 </div>
               </div>

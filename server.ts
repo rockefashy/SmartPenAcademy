@@ -1627,7 +1627,7 @@ const enrollStudentSchema = z.object({
   handwritingStyle: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
-  preferredDays: z.string().optional(),
+  preferredDays: z.union([z.array(z.string()), z.string()]).optional(),
   preferredSlot: z.string().optional(),
   notes: z.string().optional()
 }).passthrough();
@@ -1652,7 +1652,7 @@ const updateStudentSchema = z.object({
   coachName: z.string().optional().nullable(),
   address: z.string().optional(),
   city: z.string().optional(),
-  preferredDays: z.string().optional(),
+  preferredDays: z.union([z.array(z.string()), z.string()]).optional(),
   preferredSlot: z.string().optional(),
   notes: z.string().optional()
 }).passthrough();

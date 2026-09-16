@@ -530,6 +530,7 @@ export type Database = {
           notes: string | null
           parent_name: string
           preferred_slot: string | null
+          preferred_days: string[] | null
           school_name: string | null
           status: string
           total_classes: number | null
@@ -552,6 +553,7 @@ export type Database = {
           notes?: string | null
           parent_name: string
           preferred_slot?: string | null
+          preferred_days?: string[] | null
           school_name?: string | null
           status?: string
           total_classes?: number | null
@@ -574,6 +576,7 @@ export type Database = {
           notes?: string | null
           parent_name?: string
           preferred_slot?: string | null
+          preferred_days?: string[] | null
           school_name?: string | null
           status?: string
           total_classes?: number | null

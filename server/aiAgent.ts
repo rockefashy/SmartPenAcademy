@@ -263,7 +263,8 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
     'gemini-flash-latest',
     'gemini-3.7-flash',
     'gemini-3.6-flash',
-    'gemini-2.5-flash'
+    'gemini-3.5-flash',
+    'gemini-flash-lite-latest'
   ].filter((v, i, a) => a.indexOf(v) === i);
 
   const systemInstruction = buildRoleSystemInstruction(userContext);
@@ -375,7 +376,26 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
       };
     } catch (error: any) {
       lastError = error;
-      console.warn(`[AI_AGENT] Model ${modelToTry} failed:`, error?.message || error);
+      const errMsg = error?.message || String(error);
+      console.warn(`[AI_AGENT] Model ${modelToTry} failed:`, errMsg);
+
+      // If transient 503 high demand spike, perform a single brief backoff retry before falling through
+      if (errMsg.includes('503') || errMsg.includes('high demand') || errMsg.includes('UNAVAILABLE')) {
+        try {
+          console.info(`[AI_AGENT] Retrying ${modelToTry} after 1.5s backoff for transient 503...`);
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          const retryResponse = await fetchWithTimeout(modelToTry, contents, true, 25000);
+          if (retryResponse.text) {
+            return {
+              reply: retryResponse.text,
+              toolResults: []
+            };
+          }
+        } catch (retryErr: any) {
+          console.warn(`[AI_AGENT] Retry for ${modelToTry} also failed:`, retryErr?.message || retryErr);
+          lastError = retryErr;
+        }
+      }
       continue;
     }
   }
@@ -385,6 +405,10 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
   let userFriendly = rawErr;
   if (rawErr.includes('429') || rawErr.includes('RESOURCE_EXHAUSTED') || rawErr.includes('quota')) {
     userFriendly = "The AI service is temporarily experiencing high traffic or quota limits. Please try again in a few seconds.";
+  } else if (rawErr.includes('503') || rawErr.includes('UNAVAILABLE') || rawErr.includes('high demand')) {
+    userFriendly = "Google Gemini is temporarily experiencing high demand spikes on their servers. Please try sending your message again in a few moments.";
+  } else if (rawErr.includes('403') || rawErr.includes('PERMISSION_DENIED') || rawErr.includes('denied access')) {
+    userFriendly = "The AI service API key or project access is restricted by Google. Please check your Gemini API key in settings or the Google Cloud console.";
   } else if (rawErr.startsWith('{')) {
     try {
       const parsed = JSON.parse(rawErr);

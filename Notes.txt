@@ -1,0 +1,11 @@
+Whenever you want to pull a fresh copy of your cloud database into your local Supabase, run these two commands in PowerShell:
+
+Step 1: Dump from Cloud
+powershell
+npx supabase db dump --project-ref qstheedxutgvfuiegero -p "YourPassword" --data-only -s public -f cloud_data.sql
+Step 2: Upload / Pipe into Local Supabase
+powershell
+# 1. Clear local tables (prevents duplicate ID conflicts)
+docker exec -i supabase_db_SmartPenAcademy psql -U postgres -d postgres -c "TRUNCATE public.students, public.coaches, public.users, public.attendance, public.fees, public.demo_bookings, public.progress_trackers, public.student_works CASCADE;"
+# 2. Pipe and load the data
+Get-Content "cloud_data.sql" | docker exec -i supabase_db_SmartPenAcademy psql -U postgres -d postgres

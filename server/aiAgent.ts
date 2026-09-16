@@ -285,16 +285,18 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
     }
   });
 
-  // Generous timeout (25 seconds) to give the LLM ample thinking time for reasoning and tool execution
+  // Generous timeout (45 seconds) to give the LLM ample time for tool execution and response generation
   const fetchWithTimeout = async (
     modelName: string,
     callContents: any[],
     includeTools: boolean = true,
-    timeoutMs: number = 25000
+    timeoutMs: number = 45000
   ) => {
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error(`Model ${modelName} timed out after ${timeoutMs}ms`)), timeoutMs);
     });
+
+    const isThinkingModel = modelName.includes('3.') || modelName.includes('2.5');
 
     const generatePromise = ai.models.generateContent({
       model: modelName,
@@ -302,6 +304,7 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
       config: {
         systemInstruction,
         temperature: settings?.temperature ?? 0.7,
+        ...(isThinkingModel ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
         ...(includeTools ? { tools: [{ functionDeclarations: activeTools }] } : {})
       }
     });
@@ -313,7 +316,7 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
 
   for (const modelToTry of candidateModels) {
     try {
-      const response = await fetchWithTimeout(modelToTry, contents, true, 25000);
+      const response = await fetchWithTimeout(modelToTry, contents, true, 45000);
 
       const toolResults: ToolCallResult[] = [];
       const functionCalls = response.functionCalls;
@@ -349,7 +352,7 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
           ];
 
           // Call without tools so the model synthesizes the final conversational response
-          const followUpResponse = await fetchWithTimeout(modelToTry, followUpContents, false, 25000);
+          const followUpResponse = await fetchWithTimeout(modelToTry, followUpContents, false, 45000);
           const followUpText = followUpResponse.text?.trim();
           if (followUpText) {
             return {
@@ -383,7 +386,7 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
         try {
           console.info(`[AI_AGENT] Retrying ${modelToTry} after 1.5s backoff for transient 503...`);
           await new Promise(resolve => setTimeout(resolve, 1500));
-          const retryResponse = await fetchWithTimeout(modelToTry, contents, true, 25000);
+          const retryResponse = await fetchWithTimeout(modelToTry, contents, true, 45000);
           if (retryResponse.text) {
             return {
               reply: retryResponse.text,

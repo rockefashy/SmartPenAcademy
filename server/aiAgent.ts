@@ -248,7 +248,7 @@ Guest Guidelines:
 export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ reply: string; toolResults: ToolCallResult[] }> {
   const { messages, userContext, settings } = reqBody;
   const apiKey = settings?.apiKey || process.env.GEMINI_API_KEY;
-  const preferredModel = settings?.model || 'gemini-flash-latest';
+  const preferredModel = settings?.model || 'gemini-3.8-flash';
 
   if (!apiKey) {
     return {
@@ -257,15 +257,14 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
     };
   }
 
-  // Resilient model fallback chain with active Google Gemini models
+  // Resilient model fallback chain with Gemini 3.8 Flash and Gemini 3.7 Flash as primary
   const candidateModels = [
     preferredModel,
-    'gemini-flash-latest',
-    'gemini-flash-lite-latest',
-    'gemini-3.5-flash-lite',
-    'gemini-3.5-flash',
+    'gemini-3.8-flash',
     'gemini-3.7-flash',
-    'gemini-3.6-flash'
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-flash-latest'
   ].filter((v, i, a) => a.indexOf(v) === i);
 
   const systemInstruction = buildRoleSystemInstruction(userContext);

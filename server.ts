@@ -3098,7 +3098,7 @@ app.post('/api/ai/test-config', asyncHandler(async (req: Request, res: Response)
   return res.json({
     success: true,
     mode: 'Gemini Cloud API',
-    model: model || 'gemini-3.7-flash',
+    model: model || 'gemini-3.8-flash',
     message: 'AI Model configuration verified successfully!'
   });
 }));

@@ -352,7 +352,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     const monthCode = new Date().toLocaleString('en-US', { month: 'short' }).toUpperCase();
     const yearCode = new Date().getFullYear().toString().slice(-2);
     setQuickFeeStudent(student);
-    setQuickFeeAmount(1600);
+    setQuickFeeAmount(student.feePerCycle || 1600);
     setQuickFeePeriod(cycleLabel);
     setQuickFeeReceiptNo(`REC-${student.id.replace('std-', '')}-${monthCode}${yearCode}`);
     setQuickFeeNotes('');
@@ -367,7 +367,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       await api.saveFee({
         studentId: quickFeeStudent.id,
         yearMonth: quickFeePeriod,
-        amount: Number(quickFeeAmount) || 1600,
+        amount: Number(quickFeeAmount) || (quickFeeStudent.feePerCycle || 1600),
         status: 'Paid',
         paidDate: new Date().toISOString().split('T')[0],
         // receiptNumber is generated server-side upon record creation
@@ -1180,10 +1180,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredStudents.map((student) => {
-                      const attendedCount = student.attendanceHistory?.filter((a) => a.status === 'Present').length || 0;
-                      const completedCycles = Math.floor(attendedCount / 8);
+                      const attendedCount = student.attendanceHistory
+                        ? student.attendanceHistory.filter((a) => a.status === 'Present').length
+                        : (student.attendedClasses || 0);
+                      const cycleSize = student.classesPerCycle || 8;
+                      const cycleFee = student.feePerCycle || 1600;
+                      const completedCycles = Math.floor(attendedCount / cycleSize);
                       const currentCycleIndex = completedCycles + 1;
-                      const cycleProgress = attendedCount % 8;
+                      const cycleProgress = attendedCount % cycleSize;
                       const paidCyclesCount = student.feeHistory?.filter((f) => f.status === 'Paid').length || 0;
                       const hasPendingFeeAlert = completedCycles > 0 && paidCyclesCount < completedCycles;
 
@@ -1285,13 +1289,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                   {attendedCount} Classes
                                 </span>
                                 <span className="text-[10px] font-bold text-slate-500">
-                                  Cycle {currentCycleIndex} ({cycleProgress}/8)
+                                  Cycle {currentCycleIndex} ({cycleProgress}/{cycleSize})
                                 </span>
                               </div>
                               <div className="w-28 bg-slate-100 rounded-full h-1.5 overflow-hidden">
                                 <div
                                   className={`h-1.5 rounded-full ${hasPendingFeeAlert ? 'bg-amber-500' : 'bg-[#F46E20]'}`}
-                                  style={{ width: `${(cycleProgress / 8) * 100}%` }}
+                                  style={{ width: `${(cycleProgress / cycleSize) * 100}%` }}
                                 />
                               </div>
                             </div>
@@ -1356,7 +1360,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                                 variant="ghost"
                                 disabled={student.status === 'Inactive'}
                                 onClick={() => student.status !== 'Inactive' && handleOpenQuickFee(student)}
-                                title={student.status === 'Inactive' ? 'Fee payment disabled: Student is Inactive (Read-Only Archive)' : (hasPendingFeeAlert ? '8 Classes Completed • Fee Receipt Due (₹1,600)' : adminProperties.actions.markFeePaid)}
+                                title={student.status === 'Inactive' ? 'Fee payment disabled: Student is Inactive (Read-Only Archive)' : (hasPendingFeeAlert ? `${cycleSize} Classes Completed • Fee Receipt Due (₹${cycleFee.toLocaleString()})` : adminProperties.actions.markFeePaid)}
                                 className={`rounded-lg relative ${
                                   student.status === 'Inactive'
                                     ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
@@ -1536,7 +1540,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   <tbody className="divide-y divide-slate-100">
                     {assignmentStudents.map((student) => {
                       const isUpdating = updatingStudentCoachId === student.id;
-                      const attendedCount = student.attendanceHistory?.filter((a) => a.status === 'Present').length || 0;
+                      const attendedCount = student.attendanceHistory
+                        ? student.attendanceHistory.filter((a) => a.status === 'Present').length
+                        : (student.attendedClasses || 0);
 
                       return (
                         <tr key={student.id} className="hover:bg-blue-50/40 transition-colors">
@@ -2679,7 +2685,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                           )}
                           {isFeeDue && (
                             <span className="px-2 py-0.5 bg-amber-200/80 text-amber-900 font-extrabold text-[9px] rounded-md uppercase tracking-wider">
-                              8 Classes Fee Due (₹1,600)
+                              {(targetStudent.classesPerCycle || 8)} Classes Fee Due (₹{(targetStudent.feePerCycle || 1600).toLocaleString()})
                             </span>
                           )}
                           <p className="text-xs font-bold text-slate-900">{al.title}</p>
@@ -2695,12 +2701,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                               onClick={() => handleOpenQuickFee(targetStudent, al.metadata?.cycleLabel)}
                               className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold shadow-2xs py-1 px-2.5 min-h-[28px]"
                             >
-                              Record ₹1,600 Receipt
+                              Record ₹{(targetStudent.feePerCycle || 1600).toLocaleString()} Receipt
                             </Button>
                             {targetStudent.whatsappMobile && (
                               <a
                                 href={`https://wa.me/${targetStudent.whatsappMobile.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                                  `Hello! This is Mrs. Deepthy Rock from SmartPen Handwriting Academy. ${targetStudent.firstName} has completed 8 classes (${al.metadata?.cycleLabel || '8 classes'}). The coaching fee of ₹1,600 is now due. Please record the payment at your earliest convenience. Thank you!`
+                                  `Hello! This is Mrs. Deepthy Rock from SmartPen Handwriting Academy. ${targetStudent.firstName} has completed ${targetStudent.classesPerCycle || 8} classes (${al.metadata?.cycleLabel || `${targetStudent.classesPerCycle || 8} classes`}). The coaching fee of ₹${(targetStudent.feePerCycle || 1600).toLocaleString()} is now due. Please record the payment at your earliest convenience. Thank you!`
                                 )}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -3205,7 +3211,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2 text-emerald-800">
                 <DollarSign className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-bold text-sm">Issue 8-Class Fee Receipt (₹1,600)</h3>
+                <h3 className="font-bold text-sm">Issue {quickFeeStudent.classesPerCycle || 8}-Class Fee Receipt (₹{(quickFeeStudent.feePerCycle || 1600).toLocaleString()})</h3>
               </div>
               <Button
                 variant="ghost"
@@ -3282,7 +3288,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   disabled={isSubmittingFee}
                   className="w-2/3 py-2 bg-emerald-600 hover:bg-emerald-700"
                 >
-                  {isSubmittingFee ? 'Saving...' : 'Issue & Mark Paid (₹1,600)'}
+                  {isSubmittingFee ? 'Saving...' : `Issue & Mark Paid (₹${(quickFeeAmount || quickFeeStudent.feePerCycle || 1600).toLocaleString()})`}
                 </Button>
               </div>
             </form>

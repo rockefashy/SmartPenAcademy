@@ -61,7 +61,7 @@ export const recordFeePaymentTool: AgentTool = {
       };
     }
 
-    const amount = Number(args?.amount) || 1600;
+    const amount = Number(args?.amount) || student.feePerCycle || 1600;
     const cyclePeriod = args?.cyclePeriod || 'Classes 1 - 8';
     const isConfirmed = args?.confirmed === true;
 

@@ -150,9 +150,11 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
   const [scriptsRequired, setScriptsRequired] = useState<string[]>([]);
   const [academicModules, setAcademicModules] = useState<string[]>([]);
 
-  // Section 4: Schedule
+  // Section 4: Schedule & Cycle Configuration
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [preferredSlot, setPreferredSlot] = useState<string>('');
+  const [classesPerCycle, setClassesPerCycle] = useState<number | string>(8);
+  const [feePerCycle, setFeePerCycle] = useState<number | string>(1600);
 
   // Section 5: Areas of Concern (Parent Observations)
   const [diagnosticObservations, setDiagnosticObservations] = useState<string[]>([]);
@@ -196,6 +198,8 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
       setAcademicModules(Array.isArray(studentToEdit.academicModules) ? studentToEdit.academicModules : []);
       setSelectedDays(parseDays(studentToEdit.preferredDays));
       setPreferredSlot(studentToEdit.preferredSlot || '');
+      setClassesPerCycle(studentToEdit.classesPerCycle !== undefined && studentToEdit.classesPerCycle !== null ? studentToEdit.classesPerCycle : 8);
+      setFeePerCycle(studentToEdit.feePerCycle !== undefined && studentToEdit.feePerCycle !== null ? studentToEdit.feePerCycle : 1600);
       setDiagnosticObservations(Array.isArray(studentToEdit.diagnosticObservations) ? studentToEdit.diagnosticObservations : []);
       setPracticeCommitment(studentToEdit.practiceCommitment !== false);
       setFeePolicyAccepted(studentToEdit.feePolicyAccepted !== false);
@@ -281,17 +285,17 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
     }
 
     if (!email.trim() || !email.includes('@')) {
-      handleValidationError(enrollmentProperties.validation.emailRequired, "input-email-login");
+      handleValidationError(enrollmentProperties.validation.emailRequired, "input-parent-email");
       return;
     }
 
     if (!isEditMode && !isSiblingEnrollment && (!password || password.length < 8)) {
-      handleValidationError(enrollmentProperties.validation.passwordRequired, "input-password");
+      handleValidationError(enrollmentProperties.validation.passwordRequired, "input-parent-password");
       return;
     }
 
     if (isEditMode && password && password.length < 8) {
-      handleValidationError(enrollmentProperties.validation.passwordMinLength, "input-password");
+      handleValidationError(enrollmentProperties.validation.passwordMinLength, "input-parent-password");
       return;
     }
 
@@ -302,6 +306,16 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
 
     if (!preferredSlot) {
       handleValidationError(enrollmentProperties.validation.slotRequired, "select-preferred-slot");
+      return;
+    }
+
+    if (!classesPerCycle || Number(classesPerCycle) < 1) {
+      handleValidationError("Classes per cycle must be at least 1.", "input-classes-per-cycle");
+      return;
+    }
+
+    if (feePerCycle === '' || Number(feePerCycle) < 0) {
+      handleValidationError("Fee per cycle must be a non-negative amount.", "input-fee-per-cycle");
       return;
     }
 
@@ -347,6 +361,8 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
           diagnosticObservations,
           preferredDays: selectedDays.map(d => d.slice(0, 3).toUpperCase()),
           preferredSlot,
+          classesPerCycle: Number(classesPerCycle) || 8,
+          feePerCycle: Number(feePerCycle) >= 0 ? Number(feePerCycle) : 1600,
           status,
           enrollmentDate: enrollmentDate || undefined,
           dateOfLeaving: status === 'Inactive' ? (dateOfLeaving || new Date().toISOString().split('T')[0]) : null,
@@ -394,6 +410,8 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
           diagnosticObservations,
           preferredDays: selectedDays.map(d => d.slice(0, 3).toUpperCase()),
           preferredSlot,
+          classesPerCycle: Number(classesPerCycle) || 8,
+          feePerCycle: Number(feePerCycle) >= 0 ? Number(feePerCycle) : 1600,
           practiceCommitment,
           feePolicyAccepted,
           mediaConsent,
@@ -522,7 +540,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
       )}
 
       {/* Main Registration / Edit Form */}
-      <form onSubmit={handleSubmit} className="space-y-8" id="student-enrollment-form">
+      <form onSubmit={handleSubmit} className="space-y-8" id="student-enrollment-form" autoComplete="off">
         {/* ========================================================================= */}
         {/* SECTION: ACCOUNT STATUS & LIFECYCLE GOVERNANCE (ADMIN EDIT MODE ONLY)     */}
         {/* ========================================================================= */}
@@ -824,6 +842,10 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                 label={enrollmentProperties.section2.emailAddress}
                 required
                 type="email"
+                name="parentEmail"
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore="true"
                 readOnly={isSiblingEnrollment}
                 disabled={isSiblingEnrollment}
                 value={email}
@@ -832,7 +854,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                 helperText={isSiblingEnrollment 
                   ? 'Locked to link this student profile directly to the family account.' 
                   : enrollmentProperties.section2.emailAddressHint}
-                id="input-email-login"
+                id="input-parent-email"
               />
             </div>
 
@@ -846,7 +868,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                   <div className="w-full px-4 min-h-[44px] sm:min-h-[38px] py-2.5 sm:py-2 bg-slate-100 border border-slate-300 rounded-xl text-base sm:text-sm text-slate-600 flex items-center justify-between cursor-not-allowed select-none" id="box-password-sibling-locked">
                     <div className="flex items-center gap-2">
                       <Lock className="w-4 h-4 text-slate-400" />
-                      <span className="font-semibold text-slate-700">???????????? (Inherited from Family Account)</span>
+                      <span className="font-semibold text-slate-700">•••••••••••• (Inherited from Family Account)</span>
                     </div>
                     <span className="text-[10px] font-bold text-purple-800 bg-purple-100 px-2.5 py-0.5 rounded-md border border-purple-200">
                       Locked
@@ -861,6 +883,10 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                   label={`${enrollmentProperties.section2.password} ${isEditMode ? '(Optional - leave blank to keep unchanged)' : ''}`}
                   required={!isEditMode}
                   type="password"
+                  name="parentPassword"
+                  autoComplete="new-password"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={
@@ -871,7 +897,7 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                   helperText={isEditMode 
                     ? 'Enter a new password (min 8 chars) only if you wish to change credentials' 
                     : enrollmentProperties.section2.passwordHint}
-                  id="input-password"
+                  id="input-parent-password"
                 />
               )}
             </div>
@@ -1033,6 +1059,47 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
                   </Button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Cycle & Billing Configuration */}
+          <div className="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5" id="input-classes-per-cycle-container">
+              <label className="block text-xs font-bold text-slate-700">
+                {enrollmentProperties.section4.classesPerCycle} *
+              </label>
+              <p className="text-[11px] text-slate-500">
+                {enrollmentProperties.section4.classesPerCycleHint}
+              </p>
+              <Input
+                type="number"
+                min="1"
+                max="50"
+                value={classesPerCycle}
+                onChange={(e) => setClassesPerCycle(e.target.value)}
+                placeholder={enrollmentProperties.section4.classesPerCyclePlaceholder}
+                className="w-full"
+                id="input-classes-per-cycle"
+              />
+            </div>
+
+            <div className="space-y-1.5" id="input-fee-per-cycle-container">
+              <label className="block text-xs font-bold text-slate-700">
+                {enrollmentProperties.section4.feePerCycle} *
+              </label>
+              <p className="text-[11px] text-slate-500">
+                {enrollmentProperties.section4.feePerCycleHint}
+              </p>
+              <Input
+                type="number"
+                min="0"
+                step="100"
+                value={feePerCycle}
+                onChange={(e) => setFeePerCycle(e.target.value)}
+                placeholder={enrollmentProperties.section4.feePerCyclePlaceholder}
+                className="w-full"
+                id="input-fee-per-cycle"
+              />
             </div>
           </div>
 

@@ -92,6 +92,8 @@ export const enrollStudentSchema = z.object({
   city: z.string().optional(),
   preferredDays: z.union([z.array(z.string()), z.string()]).optional(),
   preferredSlot: z.string().optional(),
+  classesPerCycle: z.coerce.number().int().min(1, 'Classes per cycle must be at least 1.').max(50, 'Classes per cycle cannot exceed 50.').optional().default(8),
+  feePerCycle: z.coerce.number().min(0, 'Fee per cycle must be non-negative.').optional().default(1600),
   notes: z.string().optional()
 }).passthrough();
 
@@ -118,6 +120,8 @@ export const updateStudentSchema = z.object({
   city: z.string().optional(),
   preferredDays: z.union([z.array(z.string()), z.string()]).optional(),
   preferredSlot: z.string().optional(),
+  classesPerCycle: z.coerce.number().int().min(1, 'Classes per cycle must be at least 1.').max(50, 'Classes per cycle cannot exceed 50.').optional(),
+  feePerCycle: z.coerce.number().min(0, 'Fee per cycle must be non-negative.').optional(),
   notes: z.string().optional()
 }).passthrough();
 

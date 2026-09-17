@@ -174,7 +174,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
         schoolName: student.schoolName,
         relationship: testimonyRelationship,
         rating: testimonyRating,
-        title: testimonyHeadline.trim() || 'Transformation Review',
+        title: testimonyHeadline.trim() || chosenTag || 'Handwriting Transformation',
         review: testimonyReview.trim(),
         beforeAfterTag: chosenTag,
         image: testimonyImage || undefined,
@@ -237,18 +237,20 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
   }
 
   const latestReport = reports.length > 0 ? reports[reports.length - 1] : null;
+  const cycleSize = student.classesPerCycle || 8;
+  const cycleFee = student.feePerCycle || 1600;
   const attendedCount = attendance.filter((a) => a.status === 'Present').length;
-  const completedCycles = Math.floor(attendedCount / 8);
+  const completedCycles = Math.floor(attendedCount / cycleSize);
   const currentCycle = completedCycles + 1;
-  const currentCycleProgress = attendedCount % 8;
+  const currentCycleProgress = attendedCount % cycleSize;
   const paidCyclesCount = fees.filter((f) => f.status === 'Paid').length;
   const isFeeDueForCurrentCycle = completedCycles > 0 && paidCyclesCount < completedCycles;
 
   // Pending fee records or cycle due calculation
   const pendingFees = fees.filter((f) => f.status === 'Pending' || f.status === 'Overdue');
-  const pendingFeeTotal = pendingFees.reduce((sum, f) => sum + (f.amount || 1600), 0);
-  const hasFeeDue = pendingFees.length > 0 || isFeeDueForCurrentCycle || student.feeStatus === 'Pending' || student.feeStatus === 'Overdue';
-  const totalFeeDue = pendingFeeTotal > 0 ? pendingFeeTotal : (hasFeeDue ? 1600 : 0);
+  const pendingFeeTotal = pendingFees.reduce((sum, f) => sum + (f.amount || cycleFee), 0);
+  const hasFeeDue = pendingFees.length > 0 || isFeeDueForCurrentCycle || (student as any).feeStatus === 'Pending' || (student as any).feeStatus === 'Overdue';
+  const totalFeeDue = pendingFeeTotal > 0 ? pendingFeeTotal : (hasFeeDue ? cycleFee : 0);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 font-sans space-y-6">
@@ -969,15 +971,13 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                         ))}
                       </div>
                       <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-full border border-emerald-200">
-                        {customTag.trim() || testimonyTag}
+                        {testimonyHeadline.trim() ? (customTag.trim() || testimonyTag) : 'Verified Story'}
                       </span>
                     </div>
 
-                    {testimonyHeadline && (
-                      <h4 className="font-black text-sm text-slate-900">
-                        "{testimonyHeadline}"
-                      </h4>
-                    )}
+                    <h4 className="font-black text-sm text-slate-900">
+                      "{testimonyHeadline.trim() || customTag.trim() || testimonyTag}"
+                    </h4>
 
                     <p className="text-xs text-slate-700 leading-relaxed italic font-sans font-medium">
                       "{testimonyReview || 'Your handwriting transformation review will appear here as you type...'}"
@@ -1050,7 +1050,9 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold rounded-full">
-                          {item.beforeAfterTag || 'Featured'}
+                          {item.title && item.beforeAfterTag && item.title.toLowerCase() === item.beforeAfterTag.toLowerCase()
+                            ? 'Verified Story'
+                            : (item.beforeAfterTag || 'Featured')}
                         </span>
                         <Button
                           variant="ghost"
@@ -1109,7 +1111,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
               </p>
             </div>
             <div className="text-xs text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-full font-bold border border-emerald-200">
-              ₹1,600 Coaching Fee • In-Person Reception Settlement
+              ₹{(student.feePerCycle || 1600).toLocaleString()} Coaching Fee • In-Person Reception Settlement
             </div>
           </div>
 
@@ -1139,7 +1141,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                       <td className="py-3.5 px-4 font-medium text-slate-600 whitespace-nowrap">{fee.date || fee.paidDate || '—'}</td>
                       <td className="py-3.5 px-4 font-bold text-slate-800">{fee.milestone || fee.yearMonth || fee.period || 'Current Milestone'}</td>
                       <td className="py-3.5 px-4 font-mono font-bold text-[#0E3589]">{fee.receiptNumber || fee.receiptNo || '—'}</td>
-                      <td className="py-3.5 px-4 font-black text-emerald-800 text-sm">₹{fee.amount || 1600}</td>
+                      <td className="py-3.5 px-4 font-black text-emerald-800 text-sm">₹{fee.amount || student.feePerCycle || 1600}</td>
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         <span
                           className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${

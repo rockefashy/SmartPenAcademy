@@ -531,6 +531,8 @@ export type Database = {
           parent_name: string
           preferred_slot: string | null
           preferred_days: string[] | null
+          classes_per_cycle: number | null
+          fee_per_cycle: number | null
           school_name: string | null
           status: string
           total_classes: number | null
@@ -554,6 +556,8 @@ export type Database = {
           parent_name: string
           preferred_slot?: string | null
           preferred_days?: string[] | null
+          classes_per_cycle?: number | null
+          fee_per_cycle?: number | null
           school_name?: string | null
           status?: string
           total_classes?: number | null
@@ -577,6 +581,8 @@ export type Database = {
           parent_name?: string
           preferred_slot?: string | null
           preferred_days?: string[] | null
+          classes_per_cycle?: number | null
+          fee_per_cycle?: number | null
           school_name?: string | null
           status?: string
           total_classes?: number | null

@@ -86,7 +86,7 @@ export const submitTestimonialTool: AgentTool = {
       grade: student.gradeClass || '',
       schoolName: student.schoolName || '',
       rating: Number(args?.rating) || 5,
-      title: args?.title || 'Parent Feedback',
+      title: args?.title || args?.beforeAfterTag || 'Handwriting Transformation',
       review: String(args?.review || '').trim(),
       status: 'Published'
     };

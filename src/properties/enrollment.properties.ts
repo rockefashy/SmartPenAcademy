@@ -41,11 +41,11 @@ export const enrollmentProperties = {
     emergencyContactNamePlaceholder: "e.g., Grandparent / Relative / Alternate Guardian",
     emergencyContactPhone: "Emergency Contact Phone",
     emergencyContactPhonePlaceholder: "+91 98765 00000",
-    emailAddress: "Email Address (Login ID)",
+    emailAddress: "Parent Email Address (Login ID)",
     emailAddressPlaceholder: "parent.name@example.com",
-    emailAddressHint: "Email address is the login id",
-    password: "Password",
-    passwordPlaceholder: "Enter password (minimum 8 characters)",
+    emailAddressHint: "Parent email address is the login id",
+    password: "Parent Password",
+    passwordPlaceholder: "Enter parent password (minimum 8 characters)",
     passwordHint: "Minimum 8 characters",
     residentialArea: "Residential Area / Locality",
     residentialAreaPlaceholder: "Enter city, locality or area",
@@ -93,7 +93,13 @@ export const enrollmentProperties = {
       "6:00 - 7:00 PM"
     ],
     enrollmentDate: "Enrollment Date / Start Date",
-    enrollmentDateHint: "Date when student joined or started classes"
+    enrollmentDateHint: "Date when student joined or started classes",
+    classesPerCycle: "Classes per Billing Cycle",
+    classesPerCyclePlaceholder: "e.g., 8",
+    classesPerCycleHint: "Number of attended sessions per billing cycle (Standard: 8 classes)",
+    feePerCycle: "Fee per Cycle (₹)",
+    feePerCyclePlaceholder: "e.g., 1600",
+    feePerCycleHint: "Fee charged per cycle in INR (Standard: ₹1,600)"
   },
 
   // Section 5: Areas of Concern (Parent Observations)
@@ -145,8 +151,8 @@ export const enrollmentProperties = {
     title: "🎉 Enrollment Successful!",
     message: "The student has been successfully registered in the SmartPen Academy roster. Login credentials and registration summary have been dispatched to the registered parent email address and Academy Admin.",
     credentialsHeader: "Account Access Details:",
-    emailLoginLabel: "Login ID (Email):",
-    passwordLabel: "Password:",
+    emailLoginLabel: "Parent Login ID (Email):",
+    passwordLabel: "Parent Password:",
     statusLabel: "Status:",
     parentEmailLabel: "Registered Email:",
     viewStudentDetailsBtn: "Open Student Dashboard",

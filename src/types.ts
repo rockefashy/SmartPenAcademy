@@ -118,6 +118,8 @@ export interface StudentProfile {
   dateOfLeaving?: string;
   totalClasses?: number;
   attendedClasses?: number;
+  classesPerCycle?: number;
+  feePerCycle?: number;
   notes?: string;
   avatarUrl?: string;
   createdAt: string;

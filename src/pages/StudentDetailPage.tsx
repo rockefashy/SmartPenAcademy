@@ -870,29 +870,37 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       {/* ========================================================================= */}
       {activeTab === 2 && (
         <div className="space-y-6">
-          {/* Alert Banner if 8 classes completed and fee receipt pending */}
-          {attendedCount >= 8 && Math.floor(attendedCount / 8) > fees.filter(f => f.status === 'Paid').length && (
-            <div className="p-4 bg-orange-50 border-2 border-orange-200 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-              <div className="space-y-0.5">
-                <p className="text-xs font-black text-orange-950 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#F46E20]" />
-                  <span>8 Classes Completed in Sequence • Fee Receipt Due</span>
-                </p>
-                <p className="text-[11px] text-orange-800 font-medium">
-                  {student.firstName} has completed 8 classes (Classes {(Math.floor(attendedCount / 8) - 1) * 8 + 1} - {Math.floor(attendedCount / 8) * 8}). ₹1,600 fee receipt is pending.
-                </p>
+          {/* Alert Banner if cycle classes completed and fee receipt pending */}
+          {(() => {
+            const cycleSize = student.classesPerCycle || 8;
+            const cycleFee = student.feePerCycle || 1600;
+            const completedCycles = Math.floor(attendedCount / cycleSize);
+            const isFeeDue = attendedCount >= cycleSize && completedCycles > fees.filter(f => f.status === 'Paid').length;
+            if (!isFeeDue) return null;
+
+            return (
+              <div className="p-4 bg-orange-50 border-2 border-orange-200 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-black text-orange-950 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#F46E20]" />
+                    <span>{cycleSize} Classes Completed in Sequence • Fee Receipt Due</span>
+                  </p>
+                  <p className="text-[11px] text-orange-800 font-medium">
+                    {student.firstName} has completed {cycleSize} classes (Classes {(completedCycles - 1) * cycleSize + 1} - {completedCycles * cycleSize}). ₹{cycleFee.toLocaleString()} fee receipt is pending.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setActiveTab(3)}
+                  className="shrink-0"
+                >
+                  Record Receipt (₹{cycleFee.toLocaleString()})
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={() => setActiveTab(3)}
-                className="shrink-0"
-              >
-                Record Receipt (₹1,600)
-              </Button>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Unified Attendance Calendar Tracker */}
           <AttendanceCalendarTracker

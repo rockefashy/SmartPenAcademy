@@ -442,33 +442,40 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         {liveTestimonials.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {liveTestimonials.slice(0, 6).map((rev, idx) => (
-              <div
-                key={idx}
-                className="bg-white rounded-3xl p-6 border-2 border-slate-100 shadow-md hover:shadow-xl transition-all flex flex-col justify-between space-y-4"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex text-amber-400">
-                      {Array.from({ length: rev.rating || 5 }).map((_, i) => (
-                        <Star key={i} className="w-4 h-4 fill-amber-400" />
-                      ))}
+            {liveTestimonials.slice(0, 6).map((rev, idx) => {
+              const displayTitle = (rev.title && rev.title !== 'Transformation Review')
+                ? rev.title
+                : (rev.beforeAfterTag || rev.title);
+              const isTitleSameAsTag = Boolean(displayTitle && rev.beforeAfterTag && displayTitle.toLowerCase() === rev.beforeAfterTag.toLowerCase());
+              const badgeLabel = isTitleSameAsTag ? 'Verified Story' : (rev.beforeAfterTag || 'Featured');
+
+              return (
+                <div
+                  key={idx}
+                  className="bg-white rounded-3xl p-6 border-2 border-slate-100 shadow-md hover:shadow-xl transition-all flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex text-amber-400">
+                        {Array.from({ length: rev.rating || 5 }).map((_, i) => (
+                          <Star key={i} className="w-4 h-4 fill-amber-400" />
+                        ))}
+                      </div>
+                      <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-full border border-emerald-200">
+                        {badgeLabel}
+                      </span>
                     </div>
-                    <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-full border border-emerald-200">
-                      {rev.beforeAfterTag || 'Featured'}
-                    </span>
+
+                    {displayTitle && (
+                      <h4 className="font-extrabold text-xs text-slate-900 line-clamp-1">
+                        "{displayTitle}"
+                      </h4>
+                    )}
+
+                    <p className="text-xs text-slate-700 leading-relaxed italic font-sans font-medium line-clamp-4">
+                      "{rev.review}"
+                    </p>
                   </div>
-
-                  {rev.title && (
-                    <h4 className="font-extrabold text-xs text-slate-900 line-clamp-1">
-                      "{rev.title}"
-                    </h4>
-                  )}
-
-                  <p className="text-xs text-slate-700 leading-relaxed italic font-sans font-medium line-clamp-4">
-                    "{rev.review}"
-                  </p>
-                </div>
 
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -484,7 +491,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </div>
                 </div>
               </div>
-            ))}
+            );
+          })}
           </div>
         ) : (
           <div className="bg-slate-50 rounded-3xl p-8 border border-slate-200 text-center max-w-xl mx-auto space-y-3">

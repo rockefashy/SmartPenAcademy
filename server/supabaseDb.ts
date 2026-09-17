@@ -228,6 +228,8 @@ function mapStudentRow(row: any, userRow?: any, resolvedCoachName?: string | nul
     academicModules,
     totalClasses: row.total_classes !== undefined && row.total_classes !== null ? Number(row.total_classes) : undefined,
     attendedClasses: row.attended_classes !== undefined && row.attended_classes !== null ? Number(row.attended_classes) : 0,
+    classesPerCycle: row.classes_per_cycle !== undefined && row.classes_per_cycle !== null ? Number(row.classes_per_cycle) : 8,
+    feePerCycle: row.fee_per_cycle !== undefined && row.fee_per_cycle !== null ? Number(row.fee_per_cycle) : 1600,
     notes: studentNotes,
     avatarUrl: row.avatar_url || userRow?.avatar_url || undefined,
     diagnosticObservations: Array.isArray(row.diagnostic_observations) ? row.diagnostic_observations : [],
@@ -459,6 +461,10 @@ function mapAlertRow(row: any): AdminAlert {
 }
 
 function mapTestimonialRow(row: any): Testimonial {
+  const displayTitle = (row.title && row.title !== 'Transformation Review')
+    ? row.title
+    : (row.before_after_tag || row.title || undefined);
+
   return {
     id: row.id,
     studentId: row.student_id || '',
@@ -468,7 +474,7 @@ function mapTestimonialRow(row: any): Testimonial {
     schoolName: undefined,
     relationship: 'Parent',
     rating: row.rating !== undefined && row.rating !== null ? Number(row.rating) : 0,
-    title: row.title || undefined,
+    title: displayTitle,
     review: row.review || '',
     beforeAfterTag: row.before_after_tag || undefined,
     image: row.image || undefined,
@@ -495,6 +501,74 @@ function mapToolAuditLogRow(row: any): ToolAuditLog {
     status: row.status || (row.success ? 'success' : 'failed'),
     createdAt: row.created_at || ''
   };
+}
+
+async function attachStudentHistory(students: StudentProfile[]): Promise<StudentProfile[]> {
+  if (!students || students.length === 0) return students;
+  const supabase = getSupabase();
+  const studentIds = students.map(s => s.id).filter(Boolean);
+  if (studentIds.length === 0) return students;
+
+  try {
+    const [attRes, feeRes] = await Promise.all([
+      applyRowCeiling(
+        supabase
+          .from('attendance')
+          .select('student_id, status')
+          .in('student_id', studentIds)
+      ),
+      applyRowCeiling(
+        supabase
+          .from('fees')
+          .select('student_id, status')
+          .in('student_id', studentIds)
+      )
+    ]);
+
+    const attMap = new Map<string, AttendanceRecord[]>();
+    if (!attRes.error && Array.isArray(attRes.data)) {
+      for (const row of attRes.data) {
+        const studentId = row.student_id;
+        if (!attMap.has(studentId)) attMap.set(studentId, []);
+        attMap.get(studentId)!.push({
+          id: '',
+          studentId,
+          date: '',
+          classNumber: 1,
+          status: row.status || 'Present'
+        });
+      }
+    }
+
+    const feeMap = new Map<string, FeeRecord[]>();
+    if (!feeRes.error && Array.isArray(feeRes.data)) {
+      for (const row of feeRes.data) {
+        const studentId = row.student_id;
+        if (!feeMap.has(studentId)) feeMap.set(studentId, []);
+        feeMap.get(studentId)!.push({
+          id: '',
+          studentId,
+          amount: 0,
+          date: '',
+          yearMonth: '',
+          receiptNumber: '',
+          paymentMethod: 'GPAY',
+          status: (row.status as FeeRecord['status']) || 'Paid'
+        });
+      }
+    }
+
+    for (const s of students) {
+      const studentAtt = attMap.get(s.id) || [];
+      s.attendanceHistory = studentAtt;
+      s.attendedClasses = studentAtt.filter(a => a.status === 'Present').length;
+      s.feeHistory = feeMap.get(s.id) || [];
+    }
+  } catch (err: any) {
+    console.warn('[SupabaseDatabase.attachStudentHistory] Failed to attach attendance/fee history:', err?.message);
+  }
+
+  return students;
 }
 
 export class SupabaseDatabase {
@@ -1024,7 +1098,8 @@ export class SupabaseDatabase {
       });
 
       if (!error && Array.isArray(data)) {
-        return data.map((row: any) => mapStudentRow(row, row, row.coach_name));
+        const mappedRpc = data.map((row: any) => mapStudentRow(row, row, row.coach_name));
+        return await attachStudentHistory(mappedRpc);
       }
       if (error) {
         console.warn(`[SupabaseDatabase.getAllStudents] get_all_students_search RPC error, falling back:`, error.message);
@@ -1076,7 +1151,7 @@ export class SupabaseDatabase {
       );
     }
 
-    return mapped;
+    return await attachStudentHistory(mapped);
   }
 
   async getStudentsCount(): Promise<number> {
@@ -1140,11 +1215,12 @@ export class SupabaseDatabase {
       if (name) coachMap.set(c.id, name);
     });
 
-    return (students || []).map((s: any) => {
+    const mapped = (students || []).map((s: any) => {
       const user = (s.user_id && userMap.get(s.user_id)) || userMap.get(s.id);
       const coachName = s.coach_id ? (coachMap.get(s.coach_id) || null) : null;
       return mapStudentRow(s, user, coachName);
     });
+    return await attachStudentHistory(mapped);
   }
 
   async getStudentsCountByCoachId(coachId: string, alternateId?: string): Promise<number> {
@@ -1208,7 +1284,9 @@ export class SupabaseDatabase {
       }
     }
 
-    return mapStudentRow(student, user, coachName);
+    const studentProfile = mapStudentRow(student, user, coachName);
+    const [withHistory] = await attachStudentHistory([studentProfile]);
+    return withHistory || studentProfile;
   }
 
   async checkStudentDuplicate(
@@ -1385,6 +1463,8 @@ export class SupabaseDatabase {
       coach_id: student.coachId || null,
       preferred_slot: student.preferredSlot || null,
       preferred_days: preferredDaysArray,
+      classes_per_cycle: student.classesPerCycle !== undefined && student.classesPerCycle !== null ? Number(student.classesPerCycle) : 8,
+      fee_per_cycle: student.feePerCycle !== undefined && student.feePerCycle !== null ? Number(student.feePerCycle) : 1600,
       total_classes: student.totalClasses !== undefined && student.totalClasses !== null ? Number(student.totalClasses) : 8,
       attended_classes: student.attendedClasses !== undefined && student.attendedClasses !== null ? Number(student.attendedClasses) : 0,
       notes: JSON.stringify(metaNotesPayload),
@@ -1460,6 +1540,8 @@ export class SupabaseDatabase {
     if (updates.enrollmentDate !== undefined) updateData.enrollment_date = updates.enrollmentDate;
     if (updates.totalClasses !== undefined) updateData.total_classes = Number(updates.totalClasses);
     if (updates.attendedClasses !== undefined) updateData.attended_classes = Number(updates.attendedClasses);
+    if (updates.classesPerCycle !== undefined) updateData.classes_per_cycle = Number(updates.classesPerCycle);
+    if (updates.feePerCycle !== undefined) updateData.fee_per_cycle = Number(updates.feePerCycle);
 
     if (updates.dominantHand !== undefined || updates.preferredDays !== undefined || updates.relationship !== undefined || updates.notes !== undefined || updates.scriptsRequired !== undefined || updates.academicModules !== undefined || updates.dateOfLeaving !== undefined || updates.status !== undefined) {
       const { data: currentStudent } = await supabase
@@ -2225,6 +2307,20 @@ export class SupabaseDatabase {
     if (error) {
       throw new Error(`Failed to save attendance batch: ${error.message}`);
     }
+
+    // Keep students.attended_classes in sync
+    const uniqueStudentIds = Array.from(new Set(records.map(r => r.studentId).filter(Boolean)));
+    for (const sid of uniqueStudentIds) {
+      const { data: presentRows } = await supabase
+        .from('attendance')
+        .select('id')
+        .eq('student_id', sid)
+        .eq('status', 'Present');
+      await supabase
+        .from('students')
+        .update({ attended_classes: presentRows?.length || 0, updated_at: new Date().toISOString() })
+        .eq('id', sid);
+    }
   }
 
   async deleteAttendance(id: string): Promise<void> {
@@ -2232,6 +2328,12 @@ export class SupabaseDatabase {
     if (!id || typeof id !== 'string') {
       throw new Error('[Data Integrity Error] deleteAttendance requires a valid record id.');
     }
+    const { data: existing } = await supabase
+      .from('attendance')
+      .select('student_id')
+      .eq('id', id)
+      .maybeSingle();
+
     const { error } = await supabase
       .from('attendance')
       .delete()
@@ -2239,6 +2341,18 @@ export class SupabaseDatabase {
 
     if (error) {
       throw new Error(`Failed to delete attendance: ${error.message}`);
+    }
+
+    if (existing?.student_id) {
+      const { data: presentRows } = await supabase
+        .from('attendance')
+        .select('id')
+        .eq('student_id', existing.student_id)
+        .eq('status', 'Present');
+      await supabase
+        .from('students')
+        .update({ attended_classes: presentRows?.length || 0, updated_at: new Date().toISOString() })
+        .eq('id', existing.student_id);
     }
   }
 
@@ -2957,7 +3071,7 @@ export class SupabaseDatabase {
       grade: testimonial.grade || null,
       rating: testimonial.rating !== undefined && testimonial.rating !== null ? Number(testimonial.rating) : null,
       review: testimonial.review || null,
-      title: testimonial.title || null,
+      title: testimonial.title || (testimonial as any).beforeAfterTag || null,
       handwriting_style: (testimonial as any).handwritingStyle || null,
       status: testimonial.status || null,
       is_featured: testimonial.status === 'Featured' ? true : (testimonial.status === 'Approved' ? false : null),

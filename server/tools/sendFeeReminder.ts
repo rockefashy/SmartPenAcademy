@@ -49,7 +49,7 @@ export const sendFeeReminderTool: AgentTool = {
       };
     }
 
-    const amount = Number(args?.amount) || 1600;
+    const amount = Number(args?.amount) || student.feePerCycle || 1600;
     const gpayLink = `upi://pay?pa=8861751000@okbizaxis&pn=SmartPen%20Academy&am=${amount}&cu=INR`;
 
     const reminder = await db.saveFeeReminder({

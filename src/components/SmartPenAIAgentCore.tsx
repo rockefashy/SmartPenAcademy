@@ -23,7 +23,7 @@ export interface ChatMessage {
   sender: 'bot' | 'user' | 'system';
   text: string;
   timestamp: string;
-  actionType?: 'demo' | 'gpay' | 'enroll' | 'portal' | 'syllabus' | 'login';
+  actionType?: 'demo' | 'gpay' | 'enroll' | 'portal' | 'syllabus' | 'login' | 'coachEnrollment';
 }
 
 interface SmartPenAIAgentCoreProps {
@@ -113,12 +113,29 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
         for (const tr of res.toolResults) {
           if (tr.toolName === 'navigateToPage' && tr.result?.target) {
             const t = String(tr.result.target).toLowerCase();
-            if (t.includes('login') || t.includes('signin') || t.includes('sign in') || t.includes('auth') || t.includes('credential')) actionType = 'login';
-            else if (t.includes('demo')) actionType = 'demo';
-            else if (t.includes('enroll')) actionType = 'enroll';
-            else if (t.includes('gpay')) actionType = 'gpay';
-            else if (t.includes('syllabus')) actionType = 'syllabus';
-            else if (t.includes('portal') || t.includes('parent')) actionType = 'portal';
+            if (t.includes('login') || t.includes('signin') || t.includes('sign in') || t.includes('auth') || t.includes('credential')) {
+              actionType = 'login';
+            } else if (t.includes('demo')) {
+              actionType = 'demo';
+            } else if (t.includes('coachenrollment') || t.includes('coach')) {
+              actionType = 'coachEnrollment';
+              if (currentUser?.role === ROLES.ADMIN && onNavigate) {
+                onNavigate('admin', undefined, 'coachEnrollment');
+                if (isFloatingModal && onClose) onClose();
+              }
+            } else if (t.includes('enroll')) {
+              actionType = 'enroll';
+              if (currentUser?.role === ROLES.ADMIN && onNavigate) {
+                onNavigate('enroll');
+                if (isFloatingModal && onClose) onClose();
+              }
+            } else if (t.includes('gpay')) {
+              actionType = 'gpay';
+            } else if (t.includes('syllabus')) {
+              actionType = 'syllabus';
+            } else if (t.includes('portal') || t.includes('parent')) {
+              actionType = 'portal';
+            }
           }
         }
       }
@@ -322,7 +339,20 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
                       leftIcon={<Users className="w-3 h-3" />}
                       className="text-[11px] py-1 px-2.5 transform hover:-translate-y-0.5"
                     >
-                      Go to Enrollment Page →
+                      Go to Student Enrollment →
+                    </Button>
+                  )}
+
+                  {m.actionType === 'coachEnrollment' && currentUser?.role === ROLES.ADMIN && (
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => onNavigate && onNavigate('admin', undefined, 'coachEnrollment')}
+                      leftIcon={<Users className="w-3 h-3" />}
+                      className="text-[11px] py-1 px-2.5 transform hover:-translate-y-0.5"
+                    >
+                      Go to Coach Registration →
                     </Button>
                   )}
 

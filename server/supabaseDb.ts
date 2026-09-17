@@ -832,7 +832,7 @@ export class SupabaseDatabase {
 
     const { data: users } = await supabase
       .from('users')
-      .select('id, email, phone')
+      .select('id, email, phone, first_name, last_name')
       .or(`email.ilike.${clean},phone.eq.${phoneDigits || clean}`);
 
     const userIds = (users || []).map((u: any) => u.id);
@@ -2323,6 +2323,21 @@ export class SupabaseDatabase {
     }
   }
 
+  async findAttendanceById(id: string): Promise<AttendanceRecord | null> {
+    const supabase = getSupabase();
+    if (!id) return null;
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to find attendance record ${id}: ${error.message}`);
+    }
+    return data ? mapAttendanceRow(data) : null;
+  }
+
   async deleteAttendance(id: string): Promise<void> {
     const supabase = getSupabase();
     if (!id || typeof id !== 'string') {
@@ -2605,6 +2620,21 @@ export class SupabaseDatabase {
     }
 
     return mapProgressTrackerRow(data);
+  }
+
+  async findProgressTrackerById(id: string): Promise<ProgressTracker | null> {
+    const supabase = getSupabase();
+    if (!id) return null;
+    const { data, error } = await supabase
+      .from('progress_trackers')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to find progress tracker ${id}: ${error.message}`);
+    }
+    return data ? mapProgressTrackerRow(data) : null;
   }
 
   async deleteProgressTracker(id: string): Promise<void> {

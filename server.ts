@@ -382,6 +382,9 @@ export async function recordAudit(params: {
   return await db.recordToolAuditLog({
     userId: actorId,
     actorId: actorId,
+    actorRole: params.actorRole,
+    actorUsername: params.actorUsername,
+    actorStudentId: params.actorStudentId,
     toolName: params.action,
     summary: params.summary,
     actionSummary: params.summary,
@@ -1780,7 +1783,7 @@ app.put('/api/students/:id', authenticateJwt, requireCoachOrAdmin, verifyStudent
   return res.json(updated);
 }));
 
-app.delete('/api/students/:id', authenticateJwt, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+app.delete('/api/students/:id', authenticateJwt, requireCoachOrAdmin, verifyStudentAccess('id'), asyncHandler(async (req: AuthRequest, res: Response) => {
   const paramsParsed = studentIdParamSchema.safeParse(req.params);
   if (!paramsParsed.success) {
     throw new ValidationError(paramsParsed.error.issues[0]?.message || 'Invalid student ID parameter.');
@@ -1798,7 +1801,7 @@ app.delete('/api/students/:id', authenticateJwt, requireAdmin, asyncHandler(asyn
     actorRole: req.user?.role,
     actorStudentId: id,
     action: 'student_deactivate',
-    summary: `Administrator ${req.user?.firstName || req.user?.username} deactivated student profile (soft delete): ${student?.firstName || id}`,
+    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'}${req.user?.firstName || req.user?.username ? ' ' + (req.user?.firstName || req.user?.username) : ''} deactivated student profile (soft delete): ${student?.firstName || id}`,
     arguments: { studentId: id, studentName: student?.firstName },
     result: { success: true, softDelete: true }
   });
@@ -1953,12 +1956,19 @@ app.post('/api/attendance/batch', authenticateJwt, requireCoachOrAdmin, attendan
   return res.json({ success: true, count: records.length });
 }));
 
-app.delete('/api/attendance/:id', authenticateJwt, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+app.delete('/api/attendance/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
   const parsed = deleteAttendanceParamSchema.safeParse(req.params);
   if (!parsed.success) {
     throw new ValidationError(parsed.error.issues[0]?.message || 'Invalid attendance record ID.');
   }
   const { id } = parsed.data;
+  const attendance = await db.findAttendanceById(id);
+  if (!attendance) {
+    throw new NotFoundError('Attendance record not found.');
+  }
+  if (!await canAccessStudent(req.user, attendance.studentId)) {
+    throw new AuthorizationError('Access denied: You can only delete attendance records for students assigned to you.');
+  }
 
   await db.deleteAttendance(id);
 
@@ -1966,16 +1976,17 @@ app.delete('/api/attendance/:id', authenticateJwt, requireAdmin, asyncHandler(as
     actorId: req.user?.id,
     actorUsername: req.user?.username,
     actorRole: req.user?.role,
+    actorStudentId: attendance.studentId,
     action: 'attendance_delete',
-    summary: `Administrator deleted attendance record #${id}`,
-    arguments: { attendanceId: id },
+    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'} deleted attendance record #${id}`,
+    arguments: { attendanceId: id, studentId: attendance.studentId },
     result: { success: true }
   });
 
   return res.json({ success: true });
 }));
 
-app.delete('/api/attendance/:studentId/:date', authenticateJwt, requireAdmin, verifyStudentAccess('studentId'), asyncHandler(async (req: AuthRequest, res: Response) => {
+app.delete('/api/attendance/:studentId/:date', authenticateJwt, requireCoachOrAdmin, verifyStudentAccess('studentId'), asyncHandler(async (req: AuthRequest, res: Response) => {
   const parsed = deleteAttendanceByDateParamsSchema.safeParse(req.params);
   if (!parsed.success) {
     throw new ValidationError(parsed.error.issues[0]?.message || 'Invalid studentId or date parameter.');
@@ -2007,7 +2018,7 @@ app.delete('/api/attendance/:studentId/:date', authenticateJwt, requireAdmin, ve
     actorRole: req.user?.role,
     actorStudentId: studentId,
     action: 'attendance_delete',
-    summary: `Administrator deleted attendance record for student ${studentId} on date ${date}`,
+    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'} deleted attendance record for student ${studentId} on date ${date}`,
     arguments: { studentId, date },
     result: { success: true }
   });
@@ -2329,21 +2340,30 @@ app.post('/api/progress-trackers', authenticateJwt, requireCoachOrAdmin, verifyS
   return res.json(saved);
 }));
 
-app.delete('/api/progress-trackers/:id', authenticateJwt, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+app.delete('/api/progress-trackers/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
   const paramsParsed = trackerIdParamSchema.safeParse(req.params);
   if (!paramsParsed.success) {
     throw new ValidationError(paramsParsed.error.issues[0]?.message || 'Invalid progress tracker ID.');
   }
   const { id } = paramsParsed.data;
+  const tracker = await db.findProgressTrackerById(id);
+  if (!tracker) {
+    throw new NotFoundError('Progress tracker record not found.');
+  }
+  if (!await canAccessStudent(req.user, tracker.studentId)) {
+    throw new AuthorizationError('Access denied: You can only delete progress trackers for students assigned to you.');
+  }
+
   await db.deleteProgressTracker(id);
 
   recordAudit({
     actorId: req.user?.id,
     actorUsername: req.user?.username,
     actorRole: req.user?.role,
+    actorStudentId: tracker.studentId,
     action: 'progress_tracker_delete',
-    summary: `Administrator removed progress evaluation tracker record #${id}`,
-    arguments: { trackerId: id },
+    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'} removed progress evaluation tracker record #${id}`,
+    arguments: { trackerId: id, studentId: tracker.studentId },
     result: { success: true }
   });
 
@@ -2568,7 +2588,7 @@ app.delete('/api/reports/:id', authenticateJwt, requireCoachOrAdmin, asyncHandle
   return res.json({ success: true, message: 'Progress report deleted successfully.' });
 }));
 
-app.post('/api/reports/:id/email', authenticateJwt, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+app.post('/api/reports/:id/email', authenticateJwt, requireCoachOrAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
   const paramsParsed = reportIdParamSchema.safeParse(req.params);
   if (!paramsParsed.success) {
     throw new ValidationError(paramsParsed.error.issues[0]?.message || 'Invalid report ID parameter.');
@@ -2578,6 +2598,14 @@ app.post('/api/reports/:id/email', authenticateJwt, requireAdmin, asyncHandler(a
     throw new ValidationError(bodyParsed.error.issues[0]?.message || 'Invalid email dispatch parameters.');
   }
   const { id } = paramsParsed.data;
+  const report = await db.findProgressReportById(id);
+  if (!report) {
+    throw new NotFoundError('Progress report not found.');
+  }
+  if (!await canAccessStudent(req.user, report.studentId)) {
+    throw new AuthorizationError('Access denied: Only the assigned coach or administrator can email this progress report.');
+  }
+
   const { studentEmail, parentEmail } = bodyParsed.data;
   const adminEmail = await db.getAdminEmail();
   const recipientTarget = parentEmail || studentEmail || 'student/parent';
@@ -2587,9 +2615,10 @@ app.post('/api/reports/:id/email', authenticateJwt, requireAdmin, asyncHandler(a
     actorId: req.user?.id,
     actorUsername: req.user?.username,
     actorRole: req.user?.role,
+    actorStudentId: report.studentId,
     action: 'progress_report_email',
-    summary: `Emailed Progress Report #${id} to parent (${recipientTarget})`,
-    arguments: { reportId: id, parentEmail, studentEmail },
+    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'} emailed Progress Report #${id} to parent (${recipientTarget})`,
+    arguments: { reportId: id, studentId: report.studentId, parentEmail, studentEmail },
     result: { success: true }
   });
 

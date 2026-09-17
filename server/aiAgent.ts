@@ -7,6 +7,41 @@ import { ALL_TOOLS, PUBLIC_TOOLS, getToolsForRole, toolRegistry } from './tools/
 export { ALL_TOOLS, PUBLIC_TOOLS, getToolsForRole, toolRegistry };
 import { verifyToolStudentAccess, canCoachAccessStudent, findStudent } from './tools/helpers.ts';
 export { verifyToolStudentAccess, canCoachAccessStudent, findStudent };
+export type EnrollmentIntent = 'student' | 'coach' | null;
+
+/**
+ * Detects whether user input expresses an intent to enroll or register a student or coach.
+ * Kept exclusively on backend to fast-path zero-LLM routing and enforce RBAC.
+ */
+export function detectEnrollmentIntent(text: string): EnrollmentIntent {
+  if (!text) return null;
+  const clean = text.toLowerCase().trim();
+
+  // Coach enrollment intent
+  const coachPatterns = [
+    /\b(enroll|register|add|create|new|hire|onboard)\s+(a\s+|an\s+)?(coach|tutor|teacher|instructor)\b/i,
+    /\b(coach|tutor|teacher)\s+(enrollment|registration|creation|admission)\b/i,
+    /\b(add|create|register|enroll)\s+(new\s+)?coach\b/i
+  ];
+  if (coachPatterns.some(p => p.test(clean))) {
+    return 'coach';
+  }
+
+  // Student enrollment intent
+  const studentPatterns = [
+    /\b(enroll|register|admit|add|new|onboard)\s+(a\s+|an\s+)?(student|child|kid|admission)\b/i,
+    /\b(student|child|admission)\s+(enrollment|registration|form)\b/i,
+    /\b(enroll|register|admit)\s+(new\s+)?student\b/i,
+    /\b(want\s+to|how\s+to|can\s+i)\s+(enroll|register|admit)\b/i,
+    /\b(student|child)\s+admission\b/i,
+    /^(enroll|register|admission)$/i
+  ];
+  if (studentPatterns.some(p => p.test(clean))) {
+    return 'student';
+  }
+
+  return null;
+}
 
 // ================= RATE LIMITING FOR MUTATING TOOLS (SUPABASE-BACKED ATOMIC RPC) =================
 async function checkToolRateLimit(
@@ -247,6 +282,31 @@ Guest Guidelines:
 // Master AI Agent Process Function - Direct LLM Reasoning with Tools and Natural Language Response
 export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ reply: string; toolResults: ToolCallResult[] }> {
   const { messages, userContext, settings } = reqBody;
+
+  // Zero-LLM Fast-Path: Deterministic Enrollment Intercept
+  const lastUserMessage = [...(messages || [])].reverse().find(m => m.role === 'user')?.content || '';
+  const enrollmentIntent = detectEnrollmentIntent(lastUserMessage);
+  if (enrollmentIntent) {
+    if (userContext?.role === ROLES.ADMIN) {
+      const target = enrollmentIntent === 'coach' ? 'coachEnrollment' : 'enroll';
+      return {
+        reply: `Opening the ${enrollmentIntent === 'coach' ? 'Coach' : 'Student'} Registration & Enrollment page...`,
+        toolResults: [{
+          toolName: 'navigateToPage',
+          args: { target },
+          result: { target, success: true },
+          summary: `Navigate to ${target}`,
+          success: true
+        }]
+      };
+    } else {
+      return {
+        reply: "Restricted only to Admin.",
+        toolResults: []
+      };
+    }
+  }
+
   const apiKey = settings?.apiKey || process.env.GEMINI_API_KEY;
   const preferredModel = settings?.model || 'gemini-3.8-flash';
 

@@ -21,9 +21,31 @@ if (!supabaseServiceRoleKey) {
 
 export const isServerSupabaseConfigured = true;
 
+// Custom fetch wrapper to handle transient Supabase PostgREST clock skew (PGRST303 "JWT issued at future")
+const fetchWithSkewRetry: typeof fetch = async (input, init) => {
+  let res = await fetch(input, init);
+  if (res.status === 401) {
+    try {
+      const cloned = res.clone();
+      const text = await cloned.text();
+      if (text.includes('JWT issued at future') || text.includes('PGRST303')) {
+        console.warn('[SUPABASE] Transient clock skew detected ("JWT issued at future"). Retrying query after 1.2s backoff...');
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        res = await fetch(input, init);
+      }
+    } catch {
+      // Ignore clone/text read error and proceed with original response
+    }
+  }
+  return res;
+};
+
 export const serverSupabase: SupabaseClient<Database> = createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
+  },
+  global: {
+    fetch: fetchWithSkewRetry,
   }
 });

@@ -136,7 +136,7 @@ Before declaring any task complete:
 Adding or modifying an entity field (student, coach, fee, etc.) must follow this fixed 7-step sequence across all layers:
 
 1. **Database Schema**: Add column via a version-controlled migration in `supabase/migrations/`.
-2. **DB Mapping Layer**: Update both row→object and object→row mappings in `server/supabaseDb.ts`.
+2. **DB Mapping Layer**: Update both row→object and object→row mappings in the appropriate domain repository in `server/db/` (e.g., `students.db.ts`, `coaches.db.ts`, `fees.db.ts`).
 3. **TypeScript Contract**: Update the shared interface in `src/types/`.
 4. **Backend Validation**: Add the field to relevant Zod create/update schemas in `server/routes/`.
 5. **Properties Layer**: Define UI labels/options in `src/properties/` (if applicable).
@@ -145,7 +145,23 @@ Adding or modifying an entity field (student, coach, fee, etc.) must follow this
 
 ---
 
-## 13. Document Hierarchy
+## 13. Backend Modular Architecture Invariant
+
+The backend is strictly modularized across two core tiers:
+
+### A. Express Routing Tier (`server.ts` & `server/routes/`)
+- `server.ts` is strictly a bootstrap orchestrator (< 200 lines). It is reserved for global middleware (CORS, cookies, helmet, request logger) and mounting feature routers.
+- **Strict Invariant**: NEVER add route handlers (`app.get()`, `app.post()`, etc.) or helper methods directly into `server.ts`.
+- All endpoints must reside in their respective domain router under `server/routes/*.routes.ts` (e.g., `students.routes.ts`, `coaches.routes.ts`, `fees.routes.ts`, etc.) or a new domain router.
+
+### B. Database Persistence Tier (`server/db/` & `server/supabaseDb.ts`)
+- All database queries, table mappings, and schema mutations must reside in domain repositories under `server/db/*.db.ts`.
+- `server/supabaseDb.ts` is strictly a typed aggregator/facade preserving compatibility for `{ db }`.
+- **Strict Invariant**: NEVER add query methods directly into `server/supabaseDb.ts`. Always add them to the relevant domain repository in `server/db/` and delegate/re-export via the facade.
+
+---
+
+## 14. Document Hierarchy
 
 When requirements conflict, precedence is:
 1. `Security.md` for security, auth, tokens, RLS, and secrets.

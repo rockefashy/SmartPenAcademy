@@ -1,3 +1,8 @@
+---
+trigger: model_decision
+description: Applies to frontend UI work, forms, modals, buttons, layout, touch targets, and mobile-first responsive viewport design.
+---
+
 # Mobile-First UI Rules
 
 These rules apply to all UI work in this project — new components, new forms,
@@ -5,11 +10,18 @@ new modals, new pages, and edits to existing ones. Follow them by default;
 do not wait to be reminded.
 
 This file governs UI/mobile implementation. For architecture, security, data
-model, and API rules, see `GEMINI.md` — that file is
-authoritative for anything outside UI/mobile scope. Where this file
-authorizes cross-cutting UI work (shared-component extraction and migration
-across many call sites), that work is explicitly exempted from `GEMINI.md`
-Section 28's "do not refactor unrelated code" rule — see the note there.
+model, and API rules, see:
+- `~/.gemini/GEMINI.md` (global engineering behavior)
+- `Architecture.md` (project architecture & data contracts)
+- `Security.md` (security mechanisms)
+
+Those files are authoritative for anything outside UI/mobile scope. Where this
+file authorizes cross-cutting UI work (shared-component extraction and migration
+across many call sites), that work is explicitly exempted from the “do not
+refactor unrelated code” rule in `Architecture.md` Section 17 and the
+corresponding principle in `~/.gemini/GEMINI.md`.
+
+---
 
 ## Layout & Viewport
 
@@ -53,10 +65,10 @@ Section 28's "do not refactor unrelated code" rule — see the note there.
 - If real-device verification did not happen for a given change, say so
   explicitly in the completion report rather than omitting it. Do not
   report a UI task as complete on the strength of a clean build alone.
-- This mirrors `GEMINI.md` Section 25 (Evidence-Based Implementation Rule)
-  and Section 32's IMPLEMENTED / PARTIALLY IMPLEMENTED / NOT IMPLEMENTED /
-  NOT VERIFIED reporting vocabulary — use that vocabulary for UI/mobile
-  status reports too, not just security/architecture ones.
+- This mirrors the Evidence-Based Implementation Rule in `~/.gemini/GEMINI.md`
+  and the IMPLEMENTED / PARTIALLY IMPLEMENTED / NOT IMPLEMENTED / NOT VERIFIED
+  reporting vocabulary used there — use that vocabulary for UI/mobile status
+  reports too, not just security/architecture ones.
 
 ## Why This File Exists
 
@@ -65,6 +77,11 @@ file generic enough to carry forward as-is into new projects, and note here
 which shared components fulfill each rule so a future build can reuse them
 directly or use them as a reference implementation:
 
-- Viewport/keyboard handling -> `src/components/ui/Modal.tsx`
-- Touch target + font size baseline -> `src/components/ui/Button.tsx`,
+- Viewport/keyboard handling → `src/components/ui/Modal.tsx`
+- Touch target + font size baseline → `src/components/ui/Button.tsx`,
   `src/components/ui/FormField.tsx`
+
+For non-UI concerns (architecture, security, data), see:
+- `~/.gemini/GEMINI.md`
+- `Architecture.md`
+- `Security.md`

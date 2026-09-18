@@ -61,6 +61,7 @@ export const commonProperties = {
     email: "deepthysrock@gmail.com",
     adminEmail: "deepthysrock@gmail.com",
     location: "Ajmera Infinity, Electronic City Phase 1, Bangalore - 560100",
+    googleMapsLink: "https://www.google.com/maps/search/?api=1&query=Ajmera+Infinity,+Electronic+City+Phase+1,+Bangalore+-+560100",
     timings: "All days (4:00 PM - 7:00 PM)",
   },
   

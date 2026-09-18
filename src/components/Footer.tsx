@@ -38,15 +38,43 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <div>
             <h3 className="text-white text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#F46E20]" />
-              7-Step Curriculum
+              <a
+                href="/syllabus"
+                onClick={(e) => {
+                  if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                    e.preventDefault();
+                    onNavigate('landing');
+                    setTimeout(() => {
+                      document.getElementById('syllabus-section')?.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
+                  }
+                }}
+                className="hover:text-amber-300 transition-colors"
+              >
+                7-Step Curriculum
+              </a>
             </h3>
             <ul className="space-y-2 text-xs text-slate-400">
               {landingProperties.syllabusSection.modules.map((m, idx) => (
-                <li key={idx} className="flex items-center gap-2 hover:text-white transition-colors">
-                  <span className="w-4 h-4 rounded-full bg-slate-800 text-amber-400 flex items-center justify-center text-[10px] font-bold">
-                    {m.number}
-                  </span>
-                  <span>{m.title}</span>
+                <li key={idx}>
+                  <a
+                    href="/syllabus"
+                    onClick={(e) => {
+                      if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                        e.preventDefault();
+                        onNavigate('landing');
+                        setTimeout(() => {
+                          document.getElementById('syllabus-section')?.scrollIntoView({ behavior: 'smooth' });
+                        }, 100);
+                      }
+                    }}
+                    className="flex items-center gap-2 hover:text-white transition-colors"
+                  >
+                    <span className="w-4 h-4 rounded-full bg-slate-800 text-amber-400 flex items-center justify-center text-[10px] font-bold shrink-0">
+                      {m.number}
+                    </span>
+                    <span className="truncate">{m.title}</span>
+                  </a>
                 </li>
               ))}
             </ul>
@@ -55,53 +83,114 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           {/* Quick Links & Portals */}
           <div>
             <h3 className="text-white text-sm font-bold uppercase tracking-wider mb-4">
-              Quick Portals
+              Quick Links
             </h3>
-            <ul className="space-y-2.5 text-xs text-slate-400">
+            <ul className="space-y-2 text-xs text-slate-400">
               <li>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onNavigate('landing')}
-                  className="p-0 min-h-[44px] sm:min-h-[28px] text-slate-400 hover:text-amber-300 font-normal justify-start h-auto"
+                <a
+                  href="/"
+                  onClick={(e) => {
+                    if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                      e.preventDefault();
+                      onNavigate('landing');
+                    }
+                  }}
+                  className="hover:text-amber-300 transition-colors inline-block py-0.5"
                 >
                   {commonProperties.nav.home}
-                </Button>
+                </a>
               </li>
               <li>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onNavigate('about')}
-                  className="p-0 min-h-[44px] sm:min-h-[28px] text-slate-400 hover:text-amber-300 font-normal justify-start h-auto"
+                <a
+                  href="/about"
+                  onClick={(e) => {
+                    if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                      e.preventDefault();
+                      onNavigate('about');
+                    }
+                  }}
+                  className="hover:text-amber-300 transition-colors inline-block py-0.5"
                 >
                   {commonProperties.nav.about}
-                </Button>
+                </a>
               </li>
               <li>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onNavigate('admin')}
-                  className="p-0 min-h-[44px] sm:min-h-[28px] text-slate-400 hover:text-amber-300 font-normal justify-start h-auto"
+                <a
+                  href="/syllabus"
+                  onClick={(e) => {
+                    if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                      e.preventDefault();
+                      onNavigate('landing');
+                      setTimeout(() => {
+                        document.getElementById('syllabus-section')?.scrollIntoView({ behavior: 'smooth' });
+                      }, 100);
+                    }
+                  }}
+                  className="hover:text-amber-300 transition-colors inline-block py-0.5"
                 >
-                  {commonProperties.nav.adminDashboard}
-                </Button>
+                  {commonProperties.nav.syllabus}
+                </a>
               </li>
               <li>
+                <a
+                  href="/workshops"
+                  onClick={(e) => {
+                    if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                      e.preventDefault();
+                      onNavigate('landing');
+                      setTimeout(() => {
+                        document.getElementById('workshops-section')?.scrollIntoView({ behavior: 'smooth' });
+                      }, 100);
+                    }
+                  }}
+                  className="hover:text-amber-300 transition-colors inline-block py-0.5"
+                >
+                  {commonProperties.nav.workshops}
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/testimonials"
+                  onClick={(e) => {
+                    if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                      e.preventDefault();
+                      onNavigate('landing');
+                      setTimeout(() => {
+                        document.getElementById('testimonials-section')?.scrollIntoView({ behavior: 'smooth' });
+                      }, 100);
+                    }
+                  }}
+                  className="hover:text-amber-300 transition-colors inline-block py-0.5"
+                >
+                  {commonProperties.nav.testimonials}
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/free-demo"
+                  className="text-amber-400 hover:text-amber-300 font-semibold transition-colors inline-block py-0.5"
+                >
+                  Free Demo Class
+                </a>
+              </li>
+              <li className="pt-2 border-t border-slate-800 flex items-center gap-3">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onNavigate('parentPortal')}
-                  className="p-0 min-h-[44px] sm:min-h-[28px] text-slate-400 hover:text-amber-300 font-normal justify-start h-auto"
+                  className="p-0 min-h-[28px] text-slate-400 hover:text-amber-300 font-normal justify-start h-auto text-xs"
                 >
                   {commonProperties.nav.parentPortal}
                 </Button>
-              </li>
-              <li>
-                <span className="text-slate-500">
-                  Specialized Workshops (Speed & Cursive Camps)
-                </span>
+                <span className="text-slate-700">•</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onNavigate('admin')}
+                  className="p-0 min-h-[28px] text-slate-400 hover:text-amber-300 font-normal justify-start h-auto text-xs"
+                >
+                  {commonProperties.nav.adminDashboard}
+                </Button>
               </li>
             </ul>
           </div>
@@ -114,7 +203,15 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <div className="space-y-3 text-xs text-slate-400">
               <div className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-[#F46E20] shrink-0 mt-0.5" />
-                <span>{commonProperties.contact.location}</span>
+                <a
+                  href={commonProperties.contact.googleMapsLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white transition-colors"
+                  title="Open location in Google Maps"
+                >
+                  {commonProperties.contact.location}
+                </a>
               </div>
               <div className="flex items-center gap-2.5">
                 <Phone className="w-4 h-4 text-emerald-400 shrink-0" />

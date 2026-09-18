@@ -89,15 +89,28 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
             <span className="font-bold text-white tracking-wide truncate hidden sm:inline text-[11px] sm:text-xs">
               Book for a Free Demo Class • All Days (4:00 PM – 7:00 PM)
             </span>
-            {onOpenDemoBooking && (
-              <button
-                type="button"
-                onClick={onOpenDemoBooking}
+            {onOpenDemoBooking ? (
+              <a
+                href="/free-demo"
+                onClick={(e) => {
+                  if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                    e.preventDefault();
+                    onOpenDemoBooking();
+                  }
+                }}
                 className="hidden md:inline-flex ml-1 px-2.5 py-1 bg-white text-[#0E3589] hover:bg-amber-100 active:scale-95 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xs shrink-0 cursor-pointer transition-all whitespace-nowrap"
                 id="btn-topstrip-book-demo"
               >
                 BOOK YOUR SLOT NOW →
-              </button>
+              </a>
+            ) : (
+              <a
+                href="/free-demo"
+                className="hidden md:inline-flex ml-1 px-2.5 py-1 bg-white text-[#0E3589] hover:bg-amber-100 active:scale-95 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xs shrink-0 cursor-pointer transition-all whitespace-nowrap"
+                id="btn-topstrip-book-demo"
+              >
+                BOOK YOUR SLOT NOW →
+              </a>
             )}
           </div>
 
@@ -125,10 +138,16 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
 
             <span className="text-white/40 hidden lg:inline">|</span>
 
-            <div className="hidden lg:flex items-center gap-1 text-white/90 text-[11px]">
+            <a
+              href={commonProperties.contact.googleMapsLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden lg:flex items-center gap-1 hover:text-amber-200 transition-colors text-white/90 text-[11px]"
+              title="Open SmartPen Academy location in Google Maps"
+            >
               <MapPin className="w-3 h-3 text-orange-200 shrink-0" />
               <span className="truncate max-w-xs">{commonProperties.contact.location}</span>
-            </div>
+            </a>
           </div>
         </div>
       </div>
@@ -138,17 +157,20 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
         {/* Top Row */}
         <div className="flex items-center justify-between gap-3">
           {/* SmartPen Academy Logo */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => handleNavClick('landing')}
-            className="p-0 hover:bg-transparent text-left h-auto min-h-0"
+          <a
+            href="/"
+            onClick={(e) => {
+              if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                e.preventDefault();
+                handleNavClick('landing');
+              }
+            }}
+            className="p-0 hover:bg-transparent text-left h-auto min-h-0 block cursor-pointer"
             id="nav-brand-logo"
             aria-label="SmartPen Academy Home"
           >
             <SmartPenLogo size="lg" />
-          </Button>
+          </a>
 
           {/* Top Right Header Action Controls - Sign In & Navigation controls visible across all screen sizes */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -296,41 +318,49 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
         {/* Desktop Navigation Links Row (Visible on lg and larger screens) */}
         <div className="hidden lg:flex mt-3 pt-2.5 border-t border-slate-100 items-center justify-between gap-2">
           <nav className="flex items-center gap-1.5 flex-nowrap whitespace-nowrap">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => handleNavClick('landing')}
-              className={`text-xs sm:text-sm whitespace-nowrap shrink-0 ${
+            <a
+              href="/"
+              onClick={(e) => {
+                if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                  e.preventDefault();
+                  handleNavClick('landing');
+                }
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 inline-flex items-center justify-center ${
                 currentView === 'landing'
                   ? 'text-[#0E3589] bg-blue-50 font-bold border border-blue-200/60 shadow-2xs'
-                  : 'text-slate-600 hover:text-[#0E3589]'
+                  : 'text-slate-600 hover:text-[#0E3589] hover:bg-slate-50'
               }`}
               id="nav-link-home"
             >
               {commonProperties.nav.home}
-            </Button>
+            </a>
 
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => handleNavClick('about')}
-              className={`text-xs sm:text-sm whitespace-nowrap shrink-0 ${
+            <a
+              href="/about"
+              onClick={(e) => {
+                if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                  e.preventDefault();
+                  handleNavClick('about');
+                }
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 inline-flex items-center justify-center ${
                 currentView === 'about'
                   ? 'text-[#0E3589] bg-blue-50 font-bold border border-blue-200/60 shadow-2xs'
-                  : 'text-slate-600 hover:text-[#0E3589]'
+                  : 'text-slate-600 hover:text-[#0E3589] hover:bg-slate-50'
               }`}
               id="nav-link-about"
             >
               {commonProperties.nav.about}
-            </Button>
+            </a>
 
             <a
-              href="#syllabus-section"
+              href="/syllabus"
               onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('syllabus-section');
+                if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                  e.preventDefault();
+                  scrollToSection('syllabus-section');
+                }
               }}
               className="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-[#0E3589] hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1"
               id="nav-link-curriculum"
@@ -340,10 +370,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
             </a>
 
             <a
-              href="#workshops-section"
+              href="/workshops"
               onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('workshops-section');
+                if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                  e.preventDefault();
+                  scrollToSection('workshops-section');
+                }
               }}
               className="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-[#0E3589] hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5"
               id="nav-link-workshops"
@@ -353,10 +385,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
             </a>
 
             <a
-              href="#testimonials-section"
+              href="/testimonials"
               onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('testimonials-section');
+                if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                  e.preventDefault();
+                  scrollToSection('testimonials-section');
+                }
               }}
               className="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-[#0E3589] hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5"
               id="nav-link-testimonials"
@@ -471,13 +505,16 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
 
             {/* Mobile Navigation Links */}
             <div className="space-y-1 pt-1 border-t border-slate-100">
-              <Button
-                type="button"
-                variant="ghost"
-                size="md"
-                fullWidth
-                onClick={() => handleNavClick('landing')}
-                className={`justify-between px-3.5 py-3 rounded-2xl text-sm font-bold ${
+              <a
+                href="/"
+                onClick={(e) => {
+                  if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                    e.preventDefault();
+                    handleNavClick('landing');
+                    setIsMobileMenuOpen(false);
+                  }
+                }}
+                className={`flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold ${
                   currentView === 'landing'
                     ? 'bg-blue-50 text-[#0E3589] border border-blue-200/80 shadow-xs'
                     : 'text-slate-700 hover:bg-slate-50'
@@ -488,15 +525,18 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                   <span>{commonProperties.nav.home}</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
-              </Button>
+              </a>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="md"
-                fullWidth
-                onClick={() => handleNavClick('about')}
-                className={`justify-between px-3.5 py-3 rounded-2xl text-sm font-bold ${
+              <a
+                href="/about"
+                onClick={(e) => {
+                  if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                    e.preventDefault();
+                    handleNavClick('about');
+                    setIsMobileMenuOpen(false);
+                  }
+                }}
+                className={`flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold ${
                   currentView === 'about'
                     ? 'bg-blue-50 text-[#0E3589] border border-blue-200/80 shadow-xs'
                     : 'text-slate-700 hover:bg-slate-50'
@@ -507,52 +547,79 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                   <span>{commonProperties.nav.about}</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
-              </Button>
+              </a>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="md"
-                fullWidth
-                onClick={() => scrollToSection('syllabus-section')}
-                className="justify-between px-3.5 py-3 rounded-2xl text-sm font-bold text-slate-700 hover:bg-slate-50"
+              <a
+                href="/syllabus"
+                onClick={(e) => {
+                  if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                    e.preventDefault();
+                    scrollToSection('syllabus-section');
+                    setIsMobileMenuOpen(false);
+                  }
+                }}
+                className="flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold text-slate-700 hover:bg-slate-50"
               >
                 <div className="flex items-center gap-3">
                   <BookOpen className="w-4 h-4 text-[#0E3589]" />
                   <span>{commonProperties.nav.syllabus}</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
-              </Button>
+              </a>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="md"
-                fullWidth
-                onClick={() => scrollToSection('workshops-section')}
-                className="justify-between px-3.5 py-3 rounded-2xl text-sm font-bold text-slate-700 hover:bg-slate-50"
+              <a
+                href="/workshops"
+                onClick={(e) => {
+                  if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                    e.preventDefault();
+                    scrollToSection('workshops-section');
+                    setIsMobileMenuOpen(false);
+                  }
+                }}
+                className="flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold text-slate-700 hover:bg-slate-50"
               >
                 <div className="flex items-center gap-3">
                   <Sparkles className="w-4 h-4 text-[#F46E20]" />
                   <span>{commonProperties.nav.workshops}</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
-              </Button>
+              </a>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="md"
-                fullWidth
-                onClick={() => scrollToSection('testimonials-section')}
-                className="justify-between px-3.5 py-3 rounded-2xl text-sm font-bold text-slate-700 hover:bg-slate-50"
+              <a
+                href="/testimonials"
+                onClick={(e) => {
+                  if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                    e.preventDefault();
+                    scrollToSection('testimonials-section');
+                    setIsMobileMenuOpen(false);
+                  }
+                }}
+                className="flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold text-slate-700 hover:bg-slate-50"
               >
                 <div className="flex items-center gap-3">
                   <MessageSquareQuote className="w-4 h-4 text-[#0084F4]" />
                   <span>{commonProperties.nav.testimonials}</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
-              </Button>
+              </a>
+
+              <a
+                href="/free-demo"
+                onClick={(e) => {
+                  if (onOpenDemoBooking && !e.ctrlKey && !e.metaKey && e.button === 0) {
+                    e.preventDefault();
+                    setIsMobileMenuOpen(false);
+                    onOpenDemoBooking();
+                  }
+                }}
+                className="flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold text-amber-700 bg-amber-50/70 hover:bg-amber-100/80 border border-amber-200/80 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <CalendarCheck className="w-4 h-4 text-amber-600" />
+                  <span>Book Free Demo Class</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-amber-500" />
+              </a>
 
               {/* Conditional Portal Links: Show Admin / Coach Portal if staff, Student Portal if student */}
               {isAuthenticated && (user?.role === ROLES.ADMIN || user?.role === ROLES.COACH) && (

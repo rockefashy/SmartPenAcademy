@@ -1,5 +1,4 @@
-import type { ToolCallResult } from '../aiAgent.ts';
-import { User, ROLES } from '../../src/types.ts';
+import { User, ROLES, ToolCallResult } from '../../src/types.ts';
 
 /**
  * Evaluates deterministic fast-path intents (pure greetings, enrollment navigation) before calling LLM.

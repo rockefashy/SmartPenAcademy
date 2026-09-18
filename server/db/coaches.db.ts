@@ -1,7 +1,6 @@
 import bcrypt from 'bcryptjs';
-import { CoachProfile, StudentProfile, ROLES } from '../../src/types';
+import { CoachProfile, ROLES } from '../../src/types';
 import { getSupabase, applyRowCeiling } from './client.ts';
-import { mapStudentRow } from './students.db.ts';
 
 export function mapCoachRow(row: any, studentCount = 0, userRow?: any): CoachProfile {
   const firstName = userRow?.first_name || row.first_name || 'Coach';
@@ -450,82 +449,6 @@ export class CoachesDatabase {
     }
 
     return true;
-  }
-
-  async assignCoachToStudent(
-    studentId: string,
-    coachId: string | null
-  ): Promise<(StudentProfile & { assignmentChanged: boolean }) | null> {
-    const supabase = getSupabase();
-
-    // 1. Student existence and status check
-    const { data: studentRow, error: studentErr } = await supabase
-      .from('students')
-      .select('id, coach_id, status')
-      .eq('id', studentId)
-      .maybeSingle();
-
-    if (studentErr) {
-      throw new Error(`Failed to lookup student: ${studentErr.message}`);
-    }
-    if (!studentRow) {
-      throw new Error('Student not found');
-    }
-    if (studentRow.status !== 'Active') {
-      throw new Error('Cannot assign a coach to an inactive student.');
-    }
-
-    // 2. Coach existence and status check (when coachId is non-null)
-    let coachName: string | null = null;
-    if (coachId) {
-      const coachData = await this.getCoachById(coachId);
-      if (!coachData) {
-        throw new Error('Coach not found');
-      }
-      if (coachData.status !== 'Active') {
-        throw new Error('Cannot assign an inactive coach to a student.');
-      }
-
-      coachName = `${coachData.firstName || ''} ${coachData.lastName || ''}`.trim() || null;
-    }
-
-    // 3. Idempotency check
-    const currentCoachId = studentRow.coach_id || null;
-    const targetCoachId = coachId || null;
-    const assignmentChanged = currentCoachId !== targetCoachId;
-
-    // 4. Update student record
-    const { data, error } = await supabase
-      .from('students')
-      .update({
-        coach_id: targetCoachId,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', studentId)
-      .select()
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(`Failed to assign coach: ${error.message}`);
-    }
-
-    let user: any = null;
-    if (data?.user_id) {
-      const { data: uData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', data.user_id)
-        .maybeSingle();
-      user = uData;
-    }
-
-    if (!data) return null;
-
-    const mapped = mapStudentRow(data, user, coachName);
-    return {
-      ...mapped,
-      assignmentChanged
-    };
   }
 }
 

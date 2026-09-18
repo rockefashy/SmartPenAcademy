@@ -371,6 +371,14 @@ export type SessionUser = User;
 export const SCHEDULE_DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
 export type ScheduleDay = typeof SCHEDULE_DAYS[number];
 
+export interface ToolCallResult {
+  toolName: string;
+  args: any;
+  result: any;
+  summary: string;
+  success: boolean;
+}
+
 export function formatPreferredDays(days?: string[] | string | null, delimiter: string = ' & '): string {
   if (!days) return '';
   if (Array.isArray(days)) {

@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 import { db } from './supabaseDb.ts';
-import { User, StudentProfile, ROLES, AuditExecutionMode } from '../src/types';
+import { User, StudentProfile, ROLES, AuditExecutionMode, ToolCallResult } from '../src/types';
 import { sendFeeReminderEmail } from './email.ts';
 import { landingProperties } from '../src/properties/landing.properties.ts';
 import { ALL_TOOLS, PUBLIC_TOOLS, getToolsForRole, toolRegistry } from './tools/registry.ts';
@@ -25,13 +25,7 @@ async function checkToolRateLimit(
   return await db.checkRateLimit(key, maxCalls, windowSeconds);
 }
 
-export interface ToolCallResult {
-  toolName: string;
-  args: any;
-  result: any;
-  summary: string;
-  success: boolean;
-}
+export type { ToolCallResult };
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'model' | 'system';

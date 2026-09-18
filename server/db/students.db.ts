@@ -2,7 +2,29 @@ import bcrypt from 'bcryptjs';
 import { StudentProfile, AttendanceRecord, FeeRecord } from '../../src/types';
 import { getSupabase, PaginationParams, applyRowCeiling, applyQueryPagination } from './client.ts';
 import { StoredUser } from './auth.db.ts';
-import { coachesDb } from './coaches.db.ts';
+
+async function resolveCoachName(coachId: string): Promise<string | null> {
+  const supabase = getSupabase();
+  const { data: coach } = await supabase
+    .from('coaches')
+    .select('id, user_id')
+    .eq('id', coachId)
+    .maybeSingle();
+
+  if (!coach || !coach.user_id) return null;
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('first_name, last_name')
+    .eq('id', coach.user_id)
+    .maybeSingle();
+
+  if (user) {
+    const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    return name || null;
+  }
+  return null;
+}
 
 export function normalizeToDayArray(raw?: string[] | string | null): string[] {
   if (!raw) return [];
@@ -491,10 +513,7 @@ export class StudentsDatabase {
 
     let coachName: string | null = null;
     if (student.coach_id) {
-      const coach = await coachesDb.getCoachById(student.coach_id);
-      if (coach) {
-        coachName = `${coach.firstName || ''} ${coach.lastName || ''}`.trim() || null;
-      }
+      coachName = await resolveCoachName(student.coach_id);
     }
 
     const studentProfile = mapStudentRow(student, user, coachName);
@@ -709,10 +728,7 @@ export class StudentsDatabase {
 
     let coachName: string | null = null;
     if (studentRow.coach_id) {
-      const coachData = await coachesDb.getCoachById(studentRow.coach_id);
-      if (coachData) {
-        coachName = `${coachData.firstName || ''} ${coachData.lastName || ''}`.trim() || null;
-      }
+      coachName = await resolveCoachName(studentRow.coach_id);
     }
 
     const mapped = mapStudentRow(data, createdUser, coachName);
@@ -862,10 +878,7 @@ export class StudentsDatabase {
     let coachName: string | null = null;
     const coachIdToLookup = updatedStudent?.coach_id || updates.coachId;
     if (coachIdToLookup) {
-      const coachData = await coachesDb.getCoachById(coachIdToLookup);
-      if (coachData) {
-        coachName = `${coachData.firstName || ''} ${coachData.lastName || ''}`.trim() || null;
-      }
+      coachName = await resolveCoachName(coachIdToLookup);
     }
 
     return updatedStudent ? mapStudentRow(updatedStudent, user, coachName) : null;
@@ -879,6 +892,99 @@ export class StudentsDatabase {
       dateOfLeaving: today
     });
     return Boolean(updated);
+  }
+
+  async assignCoachToStudent(
+    studentId: string,
+    coachId: string | null
+  ): Promise<(StudentProfile & { assignmentChanged: boolean }) | null> {
+    const supabase = getSupabase();
+
+    // 1. Student existence and status check
+    const { data: studentRow, error: studentErr } = await supabase
+      .from('students')
+      .select('id, coach_id, status')
+      .eq('id', studentId)
+      .maybeSingle();
+
+    if (studentErr) {
+      throw new Error(`Failed to lookup student: ${studentErr.message}`);
+    }
+    if (!studentRow) {
+      throw new Error('Student not found');
+    }
+    if (studentRow.status !== 'Active') {
+      throw new Error('Cannot assign a coach to an inactive student.');
+    }
+
+    // 2. Coach existence and status check (when coachId is non-null)
+    let coachName: string | null = null;
+    if (coachId) {
+      const { data: coachRow, error: coachErr } = await supabase
+        .from('coaches')
+        .select('id, user_id, status')
+        .eq('id', coachId)
+        .maybeSingle();
+
+      if (coachErr) {
+        throw new Error(`Failed to lookup coach: ${coachErr.message}`);
+      }
+      if (!coachRow) {
+        throw new Error('Coach not found');
+      }
+      if (coachRow.status !== 'Active') {
+        throw new Error('Cannot assign an inactive coach to a student.');
+      }
+
+      if (coachRow.user_id) {
+        const { data: coachUser } = await supabase
+          .from('users')
+          .select('first_name, last_name')
+          .eq('id', coachRow.user_id)
+          .maybeSingle();
+        if (coachUser) {
+          coachName = `${coachUser.first_name || ''} ${coachUser.last_name || ''}`.trim() || null;
+        }
+      }
+    }
+
+    // 3. Idempotency check
+    const currentCoachId = studentRow.coach_id || null;
+    const targetCoachId = coachId || null;
+    const assignmentChanged = currentCoachId !== targetCoachId;
+
+    // 4. Update student record
+    const { data, error } = await supabase
+      .from('students')
+      .update({
+        coach_id: targetCoachId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', studentId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to assign coach: ${error.message}`);
+    }
+
+    let user: any = null;
+    if (data?.user_id) {
+      const { data: uData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', data.user_id)
+        .maybeSingle();
+      user = uData;
+    }
+
+    if (!data) return null;
+
+    const mapped = mapStudentRow(data, user, coachName);
+    return {
+      ...mapped,
+      assignmentChanged
+    };
   }
 }
 

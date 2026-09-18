@@ -215,7 +215,7 @@ export class SupabaseDatabase {
     studentId: string,
     coachId: string | null
   ): Promise<(StudentProfile & { assignmentChanged: boolean }) | null> {
-    return coachesDb.assignCoachToStudent(studentId, coachId);
+    return studentsDb.assignCoachToStudent(studentId, coachId);
   }
 
   // ================= ATTENDANCE =================

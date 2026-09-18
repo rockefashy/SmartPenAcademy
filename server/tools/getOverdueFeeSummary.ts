@@ -3,6 +3,7 @@ import { Type, FunctionDeclaration } from '@google/genai';
 import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { validateWithSchema } from './helpers.ts';
+import { getCoachAssignedStudents } from '../helpers/coachHelper.ts';
 
 export const getOverdueFeeSummaryDeclaration: FunctionDeclaration = {
   name: 'getOverdueFeeSummary',
@@ -66,9 +67,7 @@ export const getOverdueFeeSummaryTool: AgentTool = {
     const studentNameMap = new Map<string, string>();
 
     if (user?.role === ROLES.COACH) {
-      const coachKey = user.coachId || user.id;
-      const coachAlt = user.coachId ? user.id : undefined;
-      const assignedStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
+      const assignedStudents = await getCoachAssignedStudents(user);
 
       if (assignedStudents.length === 0) {
         return {

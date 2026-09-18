@@ -3,6 +3,7 @@ import { Type, FunctionDeclaration } from '@google/genai';
 import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { db } from '../supabaseDb.ts';
 import { validateWithSchema } from './helpers.ts';
+import { getCoachAssignedStudents } from '../helpers/coachHelper.ts';
 
 export const getAttendanceRiskStudentsDeclaration: FunctionDeclaration = {
   name: 'getAttendanceRiskStudents',
@@ -71,9 +72,7 @@ export const getAttendanceRiskStudentsTool: AgentTool = {
     // 3. Resolve active students with role-based scoping
     let targetStudents: any[] = [];
     if (user?.role === ROLES.COACH) {
-      const coachKey = user.coachId || user.id;
-      const coachAlt = user.coachId ? user.id : undefined;
-      const roster = await db.getStudentsByCoachId(coachKey, coachAlt);
+      const roster = await getCoachAssignedStudents(user);
       targetStudents = roster.filter(s => s.status === 'Active');
     } else {
       const allStudents = await db.getAllStudents();

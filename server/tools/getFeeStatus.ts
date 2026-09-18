@@ -3,6 +3,7 @@ import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts'
 import { findStudent, verifyToolStudentAccess, validateWithSchema, toolLimitSchema, applyFilterOrLimit } from './helpers.ts';
 import { db } from '../supabaseDb.ts';
 import { StudentProfile } from '../../src/types.ts';
+import { getCoachAssignedStudents } from '../helpers/coachHelper.ts';
 
 export const getFeeStatusDeclaration: FunctionDeclaration = {
   name: 'getFeeStatus',
@@ -107,9 +108,7 @@ export const getFeeStatusTool: AgentTool = {
 
     // 2. Coach roster broad query
     if (user?.role === ROLES.COACH) {
-      const coachKey = user.coachId || user.id;
-      const coachAlt = user.coachId ? user.id : undefined;
-      let myStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
+      let myStudents = await getCoachAssignedStudents(user);
 
       // Pre-evaluate dues for each student to allow dueOnly filtering
       const studentDues: Array<{ student: StudentProfile; isFeeDue: boolean; summaryLine: string }> = [];

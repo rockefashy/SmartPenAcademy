@@ -2,6 +2,7 @@ import { Type, FunctionDeclaration } from '@google/genai';
 import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { validateWithSchema, toolLimitSchema, applyFilterOrLimit } from './helpers.ts';
 import { db } from '../supabaseDb.ts';
+import { getCoachAssignedStudents } from '../helpers/coachHelper.ts';
 
 export const listStudentsDeclaration: FunctionDeclaration = {
   name: 'listStudents',
@@ -47,7 +48,7 @@ export const listStudentsTool: AgentTool = {
 
     // 1. Role Scoping
     const students = user?.role === ROLES.COACH
-      ? await db.getStudentsByCoachId(user.coachId || user.id, user.coachId ? user.id : undefined)
+      ? await getCoachAssignedStudents(user)
       : await db.getAllStudents();
 
     // 2. Explicit Filters

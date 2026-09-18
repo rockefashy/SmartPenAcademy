@@ -34,6 +34,30 @@ import { db } from './server/supabaseDb.ts';
 import { handleAIAgentChat } from './server/aiAgent.ts';
 import { Logger } from './server/logger.ts';
 import { asyncHandler, errorHandler } from './server/middleware/errorHandler.ts';
+import { validate } from './server/helpers/validation.ts';
+import {
+  AuthRequest,
+  authenticateJwt,
+  requireAdmin,
+  requireCoachOrAdmin,
+  canAccessStudent,
+  verifyStudentAccess
+} from './server/middleware/auth.ts';
+import { resolveStudentContext } from './server/helpers/studentContext.ts';
+import {
+  createRateLimiter,
+  paymentRateLimiter,
+  attendanceRateLimiter,
+  demoBookingRateLimiter,
+  authRateLimiter
+} from './server/middleware/rateLimiter.ts';
+import { recordAudit } from './server/helpers/audit.ts';
+import {
+  getCoachKeys,
+  getCoachAssignedStudents,
+  getCoachAssignedStudentIds
+} from './server/helpers/coachHelper.ts';
+import { saveBase64Image } from './server/helpers/fileHelper.ts';
 import {
   AppError,
   ValidationError,
@@ -111,78 +135,14 @@ const testimonialsDir = path.join(publicDir, 'testimonials');
 // Serve public static assets
 app.use(express.static(publicDir));
 
-// ================= RATE LIMITING MIDDLEWARE (SUPABASE-BACKED ATOMIC RPC) =================
-export function createRateLimiter(options: { windowMs: number; max: number; message?: string }) {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      // Check for user identity from JWT (via req.user or cookie/header decode)
-      let userKey: string | null = null;
-      if ((req as any).user?.id) {
-        userKey = `user:${(req as any).user.id}`;
-      } else {
-        const token = req.cookies?.smartpen_token || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : null);
-        if (token) {
-          try {
-            const decoded = jwt.verify(token, JWT_SECRET) as any;
-            if (decoded?.id) {
-              userKey = `user:${decoded.id}`;
-            }
-          } catch {
-            // Fall back to IP
-          }
-        }
-      }
-
-      const ip = req.ip || req.socket.remoteAddress || 'unknown';
-      const identifier = userKey || `ip:${ip}`;
-      const routePath = req.baseUrl || req.path || 'global';
-      const key = `api:${routePath}:${identifier}`;
-      const windowSeconds = Math.max(1, Math.ceil(options.windowMs / 1000));
-
-      const rateCheck = await db.checkRateLimit(key, options.max, windowSeconds);
-
-      if (!rateCheck.allowed) {
-        res.set('Retry-After', String(rateCheck.retryAfter));
-        res.status(429).json({
-          error: options.message || 'Too many requests. Please slow down and try again shortly.',
-          retryAfter: rateCheck.retryAfter
-        });
-        return;
-      }
-
-      next();
-    } catch (err) {
-      console.warn('[RateLimiter] Error evaluating rate limit, proceeding:', err);
-      next();
-    }
-  };
-}
-
-// Mutating endpoints rate limiters (independent of chat UI)
-const paymentRateLimiter = createRateLimiter({
-  windowMs: 60 * 1000, // 1 minute
-  max: 15,
-  message: 'Payment mutation rate limit reached. Please wait before recording more payments.'
-});
-
-const attendanceRateLimiter = createRateLimiter({
-  windowMs: 60 * 1000,
-  max: 30,
-  message: 'Attendance update rate limit exceeded. Please wait a moment before retrying.'
-});
-
-const demoBookingRateLimiter = createRateLimiter({
-  windowMs: 60 * 1000,
-  max: 10,
-  message: 'Demo booking rate limit reached. Please try again in a few moments.'
-});
-
-// Auth endpoint rate limiter: 10 attempts per 15 minutes per IP/user
-const authRateLimiter = createRateLimiter({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: 'Too many authentication attempts. Please wait 15 minutes before trying again.'
-});
+// Rate Limiters (re-exported from server/middleware/rateLimiter.ts for backward compatibility)
+export {
+  createRateLimiter,
+  paymentRateLimiter,
+  attendanceRateLimiter,
+  demoBookingRateLimiter,
+  authRateLimiter
+};
 
 // ================= STANDARDIZED API ERROR HANDLER =================
 export function sendApiError(res: Response, req: Request, err: any, defaultMessage: string, statusCode = 500) {
@@ -214,187 +174,20 @@ export function sendApiError(res: Response, req: Request, err: any, defaultMessa
   });
 }
 
-// Auth Middleware (supports both httpOnly cookie and Bearer header)
-interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    username: string;
-    role: 'admin' | 'coach' | 'student';
-    studentId?: string;
-    coachId?: string;
-    firstName: string;
-    lastName?: string;
-    email: string;
-    phoneNumber?: string;
-    designation?: string;
-  };
-}
-
-const authenticateJwt = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
-  let token: string | undefined;
-
-  // 1. Check secure httpOnly cookie first
-  if (req.cookies && req.cookies.smartpen_token) {
-    token = req.cookies.smartpen_token;
-  }
-
-  // 2. Fallback to Authorization Bearer header
-  if (!token) {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
-    }
-  }
-
-  if (!token) {
-    res.status(401).json({ error: 'Unauthorized. Please sign in with valid credentials.', requireLogin: true });
-    return;
-  }
-
-  let decoded: any;
-  try {
-    decoded = jwt.verify(token, JWT_SECRET) as any;
-  } catch (err: any) {
-    res.status(401).json({ 
-      error: 'Session expired or invalid token. Please log in again to continue.', 
-      isExpired: true,
-      requireLogin: true 
-    });
-    return;
-  }
-
-  // Validate token_version: if the user changed their password after this token was issued,
-  // the token_version in the DB will be higher than what is stored in the JWT claim.
-  // This ensures password changes immediately invalidate all older tokens.
-  if (decoded.id && decoded.tokenVersion !== undefined) {
-    try {
-      const currentVersion = await db.findUserTokenVersion(decoded.id);
-      if (currentVersion !== null && currentVersion > decoded.tokenVersion) {
-        res.status(401).json({
-          error: 'Session invalidated. Your password was changed — please log in again.',
-          code: 'SESSION_INVALIDATED',
-          requireLogin: true
-        });
-        return;
-      }
-    } catch {
-      // Non-fatal: if the version check fails (e.g. DB transient error), allow the request through.
-      // The JWT signature has already been verified; this is a defence-in-depth check only.
-    }
-  }
-
-  req.user = decoded;
-  next();
-};
-
-const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
-  if (!req.user || req.user?.role !== ROLES.ADMIN) {
-    res.status(403).json({ error: 'Access forbidden. Administrator privileges required.' });
-    return;
-  }
-  next();
-};
-
-const requireCoachOrAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
-  if (!req.user || (req.user?.role !== ROLES.ADMIN && req.user?.role !== ROLES.COACH)) {
-    res.status(403).json({ error: 'Access forbidden. Coach or Administrator privileges required.' });
-    return;
-  }
-  next();
-};
-
-// Helper for checking access to a given student
-const canAccessStudent = async (user: AuthRequest['user'], studentId: string): Promise<boolean> => {
-  if (!user) return false;
-  if (user?.role === ROLES.ADMIN) return true;
-  if (user?.role === ROLES.COACH) {
-    const student = await db.getStudentById(studentId);
-    if (!student || !student.coachId) return false;
-    const coachKeys = new Set([user.id, user.coachId].filter(Boolean));
-    return coachKeys.has(student.coachId);
-  }
-  if (user?.role === ROLES.STUDENT) {
-    if (user.studentId === studentId || user.id === studentId) return true;
-    const currentStoredUser = await db.findUserById(user.id);
-    if (currentStoredUser) {
-      const siblings = await db.getSiblingStudentsForUser(currentStoredUser);
-      return siblings.some(s => s.id === studentId || (s.userId && s.userId === user.id));
-    }
-    return false;
-  }
-  return false;
-};
-
-// Express middleware to verify student access authorization (Priority 2 Item 2)
-export const verifyStudentAccess = (paramName: string = 'id') => {
-  return asyncHandler(async (req: AuthRequest, res: Response, next: NextFunction) => {
-    const studentId = req.params[paramName] || req.body[paramName] || req.query[paramName];
-    if (!studentId) {
-      throw new ValidationError(`Student identifier parameter '${paramName}' is missing.`);
-    }
-    const hasAccess = await canAccessStudent(req.user, String(studentId));
-    if (!hasAccess) {
-      throw new AuthorizationError('Access denied. You do not have permission to view or manage this student profile.');
-    }
-    next();
-  });
+// Auth Middleware (re-exported from server/middleware/auth.ts for backward compatibility)
+export type { AuthRequest };
+export {
+  authenticateJwt,
+  requireAdmin,
+  requireCoachOrAdmin,
+  canAccessStudent,
+  verifyStudentAccess
 };
 
 // ================= API ROUTES & AUDIT LOGGING =================
 
-// Real-time Business Scenario & Tool Audit Logger
-export async function recordAudit(params: {
-  actorId?: string;
-  actorUsername?: string;
-  actorRole?: string;
-  actorStudentId?: string;
-  action: string;
-  summary: string;
-  arguments?: Record<string, any>;
-  result?: Record<string, any> | null;
-  status?: 'success' | 'failed';
-  executionMode?: AuditExecutionMode;
-}) {
-  // Sanitize sensitive fields from arguments to protect user credentials
-  const sanitizedArgs: Record<string, any> = {};
-  if (params.arguments && typeof params.arguments === 'object') {
-    for (const [key, value] of Object.entries(params.arguments)) {
-      if (key.toLowerCase().includes('password')) {
-        sanitizedArgs[key] = '[REDACTED]';
-      } else if (typeof value === 'string' && value.startsWith('data:image/')) {
-        sanitizedArgs[key] = value.substring(0, 40) + '...[BASE64_IMAGE_DATA]';
-      } else {
-        sanitizedArgs[key] = value;
-      }
-    }
-  }
-
-  // Determine actor: if logged in user is available use id, otherwise 'anonymous'
-  const actorId = (params.actorId && params.actorId !== 'system') ? params.actorId : 'anonymous';
-
-  auditLogger.info(`[AUDIT EVENT] ${params.action}: ${params.summary}`, {
-    actorId,
-    action: params.action,
-    status: params.status || 'success',
-    arguments: sanitizedArgs
-  });
-
-  return await db.recordToolAuditLog({
-    userId: actorId,
-    actorId: actorId,
-    actorRole: params.actorRole,
-    actorUsername: params.actorUsername,
-    actorStudentId: params.actorStudentId,
-    toolName: params.action,
-    summary: params.summary,
-    actionSummary: params.summary,
-    arguments: sanitizedArgs,
-    result: params.result || {},
-    status: params.status || 'success',
-    success: params.status !== 'failed',
-    executionMode: params.executionMode || 'direct_api'
-  });
-}
+// Audit Logger (re-exported from server/helpers/audit.ts for backward compatibility)
+export { recordAudit };
 
 // ================= OBSERVABILITY & HEALTH CHECK PROBES (BATCH 1) =================
 
@@ -518,34 +311,12 @@ app.post('/api/email/test', asyncHandler(async (req: Request, res: Response) => 
 
 // Helper to issue login cookie & response
 const issueUserSession = async (user: any, res: Response, targetStudentId?: string) => {
-  let siblingStudents: any = undefined;
-  let activeStudentId = targetStudentId || user.studentId;
-  let activeFirstName = user.firstName;
-  let activeLastName = user.lastName;
-
-  if (user?.role === ROLES.STUDENT) {
-    const rawSiblings = await db.getSiblingStudentsForUser(user);
-    siblingStudents = rawSiblings.map(s => ({
-      id: s.id,
-      firstName: s.firstName || 'Student',
-      lastName: s.lastName || undefined,
-      age: s.age,
-      gradeClass: s.gradeClass,
-      schoolName: s.schoolName
-    }));
-
-    if (activeStudentId) {
-      const activeSibling = rawSiblings.find(s => s.id === activeStudentId);
-      if (activeSibling) {
-        activeFirstName = activeSibling.firstName || activeFirstName;
-        activeLastName = activeSibling.lastName || activeLastName;
-      }
-    } else if (rawSiblings.length === 1) {
-      activeStudentId = rawSiblings[0].id;
-      activeFirstName = rawSiblings[0].firstName || activeFirstName;
-      activeLastName = rawSiblings[0].lastName || activeLastName;
-    }
-  }
+  const {
+    activeStudentId,
+    activeFirstName,
+    activeLastName,
+    siblingStudents
+  } = await resolveStudentContext(user, targetStudentId);
 
   const payload = {
     id: user.id,
@@ -1446,34 +1217,12 @@ app.get('/api/auth/me', authenticateJwt, asyncHandler(async (req: AuthRequest, r
   const user = (req.user.username ? await db.findUserByUsername(req.user.username) : null) || (await db.findUserById(req.user.id));
   if (!user) throw new NotFoundError('User not found');
 
-  let siblingStudents: any = undefined;
-  let activeStudentId = req.user.studentId || user.studentId;
-  let activeFirstName = user.firstName;
-  let activeLastName = user.lastName;
-
-  if (user?.role === ROLES.STUDENT) {
-    const rawSiblings = await db.getSiblingStudentsForUser(user);
-    siblingStudents = rawSiblings.map(s => ({
-      id: s.id,
-      firstName: s.firstName || 'Student',
-      lastName: s.lastName || undefined,
-      age: s.age,
-      gradeClass: s.gradeClass,
-      schoolName: s.schoolName
-    }));
-
-    if (activeStudentId) {
-      const activeSibling = rawSiblings.find(s => s.id === activeStudentId);
-      if (activeSibling) {
-        activeFirstName = activeSibling.firstName || activeFirstName;
-        activeLastName = activeSibling.lastName || activeLastName;
-      }
-    } else if (rawSiblings.length === 1) {
-      activeStudentId = rawSiblings[0].id;
-      activeFirstName = rawSiblings[0].firstName || activeFirstName;
-      activeLastName = rawSiblings[0].lastName || activeLastName;
-    }
-  }
+  const {
+    activeStudentId,
+    activeFirstName,
+    activeLastName,
+    siblingStudents
+  } = await resolveStudentContext(user, req.user.studentId);
 
   return res.json({
     id: user.id,
@@ -1596,11 +1345,10 @@ app.get('/api/students', authenticateJwt, asyncHandler(async (req: AuthRequest, 
     }
     return res.json(students);
   } else if (req.user?.role === ROLES.COACH) {
-    const coachKey = req.user.coachId || req.user.id;
-    const coachAlt = req.user.coachId ? req.user.id : undefined;
-    const students = await db.getStudentsByCoachId(coachKey, coachAlt, paginationOptions);
+    const students = await getCoachAssignedStudents(req.user, paginationOptions);
     if (page && limit) {
-      const total = await db.getStudentsCountByCoachId(coachKey, coachAlt);
+      const keys = getCoachKeys(req.user);
+      const total = keys ? await db.getStudentsCountByCoachId(keys.coachKey, keys.coachAlt) : 0;
       return sendPaginated(res, students, total, { page, limit });
     }
     return res.json(students);
@@ -1853,10 +1601,7 @@ app.get('/api/attendance/month/:yearMonth', authenticateJwt, requireCoachOrAdmin
 
   // Database-level isolation for coach role:
   if (req.user?.role === ROLES.COACH) {
-    const coachKey = req.user.coachId || req.user.id;
-    const coachAlt = req.user.coachId ? req.user.id : undefined;
-    const coachStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
-    targetStudentIds = coachStudents.map(s => s.id);
+    targetStudentIds = await getCoachAssignedStudentIds(req.user);
 
     // If coach has no assigned students, short-circuit immediately without querying attendance
     if (targetStudentIds.length === 0) {
@@ -1918,9 +1663,7 @@ app.post('/api/attendance/batch', authenticateJwt, requireCoachOrAdmin, attendan
 
   // If coach, verify that coach only marks attendance for assigned students
   if (req.user?.role === ROLES.COACH) {
-    const coachKey = req.user.coachId || req.user.id;
-    const coachAlt = req.user.coachId ? req.user.id : undefined;
-    const coachStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
+    const coachStudents = await getCoachAssignedStudents(req.user);
     const coachStudentIds = new Set(coachStudents.map(s => s.id));
     const unauthorized = records.filter(r => !coachStudentIds.has(r.studentId));
     if (unauthorized.length > 0) {
@@ -2065,10 +1808,7 @@ app.get('/api/fees/month/:yearMonth', authenticateJwt, requireCoachOrAdmin, asyn
 
   // Database-level isolation for coach role:
   if (req.user?.role === ROLES.COACH) {
-    const coachKey = req.user.coachId || req.user.id;
-    const coachAlt = req.user.coachId ? req.user.id : undefined;
-    const coachStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
-    targetStudentIds = coachStudents.map(s => s.id);
+    targetStudentIds = await getCoachAssignedStudentIds(req.user);
 
     // If coach has no assigned students, short-circuit immediately without querying fees
     if (targetStudentIds.length === 0) {
@@ -2147,16 +1887,10 @@ app.post('/api/fees', authenticateJwt, paymentRateLimiter, requireCoachOrAdmin, 
   return res.json(saved);
 }));
 
-app.put('/api/fees/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const paramsParsed = feeIdParamSchema.safeParse(req.params);
-  if (!paramsParsed.success) {
-    throw new ValidationError(paramsParsed.error.issues[0]?.message || 'Invalid fee record ID parameter.');
-  }
-  const bodyParsed = updateFeeSchema.safeParse(req.body);
-  if (!bodyParsed.success) {
-    throw new ValidationError(bodyParsed.error.issues[0]?.message || 'Invalid fee update data.');
-  }
-  const { id } = paramsParsed.data;
+const handleFeeRecordUpdate = async (req: AuthRequest, res: Response, isPatch: boolean) => {
+  const { id } = validate(feeIdParamSchema, req.params, 'Invalid fee record ID parameter.');
+  const updateData = validate(updateFeeSchema, req.body, 'Invalid fee update data.');
+
   const existingFee = await db.findFeeById(id);
   if (!existingFee) {
     throw new NotFoundError('Fee record not found');
@@ -2165,53 +1899,16 @@ app.put('/api/fees/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(asyn
     throw new AuthorizationError('Access denied: You can only update fee records for students assigned to you.');
   }
 
-  const updated = await db.updateFeeRecord(id, bodyParsed.data as any);
-  if (!updated) {
-    throw new NotFoundError('Fee record not found');
-  }
-
-  recordAudit({
-    actorId: req.user?.id,
-    actorUsername: req.user?.username,
-    actorRole: req.user?.role,
-    actorStudentId: updated.studentId,
-    action: 'fee_record_update',
-    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'} updated fee record #${id} (Status: ${updated.status}, Amount: ₹${updated.amount})`,
-    arguments: { feeId: id, updates: bodyParsed.data },
-    result: { feeId: updated.id, status: updated.status, amount: updated.amount }
-  });
-
-  return res.json(updated);
-}));
-
-app.patch('/api/fees/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const paramsParsed = feeIdParamSchema.safeParse(req.params);
-  if (!paramsParsed.success) {
-    throw new ValidationError(paramsParsed.error.issues[0]?.message || 'Invalid fee record ID parameter.');
-  }
-  const bodyParsed = updateFeeSchema.safeParse(req.body);
-  if (!bodyParsed.success) {
-    throw new ValidationError(bodyParsed.error.issues[0]?.message || 'Invalid fee update data.');
-  }
-  const { id } = paramsParsed.data;
-  const existingFee = await db.findFeeById(id);
-  if (!existingFee) {
-    throw new NotFoundError('Fee record not found');
-  }
-  if (!await canAccessStudent(req.user, existingFee.studentId)) {
-    throw new AuthorizationError('Access denied: You can only modify fee records for students assigned to you.');
-  }
-
-  // Defensive immutability guard: if client passes a receiptNumber, ensure it does not attempt to mutate an existing receiptNumber
-  if (bodyParsed.data.receiptNumber !== undefined) {
-    const incomingReceipt = bodyParsed.data.receiptNumber.trim();
+  // Defensive immutability guard: if client passes a receiptNumber on PATCH, ensure it does not attempt to mutate an existing receiptNumber
+  if (isPatch && (updateData as any).receiptNumber !== undefined) {
+    const incomingReceipt = (updateData as any).receiptNumber?.trim();
     if (existingFee.receiptNumber && incomingReceipt && incomingReceipt !== existingFee.receiptNumber) {
       throw new ValidationError('receipt_number is immutable and cannot be modified.');
     }
-    delete (bodyParsed.data as any).receiptNumber;
+    delete (updateData as any).receiptNumber;
   }
 
-  const updated = await db.updateFeeRecord(id, bodyParsed.data as any);
+  const updated = await db.updateFeeRecord(id, updateData as any);
   if (!updated) {
     throw new NotFoundError('Fee record not found');
   }
@@ -2222,12 +1919,20 @@ app.patch('/api/fees/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(as
     actorRole: req.user?.role,
     actorStudentId: updated.studentId,
     action: 'fee_record_update',
-    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'} modified fee record #${id} (Status: ${updated.status}, Amount: ₹${updated.amount})`,
-    arguments: { feeId: id, updates: bodyParsed.data },
+    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'} ${isPatch ? 'modified' : 'updated'} fee record #${id} (Status: ${updated.status}, Amount: ₹${updated.amount})`,
+    arguments: { feeId: id, updates: updateData },
     result: { feeId: updated.id, status: updated.status, amount: updated.amount }
   });
 
   return res.json(updated);
+};
+
+app.put('/api/fees/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+  return await handleFeeRecordUpdate(req, res, false);
+}));
+
+app.patch('/api/fees/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+  return await handleFeeRecordUpdate(req, res, true);
 }));
 
 app.delete('/api/fees/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -2387,29 +2092,7 @@ app.post('/api/student-works/upload', authenticateJwt, verifyStudentAccess('stud
   }
   const { studentId, imageData, captureDate, comments, category } = parsed.data;
 
-  let finalImagePath = imageData;
-
-  // If imageData is a base64 string, write to /public/student_works/
-  if (imageData.startsWith('data:image/')) {
-    try {
-      const commaIdx = imageData.indexOf(',');
-      if (commaIdx !== -1) {
-        const metaPart = imageData.substring(0, commaIdx);
-        const base64Data = imageData.substring(commaIdx + 1).replace(/\s/g, '');
-        const extMatch = metaPart.match(/data:image\/([a-zA-Z0-9+.-]+);/);
-        let rawExt = extMatch ? extMatch[1].toLowerCase() : 'jpg';
-        if (rawExt === 'jpeg') rawExt = 'jpg';
-        if (rawExt === 'svg+xml') rawExt = 'svg';
-
-        const fileName = `work_${studentId}_${Date.now()}.${rawExt}`;
-        const filePath = path.join(studentWorksDir, fileName);
-        fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
-        finalImagePath = `/student_works/${fileName}`;
-      }
-    } catch (e) {
-      console.error('Error saving image to disk, falling back to base64:', e);
-    }
-  }
+  const finalImagePath = saveBase64Image(imageData, studentWorksDir, `work_${studentId}`) || imageData;
 
   const effectiveDate = captureDate || new Date().toISOString().split('T')[0];
   const effectiveCategory = category || 'Practice Sheet';
@@ -2927,19 +2610,6 @@ app.delete('/api/alerts/:id', authenticateJwt, requireAdmin, asyncHandler(async 
   return res.json({ success: true });
 }));
 
-// Helper to persist base64 testimonial photo to disk safely
-function saveTestimonialPhoto(image: string | undefined, studentId: string): string | undefined {
-  if (!image || !image.startsWith('data:image/')) return image;
-  const match = image.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
-  if (!match) return image;
-  const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
-  const base64Data = match[2];
-  const fileName = `testimony_${studentId}_${Date.now()}.${ext}`;
-  const filePath = path.join(testimonialsDir, fileName);
-  fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
-  return `/testimonials/${fileName}`;
-}
-
 // 11. Testimonials / Parent Voices API
 app.get('/api/testimonials', asyncHandler(async (req: Request, res: Response) => {
   const { studentId, status } = req.query;
@@ -2975,7 +2645,7 @@ app.post('/api/testimonials', authenticateJwt, asyncHandler(async (req: AuthRequ
     mediaConsent 
   } = parsed.data;
 
-  const finalImagePath = saveTestimonialPhoto(image, studentId);
+  const finalImagePath = saveBase64Image(image, testimonialsDir, `testimony_${studentId}`);
 
   const saved = await db.saveTestimonial({
     studentId,

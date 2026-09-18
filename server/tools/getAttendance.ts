@@ -3,6 +3,7 @@ import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts'
 import { findStudent, verifyToolStudentAccess, validateWithSchema, toolLimitSchema, yearMonthSchema, applyFilterOrLimit } from './helpers.ts';
 import { db } from '../supabaseDb.ts';
 import { StudentProfile } from '../../src/types.ts';
+import { getCoachAssignedStudents } from '../helpers/coachHelper.ts';
 
 export const getAttendanceDeclaration: FunctionDeclaration = {
   name: 'getAttendance',
@@ -137,9 +138,7 @@ export const getAttendanceTool: AgentTool = {
 
     // Broad summary mode (Coach roster or Admin academy)
     if (user?.role === ROLES.COACH) {
-      const coachKey = user.coachId || user.id;
-      const coachAlt = user.coachId ? user.id : undefined;
-      const myStudents = await db.getStudentsByCoachId(coachKey, coachAlt);
+      const myStudents = await getCoachAssignedStudents(user);
 
       const filteredResult = applyFilterOrLimit({
         items: myStudents,

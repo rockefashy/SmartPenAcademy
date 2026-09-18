@@ -2,6 +2,7 @@ import { Type, FunctionDeclaration } from '@google/genai';
 import { AgentTool, AgentToolContext, AgentToolResult, ROLES } from './types.ts';
 import { findStudent, verifyToolStudentAccess, validateWithSchema, toolLimitSchema, applyFilterOrLimit } from './helpers.ts';
 import { db } from '../supabaseDb.ts';
+import { getCoachAssignedStudents } from '../helpers/coachHelper.ts';
 
 export const getStudentProgressReportsDeclaration: FunctionDeclaration = {
   name: 'getStudentProgressReports',
@@ -94,7 +95,7 @@ export const getStudentProgressReportsTool: AgentTool = {
 
     // All students mode (Roster-wide / Academy-wide)
     const eligibleStudents = user?.role === ROLES.COACH
-      ? await db.getStudentsByCoachId(user.coachId || user.id, user.coachId ? user.id : undefined)
+      ? await getCoachAssignedStudents(user)
       : await db.getAllStudents();
 
     const allReports: Array<{ studentName: string; studentId: string; report: any }> = [];

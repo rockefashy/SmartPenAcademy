@@ -137,7 +137,8 @@ export function verifyToolStudentAccess(
     return coachKeys.has(student.coachId);
   }
   if (userContext.role === ROLES.STUDENT) {
-    return userContext.studentId === student.id;
+    if (userContext.studentId === student.id || userContext.id === student.id) return true;
+    return userContext.siblingStudents?.some(s => s.id === student.id) || false;
   }
   return false;
 }

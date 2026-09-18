@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
+    "test:playwright": "tsx tests/playwright_http_test.ts",
+    "test:e2e": "tsx scripts/e2e-test-suite.ts",
     "monitor:render": "tsx scripts/monitor-render-logs.ts",
     "db:cleanup": "tsx scripts/db-cleanup.ts"
   },
@@ -47,6 +49,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
+    "playwright": "^1.63.0",
     "protobufjs": "^7.6.5",
     "supabase": "^2.117.0"
   },

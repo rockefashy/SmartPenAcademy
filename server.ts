@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { createServer as createViteServer } from 'vite';
 import { Logger } from './server/logger.ts';
+import { NotFoundError } from './server/errors.ts';
 import { errorHandler } from './server/middleware/errorHandler.ts';
 import {
   AuthRequest,
@@ -72,17 +73,53 @@ process.on('unhandledRejection', (reason: any) => {
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
-if (!process.env.JWT_SECRET) {
+const jwtSecret = (process.env.JWT_SECRET || '').trim();
+if (!jwtSecret) {
   console.error('[FATAL] JWT_SECRET environment variable is not set. Server will not start.');
   process.exit(1);
 }
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+if (jwtSecret.length < 32) {
+  console.error('[FATAL] JWT_SECRET must be at least 32 characters long for cryptographic security. Server will not start.');
+  process.exit(1);
+}
+
+const INSECURE_DEFAULT_SECRETS = [
+  'smartpen_academy_jwt_secret_key_2026',
+  'super-secret-jwt-token-with-at-least-32-characters-long',
+  'replace_with_at_least_32_chars_random_secret_here'
+];
+
+if (process.env.NODE_ENV === 'production' && INSECURE_DEFAULT_SECRETS.includes(jwtSecret)) {
+  console.error('[FATAL] Insecure default/placeholder JWT_SECRET detected in production. You must set a strong, random secret in production. Server will not start.');
+  process.exit(1);
+}
+
+// Render runs behind a reverse proxy; trust proxy allows req.ip to accurately reflect client IP
+app.set('trust proxy', 1);
+
+// Granular body parser ceilings: upload routes allow larger payloads, general API routes strictly 1MB (DoS mitigation)
+app.use('/api/student-works', express.json({ limit: '25mb' }), express.urlencoded({ extended: true, limit: '25mb' }));
+app.use('/api/reports', express.json({ limit: '25mb' }), express.urlencoded({ extended: true, limit: '25mb' }));
+app.use('/api/testimonials', express.json({ limit: '5mb' }), express.urlencoded({ extended: true, limit: '5mb' }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+        connectSrc: ["'self'", 'https://*.supabase.co', 'wss://*.supabase.co', 'https://generativelanguage.googleapis.com', 'ws:', 'wss:'],
+        mediaSrc: ["'self'", 'data:', 'blob:'],
+        objectSrc: ["'none'"],
+        frameSrc: ["'self'"],
+      },
+    },
     crossOriginEmbedderPolicy: false,
   })
 );
@@ -118,6 +155,11 @@ app.use('/api/demo-bookings', demoBookingsRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/testimonials', testimonialsRouter);
 app.use('/api/ai', aiRouter);
+
+// Unhandled API routes catch-all: return 404 JSON rather than falling through to SPA HTML
+app.all(['/api', '/api/*'], (req, _res, next) => {
+  next(new NotFoundError(`API endpoint not found: ${req.method} ${req.originalUrl}`));
+});
 
 // ================= GLOBAL ERROR HANDLING MIDDLEWARE =================
 app.use(errorHandler);

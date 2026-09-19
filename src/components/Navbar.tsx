@@ -18,7 +18,8 @@ import {
   BookOpen,
   Home,
   Info,
-  CalendarCheck
+  CalendarCheck,
+  Key
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { commonProperties } from '../properties/common.properties';
@@ -265,6 +266,17 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                       type="button"
                       variant="ghost"
                       size="icon"
+                      onClick={() => openLoginModal('change')}
+                      className="p-1 sm:p-1.5 text-slate-500 hover:text-[#0E3589] hover:bg-blue-50 min-h-[32px] min-w-[32px] ml-0.5"
+                      title="Change Password"
+                      id="btn-nav-change-password"
+                    >
+                      <Key className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => {
                         logout();
                         handleNavClick('landing');
@@ -480,20 +492,36 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                     </div>
                   </div>
                 )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    logout();
-                    setIsMobileMenuOpen(false);
-                    handleNavClick('landing');
-                  }}
-                  leftIcon={<LogOut className="w-3.5 h-3.5" />}
-                  className="text-xs text-red-600 bg-red-50 hover:bg-red-100 border-red-200"
-                >
-                  Logout
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      openLoginModal('change');
+                    }}
+                    leftIcon={<Key className="w-3.5 h-3.5" />}
+                    className="text-xs text-[#0E3589] bg-blue-50 hover:bg-blue-100 border-blue-200"
+                    id="btn-mobile-change-password"
+                  >
+                    Change Password
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      logout();
+                      setIsMobileMenuOpen(false);
+                      handleNavClick('landing');
+                    }}
+                    leftIcon={<LogOut className="w-3.5 h-3.5" />}
+                    className="text-xs text-red-600 bg-red-50 hover:bg-red-100 border-red-200"
+                  >
+                    Logout
+                  </Button>
+                </div>
               </div>
             )}
 

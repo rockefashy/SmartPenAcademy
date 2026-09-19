@@ -49,7 +49,7 @@ studentWorksRouter.post('/upload', authenticateJwt, verifyStudentAccess('student
   }
   const { studentId, imageData, captureDate, comments, category } = parsed.data;
 
-  const finalImagePath = saveBase64Image(imageData, studentWorksDir, `work_${studentId}`) || imageData;
+  const finalImagePath = (await saveBase64Image(imageData, studentWorksDir, 'work')) || imageData;
 
   const effectiveDate = captureDate || new Date().toISOString().split('T')[0];
   const effectiveCategory = category || 'Practice Sheet';

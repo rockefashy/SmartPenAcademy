@@ -14,7 +14,6 @@ import {
   LoginResponse,
   formatPreferredDays
 } from '../types';
-import { supabaseAuthService } from './supabaseAuthService';
 
 const getAuthHeaders = (): HeadersInit => {
   const token = localStorage.getItem('smartpen_token');
@@ -103,12 +102,13 @@ export const api = {
   }): Promise<{ success: boolean; message: string; loggedOut?: boolean }> {
     const res = await fetch('/api/auth/change-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       credentials: 'include',
       body: JSON.stringify(data),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Failed to update password' }));
+      console.error('[API ERROR] POST /api/auth/change-password failed:', err);
       throw new Error(err.error || 'Failed to update password');
     }
     return res.json();
@@ -128,7 +128,8 @@ export const api = {
   }> {
     const res = await fetch('/api/auth/family-students', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
+      credentials: 'include',
       body: JSON.stringify({ identifier }),
     });
     if (!res.ok) {
@@ -138,9 +139,6 @@ export const api = {
   },
 
   async logout(): Promise<{ success: boolean }> {
-    if (supabaseAuthService.isEnabled()) {
-      await supabaseAuthService.signOut().catch(() => {});
-    }
     const res = await fetch('/api/auth/logout', {
       method: 'POST',
       credentials: 'include'
@@ -156,6 +154,7 @@ export const api = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Account not found' }));
+      console.error('[API ERROR] POST /api/auth/forgot-password failed:', err);
       throw new Error(err.error || 'Account not found');
     }
     return res.json();
@@ -165,6 +164,7 @@ export const api = {
     const res = await fetch(`/api/auth/verify-reset-token?token=${encodeURIComponent(token)}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Invalid or expired reset token' }));
+      console.error('[API ERROR] GET /api/auth/verify-reset-token failed:', err);
       throw new Error(err.error || 'Invalid or expired reset token');
     }
     return res.json();
@@ -178,6 +178,7 @@ export const api = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Password reset failed' }));
+      console.error('[API ERROR] POST /api/auth/reset-password failed:', err);
       throw new Error(err.error || 'Password reset failed');
     }
     return res.json();
@@ -258,7 +259,7 @@ export const api = {
     address?: string;
     dateOfJoining?: string;
     status?: 'Active' | 'Inactive';
-    dateOfLeaving?: string;
+    dateOfLeaving?: string | null;
     educationalQualification?: string;
     designation?: string;
     specializations?: string[];
@@ -275,6 +276,7 @@ export const api = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Failed to update coach' }));
+      console.error(`[API ERROR] PUT /api/coaches/${id} failed:`, err);
       throw new Error(err.error || 'Failed to update coach');
     }
     return res.json();

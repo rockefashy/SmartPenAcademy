@@ -23,7 +23,7 @@ export function mapToolAuditLogRow(row: any): ToolAuditLog {
 export class AuditDatabase {
   async recordToolAuditLog(log: any): Promise<ToolAuditLog> {
     const supabase = getSupabase();
-    const id = `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const id = crypto.randomUUID();
 
     // Format actor: always logged in userId or 'anonymous'
     const rawUserId = log.userId || log.actorId;

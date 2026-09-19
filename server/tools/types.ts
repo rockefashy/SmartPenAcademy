@@ -6,7 +6,7 @@ export type { UserRole };
 export interface AgentToolContext {
   user: User | null;
   executionMode: AuditExecutionMode;
-  today: string;
+  today?: string;
 }
 
 export interface AgentToolResult {

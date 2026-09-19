@@ -21,6 +21,7 @@ export function mapUserRow(row: any, coachDesignation?: string | null): StoredUs
   return {
     id: row.id,
     email: row.email,
+    username: row.email,
     phone: row.phone || '',
     phoneNumber: row.phone || undefined,
     firstName,
@@ -45,6 +46,10 @@ export class AuthDatabase {
     if (!loginIdentifier || typeof loginIdentifier !== 'string') return [];
     const supabase = getSupabase();
     const clean = loginIdentifier.trim().toLowerCase();
+
+    // Strict defense: Disallow wildcard-only identifiers
+    if (clean === '%' || clean === '_' || clean.length === 0) return [];
+
     const phoneDigits = loginIdentifier.replace(/\D/g, '');
 
     // 1. Primary privileged pre-authentication RPC path (bypasses RLS via hardened SECURITY DEFINER)
@@ -53,7 +58,7 @@ export class AuthDatabase {
       const { data: rpcData, error: rpcError } = await supabase
         .rpc('get_auth_user_by_identifier', { p_identifier: clean });
       if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
-        userCandidates = rpcData;
+        userCandidates = rpcData.slice(0, 5);
       }
     } catch {
       // Fall through to explicit column projection
@@ -61,30 +66,21 @@ export class AuthDatabase {
 
     // 2. Direct targeted query fallback if RPC didn't return matches
     if (userCandidates.length === 0) {
-      const filterConditions = [
-        `email.ilike.${clean}`
-      ];
-      // Retain phone lookup for planned future phone authentication enhancement
-      if (phoneDigits && phoneDigits.length >= 10) {
-        filterConditions.push(`phone.eq.${phoneDigits}`);
+      let query = supabase
+        .from('users')
+        .select('id, email, first_name, last_name, phone, role, avatar_url, is_active, password_hash, token_version');
+
+      if (clean.includes('@')) {
+        query = query.eq('email', clean);
+      } else if (phoneDigits && phoneDigits.length >= 10) {
+        query = query.eq('phone', phoneDigits);
+      } else {
+        query = query.eq('email', clean);
       }
 
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, email, first_name, last_name, phone, role, avatar_url, is_active, password_hash, token_version')
-        .or(filterConditions.join(','));
-
+      const { data, error } = await query.limit(5);
       if (!error && Array.isArray(data) && data.length > 0) {
         userCandidates = data;
-      } else {
-        // If username prefix or exact email search is required
-        const { data: emailData } = await supabase
-          .from('users')
-          .select('id, email, first_name, last_name, phone, role, avatar_url, is_active, password_hash, token_version')
-          .ilike('email', clean.includes('@') ? clean : `${clean}@%`);
-        if (emailData && emailData.length > 0) {
-          userCandidates = emailData;
-        }
       }
     }
 
@@ -278,9 +274,13 @@ export class AuthDatabase {
 
     // If currentPassword was provided, verify it
     if (currentPassword) {
-      const passwordMatchingUsers = targetUsers.filter((u: any) =>
-        u.password_hash && bcrypt.compareSync(currentPassword, u.password_hash)
+      const matchChecks = await Promise.all(
+        targetUsers.map(async (u: any) => ({
+          user: u,
+          matches: Boolean(u.password_hash && await bcrypt.compare(currentPassword, u.password_hash))
+        }))
       );
+      const passwordMatchingUsers = matchChecks.filter(m => m.matches).map(m => m.user);
 
       if (passwordMatchingUsers.length === 0) {
         return { success: false, error: 'Incorrect current password.' };
@@ -291,68 +291,81 @@ export class AuthDatabase {
       targetUsers = passwordMatchingUsers;
     }
 
-    const newHash = bcrypt.hashSync(newPassword, 10);
-    const targetIds = targetUsers.map((u: any) => u.id);
+    const newHash = await bcrypt.hash(newPassword, 12);
 
-    // Update password_hash and increment token_version to invalidate existing tokens
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({
-        password_hash: newHash,
-        token_version: ((targetUsers[0] as any)?.token_version || 1) + 1
-      })
-      .in('id', targetIds);
+    // Update each user's password_hash and strictly increment their OWN token_version
+    const updatePromises = targetUsers.map((u: any) => {
+      const nextVersion = (typeof u.token_version === 'number' ? u.token_version : 0) + 1;
+      return supabase
+        .from('users')
+        .update({
+          password_hash: newHash,
+          token_version: nextVersion,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', u.id);
+    });
 
-    if (updateError) {
-      return { success: false, error: `Failed to update password: ${updateError.message}` };
+    const updateResults = await Promise.all(updatePromises);
+    const hasError = updateResults.some(r => r.error);
+    if (hasError) {
+      return { success: false, error: 'Failed to update password for one or more target accounts.' };
     }
 
-    return { success: true, updatedCount: targetIds.length };
+    return { success: true, updatedCount: targetUsers.length };
   }
 
   async createPasswordResetToken(email: string): Promise<{ token: string } | { error: string }> {
     const supabase = getSupabase();
-    const { data: user, error: findError } = await supabase
+    const cleanEmail = email.trim().toLowerCase();
+    const { data: users, error: findError } = await supabase
       .from('users')
-      .select('*')
-      .ilike('email', email.trim())
-      .maybeSingle();
+      .select('id, email, token_version')
+      .eq('email', cleanEmail);
 
-    if (findError || !user) {
+    if (findError || !users || users.length === 0) {
       return { error: 'No account registered with this email address.' };
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
+    // Generate secure random token and store its SHA-256 hash
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
     const expiry = Date.now() + 60 * 60 * 1000; // 1 hour
 
+    const userIds = users.map(u => u.id);
     const { error: updateError } = await supabase
       .from('users')
       .update({
-        reset_password_token: token,
+        reset_password_token: hashedToken,
         reset_password_expiry: expiry
       })
-      .eq('id', user.id);
+      .in('id', userIds);
 
     if (updateError) {
       return { error: `Failed to create reset token: ${updateError.message}` };
     }
 
-    return { token };
+    // Return the unhashed token to be dispatched via email
+    return { token: rawToken };
   }
 
   async getUserByResetToken(token: string): Promise<{ email: string } | null> {
     if (!token) return null;
     const supabase = getSupabase();
-    const { data: user, error: findError } = await supabase
+    const cleanToken = token.trim();
+    const hashedToken = crypto.createHash('sha256').update(cleanToken).digest('hex');
+
+    const { data: users, error: findError } = await supabase
       .from('users')
       .select('email, reset_password_expiry')
-      .eq('reset_password_token', token.trim())
-      .maybeSingle();
+      .or(`reset_password_token.eq.${hashedToken},reset_password_token.eq.${cleanToken}`)
+      .limit(1);
 
-    if (findError || !user) {
+    if (findError || !users || users.length === 0) {
       return null;
     }
 
+    const user = users[0];
     if (user.reset_password_expiry && Number(user.reset_password_expiry) < Date.now()) {
       return null;
     }
@@ -360,90 +373,65 @@ export class AuthDatabase {
     return { email: user.email };
   }
 
-  async resetPasswordWithToken(token: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+  async resetPasswordWithToken(token: string, newPassword: string): Promise<{ success: boolean; email?: string; error?: string }> {
     if (!token || !newPassword || newPassword.length < 8) {
       return { success: false, error: 'Invalid reset parameters or password too short.' };
     }
 
     const supabase = getSupabase();
-    const { data: user, error: findError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('reset_password_token', token)
-      .maybeSingle();
+    const cleanToken = token.trim();
+    const hashedToken = crypto.createHash('sha256').update(cleanToken).digest('hex');
 
-    if (findError || !user) {
+    const { data: users, error: findError } = await supabase
+      .from('users')
+      .select('id, email, token_version, reset_password_expiry')
+      .or(`reset_password_token.eq.${hashedToken},reset_password_token.eq.${cleanToken}`);
+
+    if (findError || !users || users.length === 0) {
       return { success: false, error: 'Invalid or expired password reset link.' };
     }
 
-    if (user.reset_password_expiry && Number(user.reset_password_expiry) < Date.now()) {
+    const sampleUser = users[0];
+    if (sampleUser.reset_password_expiry && Number(sampleUser.reset_password_expiry) < Date.now()) {
       return { success: false, error: 'Password reset link has expired. Please request a new one.' };
     }
 
-    const newHash = bcrypt.hashSync(newPassword, 10);
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({
-        password_hash: newHash,
-        reset_password_token: null,
-        reset_password_expiry: null
-      })
-      .eq('id', user.id);
+    const newHash = await bcrypt.hash(newPassword, 12);
+    const email = sampleUser.email;
 
-    if (updateError) {
-      return { success: false, error: `Failed to reset password: ${updateError.message}` };
+    // Fetch all family members sharing this email to update them together
+    const { data: allFamilyUsers } = await supabase
+      .from('users')
+      .select('id, token_version')
+      .eq('email', email);
+
+    const targetUsers = allFamilyUsers && allFamilyUsers.length > 0 ? allFamilyUsers : users;
+
+    // Update each user with new hash, incremented token_version, and clear reset token
+    const updatePromises = targetUsers.map(u => {
+      const nextVersion = (typeof u.token_version === 'number' ? u.token_version : 0) + 1;
+      return supabase
+        .from('users')
+        .update({
+          password_hash: newHash,
+          token_version: nextVersion,
+          reset_password_token: null,
+          reset_password_expiry: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', u.id);
+    });
+
+    const results = await Promise.all(updatePromises);
+    const hasError = results.some(r => r.error);
+    if (hasError) {
+      return { success: false, error: 'Failed to update password on all account records.' };
     }
 
-    return { success: true };
+    return { success: true, email };
   }
 
-  async upsertUserFromSupabase(userData: {
-    email: string;
-    firstName?: string;
-    lastName?: string;
-    role?: 'admin' | 'coach' | 'student' | 'parent';
-    studentId?: string;
-    id?: string;
-    username?: string;
-  }): Promise<StoredUser> {
-    const supabase = getSupabase();
-    const targetId = userData.id || `usr-${Date.now()}`;
-    const targetRole = userData.role || 'student';
-    const firstName = userData.firstName;
-    const lastName = userData.lastName;
 
-    // Lookup-first strategy: never overwrite an existing user's role from client-supplied data
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id, email, role, first_name, last_name, username, is_active, student_id, coach_id, phone_number')
-      .eq('email', userData.email)
-      .maybeSingle();
-
-    if (existingUser) {
-      // User exists — return without modifying role or security fields
-      return mapUserRow(existingUser);
-    }
-
-    // New user — insert with the provided role
-    const { data, error } = await supabase
-      .from('users')
-      .insert({
-        id: targetId,
-        email: userData.email,
-        first_name: firstName,
-        last_name: lastName,
-        role: targetRole,
-        is_active: true
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Failed to sync user session in database: ${error.message}`);
-    }
-
-    return mapUserRow(data);
-  }
 
   async updateUserSelfProfile(userId: string, allowedUpdates: {
     firstName?: string;

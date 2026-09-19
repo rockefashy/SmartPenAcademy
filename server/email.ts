@@ -112,6 +112,16 @@ export async function sendEmail({ to, subject, html, text, from }: SendEmailPara
   }
 }
 
+export function escapeHtml(str: any): string {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // 1. Student Registration / Enrollment Confirmation Email
 export async function sendEnrollmentEmails(student: {
   firstName: string;
@@ -172,19 +182,19 @@ export async function sendEnrollmentEmails(student: {
       <p>Enrollment Confirmation &amp; Student Portal Access</p>
     </div>
     <div class="content">
-      <p>Dear <strong>${student.parentName}</strong>,</p>
-      <p>Welcome to SmartPen Academy! We are delighted to confirm the successful registration of <strong>${student.firstName}</strong> in our handwriting mastery program.</p>
+      <p>Dear <strong>${escapeHtml(student.parentName)}</strong>,</p>
+      <p>Welcome to SmartPen Academy! We are delighted to confirm the successful registration of <strong>${escapeHtml(student.firstName)}</strong> in our handwriting mastery program.</p>
       
       <div class="credential-box">
         <h3 style="margin-top: 0; color: #0E3589; font-size: 15px;">🔑 Parent &amp; Student Portal Login Credentials</h3>
         <p style="font-size: 12px; color: #475569; margin-bottom: 12px;">Use these credentials to log in to the portal to track attendance, practice worksheets, and progress reports:</p>
         <div class="credential-item">
           <span class="label">Login ID (Email):</span>
-          <span class="value" style="color: #0E3589;">${loginEmail}</span>
+          <span class="value" style="color: #0E3589;">${escapeHtml(loginEmail)}</span>
         </div>
         <div class="credential-item" style="margin-bottom: 0;">
           <span class="label">Password:</span>
-          <span class="value" style="color: #F46E20;">${loginPassword}</span>
+          <span class="value" style="color: #F46E20;">${escapeHtml(loginPassword)}</span>
         </div>
         ${student.isSiblingEnrollment ? `
         <div style="margin-top: 14px; padding: 12px; background: #ffffff; border-radius: 8px; border: 1px solid #bfdbfe;">
@@ -192,7 +202,7 @@ export async function sendEnrollmentEmails(student: {
             👨‍👩‍👧‍👦 Family &amp; Sibling Access Note
           </p>
           <p style="margin: 6px 0 0 0; font-size: 12px; color: #334155; line-height: 1.5;">
-            You can use the <strong>exact same password</strong> you already use for ${student.siblingOfStudentName ? `<strong>${student.siblingOfStudentName}</strong>` : 'your other enrolled child'}.
+            You can use the <strong>exact same password</strong> you already use for ${student.siblingOfStudentName ? `<strong>${escapeHtml(student.siblingOfStudentName)}</strong>` : 'your other enrolled child'}.
             When signing into the portal, you will be prompted to select which student profile to view, or you can switch between siblings anytime using the profile switcher in the top navigation bar!
           </p>
         </div>` : ''}
@@ -200,35 +210,35 @@ export async function sendEnrollmentEmails(student: {
 
       <div class="box">
         <h4 style="margin: 0 0 10px 0; color: #0E3589; font-size: 14px;">📋 Enrollment Summary</h4>
-        <div class="credential-item"><span class="label">Student Name:</span><span class="value">${student.firstName}</span></div>
-        ${student.age ? `<div class="credential-item"><span class="label">Age:</span><span class="value">${student.age} years</span></div>` : ''}
-        ${student.gender ? `<div class="credential-item"><span class="label">Gender:</span><span class="value">${student.gender}</span></div>` : ''}
-        ${student.dominantHand ? `<div class="credential-item"><span class="label">Dominant Hand:</span><span class="value">${student.dominantHand} Handed</span></div>` : ''}
-        ${student.gradeClass ? `<div class="credential-item"><span class="label">Grade/Class:</span><span class="value">${student.gradeClass}</span></div>` : ''}
-        ${student.schoolName ? `<div class="credential-item"><span class="label">School:</span><span class="value">${student.schoolName}</span></div>` : ''}
-        ${student.preferredDays ? `<div class="credential-item"><span class="label">Schedule Days:</span><span class="value">${Array.isArray(student.preferredDays) ? student.preferredDays.join(' & ') : student.preferredDays}</span></div>` : ''}
-        ${student.preferredSlot ? `<div class="credential-item"><span class="label">Time Slot:</span><span class="value">${student.preferredSlot}</span></div>` : ''}
+        <div class="credential-item"><span class="label">Student Name:</span><span class="value">${escapeHtml(student.firstName)}</span></div>
+        ${student.age ? `<div class="credential-item"><span class="label">Age:</span><span class="value">${escapeHtml(student.age)} years</span></div>` : ''}
+        ${student.gender ? `<div class="credential-item"><span class="label">Gender:</span><span class="value">${escapeHtml(student.gender)}</span></div>` : ''}
+        ${student.dominantHand ? `<div class="credential-item"><span class="label">Dominant Hand:</span><span class="value">${escapeHtml(student.dominantHand)} Handed</span></div>` : ''}
+        ${student.gradeClass ? `<div class="credential-item"><span class="label">Grade/Class:</span><span class="value">${escapeHtml(student.gradeClass)}</span></div>` : ''}
+        ${student.schoolName ? `<div class="credential-item"><span class="label">School:</span><span class="value">${escapeHtml(student.schoolName)}</span></div>` : ''}
+        ${student.preferredDays ? `<div class="credential-item"><span class="label">Schedule Days:</span><span class="value">${escapeHtml(Array.isArray(student.preferredDays) ? student.preferredDays.join(' & ') : student.preferredDays)}</span></div>` : ''}
+        ${student.preferredSlot ? `<div class="credential-item"><span class="label">Time Slot:</span><span class="value">${escapeHtml(student.preferredSlot)}</span></div>` : ''}
       </div>
 
       ${student.scriptsRequired && student.scriptsRequired.length > 0 ? `
       <div style="margin-top: 15px;">
         <span class="label" style="display: block; margin-bottom: 6px;">Scripts Selected:</span>
-        <div>${student.scriptsRequired.map(s => `<span class="pill">${s}</span>`).join(' ')}</div>
+        <div>${student.scriptsRequired.map(s => `<span class="pill">${escapeHtml(s)}</span>`).join(' ')}</div>
       </div>` : ''}
 
       ${student.academicModules && student.academicModules.length > 0 ? `
       <div style="margin-top: 15px;">
         <span class="label" style="display: block; margin-bottom: 6px;">Academic Modules:</span>
-        <div>${student.academicModules.map(m => `<span class="pill" style="background:#F46E20;">${m}</span>`).join(' ')}</div>
+        <div>${student.academicModules.map(m => `<span class="pill" style="background:#F46E20;">${escapeHtml(m)}</span>`).join(' ')}</div>
       </div>` : ''}
 
       <p style="margin-top: 24px; font-size: 13px; color: #475569;">
-        Our team looks forward to guiding <strong>${student.firstName}</strong> towards fluent, confident, and beautiful handwriting!
+        Our team looks forward to guiding <strong>${escapeHtml(student.firstName)}</strong> towards fluent, confident, and beautiful handwriting!
       </p>
     </div>
     <div class="footer">
-      <p>SmartPen Academy • ${adminDisplayName}</p>
-      ${adminContactEmail ? `<p>Need assistance? Contact us at ${adminContactEmail}${adminContactPhone ? ' or ' + adminContactPhone : ''}</p>` : ''}
+      <p>SmartPen Academy • ${escapeHtml(adminDisplayName)}</p>
+      ${adminContactEmail ? `<p>Need assistance? Contact us at ${escapeHtml(adminContactEmail)}${adminContactPhone ? ' or ' + escapeHtml(adminContactPhone) : ''}</p>` : ''}
     </div>
   </div>
 </body>
@@ -244,16 +254,15 @@ export async function sendEnrollmentEmails(student: {
     <h2 style="color: #0E3589; margin-top: 0;">🎉 New Student Enrollment Notification</h2>
     <p>A new student registration has been completed on the SmartPen Academy portal:</p>
     <ul>
-      <li><strong>Student:</strong> ${student.firstName} (${student.age || 'N/A'} yrs, ${student.gender || 'N/A'}, ${student.dominantHand || 'N/A'} handed)</li>
-      <li><strong>Parent:</strong> ${student.parentName}</li>
-      <li><strong>WhatsApp / Phone:</strong> ${student.whatsappMobile || 'N/A'}</li>
-      <li><strong>Registered Email (Login ID):</strong> ${student.email}</li>
-      <li><strong>Password:</strong> ${loginPassword}</li>
-      <li><strong>Preferred Days:</strong> ${Array.isArray(student.preferredDays) ? student.preferredDays.join(' & ') : (student.preferredDays || 'N/A')}</li>
-      <li><strong>Preferred Slot:</strong> ${student.preferredSlot || 'N/A'}</li>
-      <li><strong>Scripts:</strong> ${(student.scriptsRequired || []).join(', ') || 'N/A'}</li>
-      <li><strong>Modules:</strong> ${(student.academicModules || []).join(', ') || 'N/A'}</li>
-      <li><strong>Areas of Concern:</strong> ${(student.diagnosticObservations || []).join('; ') || 'None noted'}</li>
+      <li><strong>Student:</strong> ${escapeHtml(student.firstName)} (${escapeHtml(student.age) || 'N/A'} yrs, ${escapeHtml(student.gender) || 'N/A'}, ${escapeHtml(student.dominantHand) || 'N/A'} handed)</li>
+      <li><strong>Parent:</strong> ${escapeHtml(student.parentName)}</li>
+      <li><strong>WhatsApp / Phone:</strong> ${escapeHtml(student.whatsappMobile) || 'N/A'}</li>
+      <li><strong>Registered Email (Login ID):</strong> ${escapeHtml(student.email)}</li>
+      <li><strong>Preferred Days:</strong> ${escapeHtml(Array.isArray(student.preferredDays) ? student.preferredDays.join(' & ') : (student.preferredDays || 'N/A'))}</li>
+      <li><strong>Preferred Slot:</strong> ${escapeHtml(student.preferredSlot) || 'N/A'}</li>
+      <li><strong>Scripts:</strong> ${escapeHtml((student.scriptsRequired || []).join(', ')) || 'N/A'}</li>
+      <li><strong>Modules:</strong> ${escapeHtml((student.academicModules || []).join(', ')) || 'N/A'}</li>
+      <li><strong>Areas of Concern:</strong> ${escapeHtml((student.diagnosticObservations || []).join('; ')) || 'None noted'}</li>
     </ul>
     <p style="font-size: 12px; color: #64748b;">This notification was dispatched automatically via Resend integration.</p>
   </div>
@@ -325,16 +334,16 @@ export async function sendPasswordResetLinkEmail(toEmail: string, params: { rese
       <p style="margin:4px 0 0; font-size: 13px; color: #bfdbfe;">Password Reset Request</p>
     </div>
     <div class="content">
-      <p>Hello <strong>${params.firstName || 'User'}</strong>,</p>
-      <p>We received a request to reset the password for your SmartPen Academy account (<strong>${toEmail}</strong>).</p>
+      <p>Hello <strong>${escapeHtml(params.firstName || 'User')}</strong>,</p>
+      <p>We received a request to reset the password for your SmartPen Academy account (<strong>${escapeHtml(toEmail)}</strong>).</p>
       
       <div class="btn-box">
-        <a href="${params.resetLink}" class="btn" target="_blank">Reset Your Password</a>
+        <a href="${escapeHtml(params.resetLink)}" class="btn" target="_blank">Reset Your Password</a>
       </div>
 
       <p style="font-size: 13px; color: #64748b; word-break: break-all;">
         Or copy and paste this link into your browser:<br/>
-        <a href="${params.resetLink}" style="color: #0084F4;">${params.resetLink}</a>
+        <a href="${escapeHtml(params.resetLink)}" style="color: #0084F4;">${escapeHtml(params.resetLink)}</a>
       </p>
 
       <p style="font-size: 12px; color: #94a3b8; margin-top: 20px;">
@@ -365,8 +374,8 @@ export async function sendPasswordChangedEmail(toEmail: string, user: { firstNam
 <body style="font-family: sans-serif; padding: 20px; color: #1e293b; background: #f8fafc;">
   <div style="max-width: 500px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0;">
     <h3 style="color: #0E3589; margin-top: 0;">🛡️ Password Updated Successfully</h3>
-    <p>Hello ${user.firstName || 'SmartPen Student / Parent'},</p>
-    <p>This is a confirmation that the password for your SmartPen Academy account (<strong>${toEmail}</strong>) was successfully updated.</p>
+    <p>Hello ${escapeHtml(user.firstName || 'SmartPen Student / Parent')},</p>
+    <p>This is a confirmation that the password for your SmartPen Academy account (<strong>${escapeHtml(toEmail)}</strong>) was successfully updated.</p>
     <p style="font-size: 12px; color: #64748b;">If you did not perform this update, please contact the academy administration immediately.</p>
   </div>
 </body>
@@ -400,13 +409,13 @@ export async function sendDemoBookingAlert(booking: {
     <h3 style="color: #F46E20; margin-top: 0;">🎯 New Free Demo Class Booking</h3>
     <p>A parent has booked a Free Handwriting Diagnostic Demo Class:</p>
     <ul>
-      <li><strong>Student Name:</strong> ${booking.studentName}</li>
-      <li><strong>Parent / Guardian:</strong> ${booking.parentName || 'Parent'}</li>
-      <li><strong>Age:</strong> ${cleanAge ? `${cleanAge} years` : 'Not specified'}</li>
-      <li><strong>Contact Number:</strong> <a href="tel:${booking.contactNumber}">${booking.contactNumber}</a></li>
-      <li><strong>Preferred Date:</strong> ${booking.preferredDate}</li>
-      <li><strong>Preferred Time Slot:</strong> ${booking.preferredTimeSlot}</li>
-      ${booking.notes ? `<li><strong>Notes / Questions:</strong> ${booking.notes}</li>` : ''}
+      <li><strong>Student Name:</strong> ${escapeHtml(booking.studentName)}</li>
+      <li><strong>Parent / Guardian:</strong> ${escapeHtml(booking.parentName || 'Parent')}</li>
+      <li><strong>Age:</strong> ${cleanAge ? `${escapeHtml(cleanAge)} years` : 'Not specified'}</li>
+      <li><strong>Contact Number:</strong> <a href="tel:${escapeHtml(booking.contactNumber)}">${escapeHtml(booking.contactNumber)}</a></li>
+      <li><strong>Preferred Date:</strong> ${escapeHtml(booking.preferredDate)}</li>
+      <li><strong>Preferred Time Slot:</strong> ${escapeHtml(booking.preferredTimeSlot)}</li>
+      ${booking.notes ? `<li><strong>Notes / Questions:</strong> ${escapeHtml(booking.notes)}</li>` : ''}
     </ul>
     <p style="font-size: 12px; color: #64748b;">Dispatched via Resend real-time integration.</p>
   </div>
@@ -443,13 +452,13 @@ export async function sendFeeReminderEmail(params: {
 <body style="font-family: sans-serif; padding: 20px; color: #1e293b; background: #f8fafc;">
   <div style="max-width: 540px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0;">
     <h3 style="color: #0E3589; margin-top: 0;">SmartPen Academy — Fee Payment Notice</h3>
-    <p>Dear ${params.parentName},</p>
-    <p>This is a gentle payment reminder for <strong>${params.studentName}'s</strong> handwriting program for <strong>${params.month || 'the current period'}</strong>.</p>
+    <p>Dear ${escapeHtml(params.parentName)},</p>
+    <p>This is a gentle payment reminder for <strong>${escapeHtml(params.studentName)}'s</strong> handwriting program for <strong>${escapeHtml(params.month || 'the current period')}</strong>.</p>
     <div style="background: #f1f5f9; padding: 14px; border-radius: 8px; margin: 16px 0; font-size: 15px;">
-      <strong>Amount Due:</strong> ₹${params.amount}<br>
+      <strong>Amount Due:</strong> ₹${escapeHtml(params.amount)}<br>
       <strong>Payment Mode:</strong> Academy Reception (Cash / UPI / Card) or UPI ID: <code>smartpen.academy@okaxis</code>
     </div>
-    <p style="font-size: 12px; color: #64748b;">Thank you for your continuous support in ${params.studentName}'s handwriting journey!</p>
+    <p style="font-size: 12px; color: #64748b;">Thank you for your continuous support in ${escapeHtml(params.studentName)}'s handwriting journey!</p>
   </div>
 </body>
 </html>
@@ -517,33 +526,33 @@ export async function sendStudentUpdatedEmails(student: {
       <p>Student Profile &amp; Enrollment Details Updated</p>
     </div>
     <div class="content">
-      <p>Dear <strong>${student.parentName || "Parent"}</strong>,</p>
-      <p>This is a confirmation that the profile and enrollment details for <strong>${student.firstName}</strong> have been successfully updated in our academy records.</p>
+      <p>Dear <strong>${escapeHtml(student.parentName || "Parent")}</strong>,</p>
+      <p>This is a confirmation that the profile and enrollment details for <strong>${escapeHtml(student.firstName)}</strong> have been successfully updated in our academy records.</p>
       
       <div class="box">
         <h4 style="margin: 0 0 12px 0; color: #0E3589; font-size: 14px;">📋 Updated Student Profile Summary</h4>
-        <div class="item"><span class="label">Student Name:</span><span class="value">${student.firstName}</span></div>
-        ${student.age ? `<div class="item"><span class="label">Age:</span><span class="value">${student.age} years</span></div>` : ""}
-        ${student.gender ? `<div class="item"><span class="label">Gender:</span><span class="value">${student.gender}</span></div>` : ""}
-        ${student.modeOfLearning ? `<div class="item"><span class="label">Mode of Learning:</span><span class="value">${student.modeOfLearning}</span></div>` : ""}
-        ${student.dominantHand ? `<div class="item"><span class="label">Dominant Hand:</span><span class="value">${student.dominantHand} Handed</span></div>` : ""}
-        ${student.gradeClass ? `<div class="item"><span class="label">Grade/Class:</span><span class="value">${student.gradeClass}</span></div>` : ""}
-        ${student.schoolName ? `<div class="item"><span class="label">School:</span><span class="value">${student.schoolName}</span></div>` : ""}
-        ${student.preferredDays ? `<div class="item"><span class="label">Schedule Days:</span><span class="value">${Array.isArray(student.preferredDays) ? student.preferredDays.join(' & ') : student.preferredDays}</span></div>` : ""}
-        ${student.preferredSlot ? `<div class="item"><span class="label">Time Slot:</span><span class="value">${student.preferredSlot}</span></div>` : ""}
-        ${student.whatsappMobile ? `<div class="item"><span class="label">WhatsApp Contact:</span><span class="value">${student.whatsappMobile}</span></div>` : ""}
+        <div class="item"><span class="label">Student Name:</span><span class="value">${escapeHtml(student.firstName)}</span></div>
+        ${student.age ? `<div class="item"><span class="label">Age:</span><span class="value">${escapeHtml(student.age)} years</span></div>` : ""}
+        ${student.gender ? `<div class="item"><span class="label">Gender:</span><span class="value">${escapeHtml(student.gender)}</span></div>` : ""}
+        ${student.modeOfLearning ? `<div class="item"><span class="label">Mode of Learning:</span><span class="value">${escapeHtml(student.modeOfLearning)}</span></div>` : ""}
+        ${student.dominantHand ? `<div class="item"><span class="label">Dominant Hand:</span><span class="value">${escapeHtml(student.dominantHand)} Handed</span></div>` : ""}
+        ${student.gradeClass ? `<div class="item"><span class="label">Grade/Class:</span><span class="value">${escapeHtml(student.gradeClass)}</span></div>` : ""}
+        ${student.schoolName ? `<div class="item"><span class="label">School:</span><span class="value">${escapeHtml(student.schoolName)}</span></div>` : ""}
+        ${student.preferredDays ? `<div class="item"><span class="label">Schedule Days:</span><span class="value">${escapeHtml(Array.isArray(student.preferredDays) ? student.preferredDays.join(' & ') : student.preferredDays)}</span></div>` : ""}
+        ${student.preferredSlot ? `<div class="item"><span class="label">Time Slot:</span><span class="value">${escapeHtml(student.preferredSlot)}</span></div>` : ""}
+        ${student.whatsappMobile ? `<div class="item"><span class="label">WhatsApp Contact:</span><span class="value">${escapeHtml(student.whatsappMobile)}</span></div>` : ""}
       </div>
 
       ${student.scriptsRequired && student.scriptsRequired.length > 0 ? `
       <div style="margin-top: 12px;">
         <span class="label" style="display: block; margin-bottom: 4px; font-size: 12px;">Scripts:</span>
-        <div>${student.scriptsRequired.map(s => `<span class="pill">${s}</span>`).join(" ")}</div>
+        <div>${student.scriptsRequired.map(s => `<span class="pill">${escapeHtml(s)}</span>`).join(" ")}</div>
       </div>` : ""}
 
       ${student.academicModules && student.academicModules.length > 0 ? `
       <div style="margin-top: 12px;">
         <span class="label" style="display: block; margin-bottom: 4px; font-size: 12px;">Modules:</span>
-        <div>${student.academicModules.map(m => `<span class="pill" style="background:#F46E20;">${m}</span>`).join(" ")}</div>
+        <div>${student.academicModules.map(m => `<span class="pill" style="background:#F46E20;">${escapeHtml(m)}</span>`).join(" ")}</div>
       </div>` : ""}
 
       <p style="margin-top: 24px; font-size: 13px; color: #475569;">
@@ -551,8 +560,8 @@ export async function sendStudentUpdatedEmails(student: {
       </p>
     </div>
     <div class="footer">
-      <p>SmartPen Academy • ${adminDisplayName}</p>
-      ${adminContactEmail ? `<p>Need assistance? Contact us at ${adminContactEmail}${adminContactPhone ? " or " + adminContactPhone : ""}</p>` : ""}
+      <p>SmartPen Academy • ${escapeHtml(adminDisplayName)}</p>
+      ${adminContactEmail ? `<p>Need assistance? Contact us at ${escapeHtml(adminContactEmail)}${adminContactPhone ? " or " + escapeHtml(adminContactPhone) : ""}</p>` : ""}
     </div>
   </div>
 </body>
@@ -568,17 +577,17 @@ export async function sendStudentUpdatedEmails(student: {
     <h2 style="color: #0E3589; margin-top: 0;">📝 Student Profile Updated</h2>
     <p>Student profile details have been updated on the SmartPen Academy portal:</p>
     <ul>
-      <li><strong>Student:</strong> ${student.firstName} (${student.age || "N/A"} yrs, ${student.gender || "N/A"}, ${student.dominantHand || "N/A"} handed)</li>
-      <li><strong>Parent:</strong> ${student.parentName || "N/A"}</li>
-      <li><strong>Mode of Learning:</strong> ${student.modeOfLearning || "N/A"}</li>
-      <li><strong>WhatsApp / Phone:</strong> ${student.whatsappMobile || "N/A"}</li>
-      <li><strong>Contact Email:</strong> ${student.email || "N/A"}</li>
-      <li><strong>Grade/Class:</strong> ${student.gradeClass || "N/A"}</li>
-      <li><strong>School:</strong> ${student.schoolName || "N/A"}</li>
-      <li><strong>Schedule Days:</strong> ${student.preferredDays || "N/A"}</li>
-      <li><strong>Preferred Slot:</strong> ${student.preferredSlot || "N/A"}</li>
-      <li><strong>Scripts:</strong> ${(student.scriptsRequired || []).join(", ") || "N/A"}</li>
-      <li><strong>Modules:</strong> ${(student.academicModules || []).join(", ") || "N/A"}</li>
+      <li><strong>Student:</strong> ${escapeHtml(student.firstName)} (${escapeHtml(student.age) || "N/A"} yrs, ${escapeHtml(student.gender) || "N/A"}, ${escapeHtml(student.dominantHand) || "N/A"} handed)</li>
+      <li><strong>Parent:</strong> ${escapeHtml(student.parentName || "N/A")}</li>
+      <li><strong>Mode of Learning:</strong> ${escapeHtml(student.modeOfLearning || "N/A")}</li>
+      <li><strong>WhatsApp / Phone:</strong> ${escapeHtml(student.whatsappMobile || "N/A")}</li>
+      <li><strong>Contact Email:</strong> ${escapeHtml(student.email || "N/A")}</li>
+      <li><strong>Grade/Class:</strong> ${escapeHtml(student.gradeClass || "N/A")}</li>
+      <li><strong>School:</strong> ${escapeHtml(student.schoolName || "N/A")}</li>
+      <li><strong>Schedule Days:</strong> ${escapeHtml(Array.isArray(student.preferredDays) ? student.preferredDays.join(' & ') : (student.preferredDays || "N/A"))}</li>
+      <li><strong>Preferred Slot:</strong> ${escapeHtml(student.preferredSlot || "N/A")}</li>
+      <li><strong>Scripts:</strong> ${escapeHtml((student.scriptsRequired || []).join(", ") || "N/A")}</li>
+      <li><strong>Modules:</strong> ${escapeHtml((student.academicModules || []).join(", ") || "N/A")}</li>
     </ul>
     <p style="font-size: 12px; color: #64748b;">Dispatched automatically via SmartPen Academy email service.</p>
   </div>

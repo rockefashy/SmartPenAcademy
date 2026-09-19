@@ -36,6 +36,7 @@ interface LoginModalProps {
   onLoginSuccess?: (user: User) => void;
   initialResetToken?: string;
   initialResetEmail?: string;
+  initialView?: AuthView;
 }
 
 type AuthView = 'login' | 'select-role' | 'select-student' | 'forgot' | 'reset-token' | 'change';
@@ -46,9 +47,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onLoginSuccess,
   initialResetToken,
   initialResetEmail,
+  initialView,
 }) => {
   const { login, logout, user } = useAuth();
-  const [currentView, setCurrentView] = useState<AuthView>('login');
+  const [currentView, setCurrentView] = useState<AuthView>(initialView || 'login');
+  const prevIsOpenRef = React.useRef(false);
 
   // Sign In State
   const [identifier, setIdentifier] = useState('');
@@ -106,24 +109,46 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen) {
+    // Only perform full state reset when modal transitions from closed to open
+    if (isOpen && !prevIsOpenRef.current) {
       setErrorMessage(null);
       setForgotSuccessMessage(null);
       setResetSuccessMessage(null);
       setChangeSuccessMessage(null);
+      setChangeCurrentPassword('');
+      setChangeNewPassword('');
+      setChangeConfirmPassword('');
+      setPassword('');
+      setResetNewPassword('');
+      setResetConfirmPassword('');
+
       if (user?.email) {
         setChangeEmail(user.email);
         checkFamilyMembers(user.email);
+      } else {
+        setChangeEmail('');
       }
+
       if (initialResetToken) {
         setResetToken(initialResetToken);
         if (initialResetEmail) setResetEmail(initialResetEmail);
         setCurrentView('reset-token');
       } else {
-        setCurrentView('login');
+        setCurrentView(initialView || 'login');
       }
+    } else if (!isOpen && prevIsOpenRef.current) {
+      // Clear sensitive fields when modal closes
+      setChangeCurrentPassword('');
+      setChangeNewPassword('');
+      setChangeConfirmPassword('');
+      setPassword('');
+      setResetNewPassword('');
+      setResetConfirmPassword('');
+      setErrorMessage(null);
+      setChangeSuccessMessage(null);
     }
-  }, [isOpen, initialResetToken, initialResetEmail, user]);
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, initialResetToken, initialResetEmail, user, initialView]);
 
   // If in reset-token view and resetEmail is empty, verify token with backend to fetch and lock email
   useEffect(() => {
@@ -262,6 +287,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         setResetToken(res.resetToken);
       }
     } catch (err: any) {
+      console.error('[AUTH] Forgot password request failed:', err);
       setErrorMessage(err.message || authProperties.forgotPasswordModal.userNotFound);
     } finally {
       setIsSendingForgot(false);
@@ -302,6 +328,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         window.history.replaceState(null, '', window.location.pathname);
       }
     } catch (err: any) {
+      console.error('[AUTH] Reset password with token failed:', err);
       setErrorMessage(err.message || 'Failed to reset password. The link or token may have expired.');
     } finally {
       setIsResettingPassword(false);
@@ -315,6 +342,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
     if (!changeEmail.trim()) {
       setErrorMessage('Please enter your registered email address.');
+      return;
+    }
+
+    if (!changeCurrentPassword.trim()) {
+      setErrorMessage('Current password is required.');
       return;
     }
 
@@ -333,11 +365,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     try {
       const res = await api.changePassword({
         email: changeEmail.trim(),
-        currentPassword: changeCurrentPassword.trim() || undefined,
+        currentPassword: changeCurrentPassword.trim(),
         newPassword: changeNewPassword.trim(),
         applyToAll: passwordScope === 'all',
         targetStudentId: passwordScope === 'single' ? targetStudentId : undefined,
       });
+
+      // Clear password inputs immediately
+      setChangeCurrentPassword('');
+      setChangeNewPassword('');
+      setChangeConfirmPassword('');
+      setPassword('');
 
       if (res.loggedOut) {
         logout();
@@ -345,8 +383,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
       setChangeSuccessMessage(res.message || authProperties.changePasswordModal.successMessage);
       setIdentifier(changeEmail.trim());
-      setPassword('');
     } catch (err: any) {
+      console.error('[AUTH] Change password failed:', err);
       setErrorMessage(err.message || 'Failed to update password. Please check your credentials.');
     } finally {
       setIsUpdatingPassword(false);
@@ -844,29 +882,32 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               {currentView === 'change' && (
                 <div className="space-y-4">
                   {changeSuccessMessage ? (
-                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-3">
-                      <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                    <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-3.5" id="box-change-password-success">
+                      <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
                         <ShieldCheck className="w-6 h-6" />
                       </div>
-                      <h3 className="text-sm font-bold text-emerald-800">
+                      <h3 className="text-base font-bold text-emerald-900">
                         {authProperties.changePasswordModal.successTitle}
                       </h3>
-                      <p className="text-xs text-emerald-700 leading-relaxed">
+                      <p className="text-xs text-emerald-800 leading-relaxed max-w-sm mx-auto">
                         {changeSuccessMessage}
                       </p>
-                      <Button
-                        type="button"
-                        variant="success"
-                        size="md"
-                        fullWidth
-                        onClick={() => {
-                          setCurrentView('login');
-                          setErrorMessage(null);
-                        }}
-                        id="btn-back-from-change-success"
-                      >
-                        {authProperties.changePasswordModal.closeBtn}
-                      </Button>
+                      <div className="pt-2">
+                        <Button
+                          type="button"
+                          variant="success"
+                          size="md"
+                          fullWidth
+                          onClick={() => {
+                            setChangeSuccessMessage(null);
+                            setCurrentView('login');
+                            setErrorMessage(null);
+                          }}
+                          id="btn-back-from-change-success"
+                        >
+                          Sign In with New Password
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <form onSubmit={handleChangePasswordSubmit} className="space-y-3.5" id="form-change-password">
@@ -949,12 +990,27 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                       )}
 
                       <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">
-                          {authProperties.changePasswordModal.currentPasswordLabel}
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-semibold text-slate-700">
+                            {authProperties.changePasswordModal.currentPasswordLabel}
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentView('forgot');
+                              setErrorMessage(null);
+                              setForgotIdentifier(changeEmail);
+                            }}
+                            className="text-[11px] font-medium text-[#F46E20] hover:underline"
+                          >
+                            Forgot current password?
+                          </button>
+                        </div>
                         <Input
                           id="input-change-current-password"
                           type="password"
+                          autoComplete="current-password"
+                          required
                           value={changeCurrentPassword}
                           onChange={(e) => setChangeCurrentPassword(e.target.value)}
                           placeholder={authProperties.changePasswordModal.currentPasswordPlaceholder}
@@ -969,6 +1025,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         <Input
                           id="input-change-new-password"
                           type="password"
+                          autoComplete="new-password"
                           required
                           minLength={8}
                           value={changeNewPassword}
@@ -985,6 +1042,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         <Input
                           id="input-change-confirm-password"
                           type="password"
+                          autoComplete="new-password"
                           required
                           minLength={8}
                           value={changeConfirmPassword}
@@ -1001,13 +1059,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                           size="md"
                           className="w-1/3"
                           onClick={() => {
-                            setCurrentView('login');
+                            if (user) {
+                              onClose();
+                            } else {
+                              setCurrentView('login');
+                            }
                             setErrorMessage(null);
                           }}
                           id="btn-cancel-change"
-                          leftIcon={<ArrowLeft className="w-3.5 h-3.5" />}
+                          leftIcon={user ? undefined : <ArrowLeft className="w-3.5 h-3.5" />}
                         >
-                          Back
+                          {user ? 'Cancel' : 'Back'}
                         </Button>
                         <Button
                           type="submit"

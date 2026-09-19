@@ -260,6 +260,126 @@ async function runAllSuites() {
     if (resAudit.status !== 403) throw new Error(`Expected 403 Forbidden on /api/ai/audit-logs, got ${resAudit.status}`);
   });
 
+  await assertTest('Suite 2: Authentication & RBAC', '2.5 Unauthenticated Token Minting Backdoor Defense (404 Not Found)', async () => {
+    // Attempting to invoke legacy /api/auth/supabase-session with arbitrary admin role must fail with 404
+    const resBackdoor = await fetch(`${BASE_URL}/api/auth/supabase-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'attacker_test@example.com',
+        role: 'admin'
+      })
+    });
+    if (resBackdoor.status !== 404) {
+      throw new Error(`Expected 404 Not Found for purged supabase-session endpoint, got HTTP ${resBackdoor.status}`);
+    }
+  });
+
+  await assertTest('Suite 2: Authentication & RBAC', '2.6 Open Relay & PII Leak Email Endpoints Purged (404 Not Found)', async () => {
+    // Attempting to invoke legacy test email open relay must return 404
+    const resEmailTest = await fetch(`${BASE_URL}/api/email/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: 'victim@example.com',
+        type: 'general'
+      })
+    });
+    if (resEmailTest.status !== 404) {
+      throw new Error(`Expected 404 Not Found for purged /api/email/test endpoint, got HTTP ${resEmailTest.status}`);
+    }
+
+    // Attempting to invoke status endpoint that previously leaked admin info must return 404
+    const resEmailStatus = await fetch(`${BASE_URL}/api/email/status`);
+    if (resEmailStatus.status !== 404) {
+      throw new Error(`Expected 404 Not Found for purged /api/email/status endpoint, got HTTP ${resEmailStatus.status}`);
+    }
+  });
+
+  await assertTest('Suite 2: Authentication & RBAC', '2.7 Family Students Endpoint Authentication & Wildcard Defense (H1)', async () => {
+    // 1. Unauthenticated call must be rejected with 401
+    const resUnauth = await fetch(`${BASE_URL}/api/auth/family-students`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier: '%' })
+    });
+    if (resUnauth.status !== 401) {
+      throw new Error(`Expected 401 Unauthorized for unauthenticated /api/auth/family-students, got HTTP ${resUnauth.status}`);
+    }
+
+    // 2. Authenticated with admin token querying % must return empty array without errors
+    const resAdmin = await fetch(`${BASE_URL}/api/auth/family-students`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({ identifier: '%' })
+    });
+    if (resAdmin.status !== 200) {
+      throw new Error(`Expected 200 OK for admin query on /api/auth/family-students, got HTTP ${resAdmin.status}`);
+    }
+    const dataAdmin = await resAdmin.json();
+    if (!Array.isArray(dataAdmin.students) || dataAdmin.students.length > 0) {
+      throw new Error(`Expected 0 students for wildcard % query, got ${dataAdmin.students?.length}`);
+    }
+  });
+
+  await assertTest('Suite 2: Authentication & RBAC', '2.8 Wildcard Login Injection Defense (H1)', async () => {
+    // Attempting to login with identifier '%' must not authenticate or return user candidates
+    const resWildcard = await fetch(`${BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        identifier: '%',
+        password: 'SomeRandomPassword123!'
+      })
+    });
+    if (resWildcard.status !== 401 && resWildcard.status !== 400) {
+      throw new Error(`Expected 400 or 401 for wildcard login attempt, got HTTP ${resWildcard.status}`);
+    }
+  });
+
+  await assertTest('Suite 2: Authentication & RBAC', '2.9 Selection Token Cannot Access Standard Protected Routes (H2)', async () => {
+    // Mint a dummy selection token with type: STUDENT_SELECTION
+    const fakeSelectionToken = jwt.sign(
+      {
+        id: 'usr-admin-001',
+        type: 'STUDENT_SELECTION',
+        userId: 'usr-admin-001'
+      },
+      JWT_SECRET,
+      { expiresIn: '5m' }
+    );
+
+    const resProtected = await fetch(`${BASE_URL}/api/students`, {
+      headers: {
+        'Authorization': `Bearer ${fakeSelectionToken}`
+      }
+    });
+    if (resProtected.status !== 401) {
+      throw new Error(`Expected 401 Unauthorized when using STUDENT_SELECTION token on /api/students, got HTTP ${resProtected.status}`);
+    }
+  });
+
+  await assertTest('Suite 2: Authentication & RBAC', '2.10 Forgot Password Anti-Enumeration & Uniform Response (H3)', async () => {
+    // Querying with non-existent email must return 200 generic success without leaking absence
+    const resNonExistent = await fetch(`${BASE_URL}/api/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        identifier: 'definitely_non_existent_account_99999@example.com'
+      })
+    });
+    if (resNonExistent.status !== 200) {
+      throw new Error(`Expected 200 OK for anti-enumeration forgot-password, got HTTP ${resNonExistent.status}`);
+    }
+    const data = await resNonExistent.json();
+    if (data.success !== true) {
+      throw new Error(`Expected success: true in generic response, got ${JSON.stringify(data)}`);
+    }
+  });
+
   // -------------------------------------------------------------
   // SUITE 3: Admin Roster & Dynamic Student Enrollment
   // -------------------------------------------------------------
@@ -632,6 +752,336 @@ async function runAllSuites() {
       }
     }
   });
+
+  // -------------------------------------------------------------
+  // SUITE 8: Security & High Vulnerability Hardening (H4, H5, H6)
+  // -------------------------------------------------------------
+  console.log('\n👉 [SUITE 8] Security Hardening & High Fix Verifications (H4, H5, H6)');
+
+  await assertTest('Suite 8: High Hardening', '8.1 Upload Anti-XSS: Reject SVG and Magic Byte Spoofing (H4)', async () => {
+    const { saveBase64Image } = await import('../server/helpers/fileHelper.ts');
+    const os = await import('os');
+    const path = await import('path');
+    const fs = await import('fs');
+    const tempDir = path.join(os.tmpdir(), 'spa-test-uploads');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+    // 1. Reject SVG payload
+    let svgFailed = false;
+    try {
+      const svgBase64 = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>').toString('base64');
+      await saveBase64Image(svgBase64, tempDir, 'test');
+    } catch (err: any) {
+      if (err.message.includes('Unsupported image type') || err.message.includes('Forbidden')) {
+        svgFailed = true;
+      }
+    }
+    if (!svgFailed) throw new Error('Expected SVG upload to be rejected');
+
+    // 2. Reject MIME spoofing (declares png but contains ASCII script)
+    let spoofFailed = false;
+    try {
+      const spoofBase64 = 'data:image/png;base64,' + Buffer.from('<html><script>alert("xss")</script></html>').toString('base64');
+      await saveBase64Image(spoofBase64, tempDir, 'test');
+    } catch (err: any) {
+      if (err.message.includes('magic-byte validation') || err.message.includes('header does not match')) {
+        spoofFailed = true;
+      }
+    }
+    if (!spoofFailed) throw new Error('Expected spoofed PNG header to be rejected by magic byte validator');
+
+    // 3. Accept valid PNG 1x1
+    const validPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const savedPath = await saveBase64Image(validPng, tempDir, 'test');
+    if (!savedPath || !savedPath.endsWith('.png')) {
+      throw new Error(`Expected valid png upload to return .png path, got: ${savedPath}`);
+    }
+  });
+
+  await assertTest('Suite 8: High Hardening', '8.2 Testimonials Ownership & Moderation Flow (H5)', async () => {
+    // 1. Student attempting to post testimonial for unowned student ID
+    const unownedRes = await fetch(`${BASE_URL}/api/testimonials`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${studentUserToken}`
+      },
+      body: JSON.stringify({
+        studentId: 'unowned-student-id-9999',
+        studentName: 'Unowned Student',
+        parentName: 'Fake Parent',
+        rating: 5,
+        review: 'Should be rejected due to ownership mismatch',
+        mediaConsent: true
+      })
+    });
+    if (unownedRes.status !== 403) {
+      throw new Error(`Expected 403 for unauthorized student testimonial, got: ${unownedRes.status}`);
+    }
+
+    // 2. Valid submission for owned student defaults to Pending
+    const studentUserTokenForTestimonial = makeToken({
+      id: 'usr-student-e2e',
+      email: 'student_e2e@smartpenacademy.com',
+      role: ROLES.STUDENT,
+      studentId: createdStudentId
+    });
+
+    const validRes = await fetch(`${BASE_URL}/api/testimonials`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${studentUserTokenForTestimonial}`
+      },
+      body: JSON.stringify({
+        studentId: createdStudentId,
+        studentName: 'E2E Test Student',
+        parentName: 'Verified Parent',
+        rating: 5,
+        review: 'SmartPen Academy completely revolutionized student handwriting in just 4 weeks!',
+        mediaConsent: true
+      })
+    });
+    if (!validRes.ok) {
+      const errText = await validRes.text();
+      throw new Error(`Failed to submit valid testimonial: ${validRes.status} ${errText}`);
+    }
+    const createdTestimonial = await validRes.json();
+    if (createdTestimonial.status !== 'Pending') {
+      throw new Error(`Non-admin testimonial submission must default to 'Pending', got '${createdTestimonial.status}'`);
+    }
+    if (createdTestimonial.mediaConsent !== true) {
+      throw new Error(`Expected mediaConsent to persist true, got: ${createdTestimonial.mediaConsent}`);
+    }
+
+    // Clean up created testimonial
+    try {
+      await db.deleteTestimonial(createdTestimonial.id);
+    } catch {}
+  });
+
+  await assertTest('Suite 8: High Hardening', '8.3 Accounting Integrity & Fee ID Hijack Defense (H6)', async () => {
+    // 1. Fee creation ignores client-supplied ID and creates server UUID
+    const feeRes = await fetch(`${BASE_URL}/api/fees`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        id: 'attacker-client-supplied-id',
+        studentId: createdStudentId,
+        amount: 2500,
+        status: 'Pending',
+        yearMonth: '2026-09'
+      })
+    });
+    if (!feeRes.ok) {
+      const errText = await feeRes.text();
+      throw new Error(`Failed to create test fee: ${feeRes.status} ${errText}`);
+    }
+    const feeData = await feeRes.json();
+    if (feeData.id === 'attacker-client-supplied-id') {
+      throw new Error('Security violation: Server accepted client-supplied ID on fee creation!');
+    }
+    if (!feeData.receiptNumber || !feeData.receiptNumber.startsWith('REC-')) {
+      throw new Error(`Expected system-generated receipt number starting with REC-, got ${feeData.receiptNumber}`);
+    }
+
+    // 2. Receipt number mutation must fail
+    const mutateRes = await fetch(`${BASE_URL}/api/fees/${feeData.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        receiptNumber: 'REC-MUTATED-ATTACK'
+      })
+    });
+    if (mutateRes.ok) {
+      throw new Error('Security violation: Server allowed modifying immutable receipt_number!');
+    }
+
+    // Clean up fee
+    try {
+      const { serverSupabase } = await import('../server/supabase.ts');
+      await serverSupabase.from('fees').delete().eq('id', feeData.id);
+    } catch {}
+  });
+
+  // -------------------------------------------------------------
+  // SUITE 9: AI Agent Guardrails & Outbound Phishing Defenses (H7, H9)
+  // -------------------------------------------------------------
+  console.log('\n👉 [SUITE 9] AI Agent Guardrails & Outbound Phishing Defenses (H7, H9)');
+
+  await assertTest('Suite 9: AI Guardrails & Phishing', '9.1 Mutating Tools Confirmation Token Requirement & Replay Prevention', async () => {
+    const { deactivateStudentTool } = await import('../server/tools/deactivateStudent.ts');
+    const adminUser = { id: 'usr-admin-001', username: 'admin', role: ROLES.ADMIN };
+
+    // 1. Calling with confirmed: true but without confirmationToken must fail
+    const unconfirmedRes = await deactivateStudentTool.execute({
+      studentNameOrId: createdStudentId,
+      confirmed: true
+    }, { user: adminUser as any, executionMode: 'direct_execution' });
+
+    if (unconfirmedRes.success || !unconfirmedRes.summary.includes('confirmation token is required')) {
+      throw new Error(`Expected confirmation token failure, got: ${unconfirmedRes.summary}`);
+    }
+
+    // 2. Draft execution generates valid confirmationToken
+    const draftRes = await deactivateStudentTool.execute({
+      studentNameOrId: createdStudentId,
+      confirmed: false
+    }, { user: adminUser as any, executionMode: 'direct_execution' });
+
+    if (!draftRes.result?.confirmationToken) {
+      throw new Error('Draft response did not contain confirmationToken');
+    }
+    const validToken = draftRes.result.confirmationToken;
+
+    // 3. Execution with genuine token succeeds
+    const confirmedRes = await deactivateStudentTool.execute({
+      studentNameOrId: createdStudentId,
+      confirmed: true,
+      confirmationToken: validToken
+    }, { user: adminUser as any, executionMode: 'direct_execution' });
+
+    if (!confirmedRes.success) {
+      throw new Error(`Execution with valid confirmation token failed: ${confirmedRes.summary}`);
+    }
+
+    // 4. Token replay must be rejected (single-use nonce consumed)
+    const replayRes = await deactivateStudentTool.execute({
+      studentNameOrId: createdStudentId,
+      confirmed: true,
+      confirmationToken: validToken
+    }, { user: adminUser as any, executionMode: 'direct_execution' });
+
+    if (replayRes.success || (!replayRes.summary.includes('Security') && !replayRes.summary.includes('confirmation token'))) {
+      throw new Error('Security violation: Replaying consumed confirmation token was not rejected!');
+    }
+
+    // Re-activate student for subsequent tests / teardown
+    const { serverSupabase } = await import('../server/supabase.ts');
+    await serverSupabase.from('students').update({ status: 'Active' }).eq('id', createdStudentId);
+  });
+
+  await assertTest('Suite 9: AI Guardrails & Phishing', '9.2 Coach Fee Amount Modification & Waiver Restriction (H7)', async () => {
+    const { updateFeeStatusTool } = await import('../server/tools/updateFeeStatus.ts');
+    const coachUser = { id: 'usr-coach-001', username: 'coach', role: ROLES.COACH };
+
+    // 1. Coach attempting to change fee amount
+    const amountRes = await updateFeeStatusTool.execute({
+      studentNameOrId: createdStudentId,
+      newStatus: 'Pending',
+      newAmount: 500
+    }, { user: coachUser as any, executionMode: 'direct_execution' });
+
+    if (amountRes.success || !amountRes.summary.includes('Coaches cannot waive fees or modify billing amounts')) {
+      throw new Error(`Expected coach amount adjustment rejection, got: ${amountRes.summary}`);
+    }
+
+    // 2. Coach attempting to waive fee
+    const waiveRes = await updateFeeStatusTool.execute({
+      studentNameOrId: createdStudentId,
+      newStatus: 'Waived'
+    }, { user: coachUser as any, executionMode: 'direct_execution' });
+
+    if (waiveRes.success || !waiveRes.summary.includes('Coaches cannot waive fees or modify billing amounts')) {
+      throw new Error(`Expected coach fee waive rejection, got: ${waiveRes.summary}`);
+    }
+  });
+
+  await assertTest('Suite 9: AI Guardrails & Phishing', '9.3 Role-Based Tool Availability & Admin Alignment (H7)', async () => {
+    const { isToolAllowedForRole, toolRegistry } = await import('../server/tools/registry.ts');
+
+    // Admin should have access to operational tools
+    if (!isToolAllowedForRole(toolRegistry['deactivateStudent'], ROLES.ADMIN)) {
+      throw new Error('Admin should have access to deactivateStudent');
+    }
+    // Admin should NOT have access to self-service student identity tools
+    if (isToolAllowedForRole(toolRegistry['viewOwnWorkSamples'], ROLES.ADMIN)) {
+      throw new Error('Admin bypass must NOT grant access to selfServiceOnly tool viewOwnWorkSamples');
+    }
+    // Coach should NOT have access to admin-only tools
+    if (isToolAllowedForRole(toolRegistry['deactivateCoach'], ROLES.COACH)) {
+      throw new Error('Coach should NOT have access to deactivateCoach');
+    }
+  });
+
+  await assertTest('Suite 9: AI Guardrails & Phishing', '9.4 AI Agent Chat Payload Cap (H7)', async () => {
+    const hugePayload = JSON.stringify({
+      messages: [{ role: 'user', content: 'A'.repeat(1024 * 1024 + 100) }]
+    });
+
+    const res = await fetch(`${BASE_URL}/api/ai/agent-chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': String(Buffer.byteLength(hugePayload))
+      },
+      body: hugePayload
+    });
+
+    if (res.status !== 413) {
+      throw new Error(`Expected 413 Payload Too Large, got status ${res.status}`);
+    }
+  });
+
+  await assertTest('Suite 9: AI Guardrails & Phishing', '9.5 Outbound Trust & Phishing Prevention in Fee Reminders (H9)', async () => {
+    const rogueGpayLink = 'https://phishing-scam-site.com/pay-me-now';
+    const attackerEmail = 'hacker@phishing.test';
+
+    const res = await fetch(`${BASE_URL}/api/reminders/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        studentId: createdStudentId,
+        amount: 2500,
+        month: 'April 2026',
+        parentEmail: attackerEmail,
+        gpayLink: rogueGpayLink
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(`Failed to create reminder: ${err.error || res.status}`);
+    }
+
+    const json = await res.json();
+    const reminder = json.reminder;
+
+    // 1. Rogue link must be stripped and replaced with canonical UPI URI
+    if (reminder.gpayLink === rogueGpayLink || !reminder.gpayLink.startsWith('upi://pay?pa=smartpen.academy@okaxis')) {
+      throw new Error(`Security violation: Rogue gpayLink was preserved! Got: ${reminder.gpayLink}`);
+    }
+
+    // 2. Authoritative student email from DB must be used, not the attacker's email
+    const student = await db.getStudentById(createdStudentId);
+    if (reminder.parentEmail === attackerEmail && student?.email !== attackerEmail) {
+      throw new Error(`Security violation: Attacker overridden parentEmail was saved!`);
+    }
+  });
+
+  await assertTest('Suite 9: AI Guardrails & Phishing', '9.6 Email HTML Injection Sanitization (H9)', async () => {
+    const { escapeHtml } = await import('../server/email.ts');
+
+    const rawInput = '<script>alert("xss")</script>&<img src=x onerror=alert(1)>"\'';
+    const escaped = escapeHtml(rawInput);
+
+    if (escaped.includes('<script>') || escaped.includes('<img') || escaped.includes('"') || escaped.includes("'")) {
+      throw new Error(`HTML injection was not properly escaped! Got: ${escaped}`);
+    }
+    if (!escaped.includes('&lt;script&gt;') || !escaped.includes('&amp;') || !escaped.includes('&quot;')) {
+      throw new Error(`Expected standard HTML entity escaping, got: ${escaped}`);
+    }
+  });
+
 
   // -------------------------------------------------------------
   // TEARDOWN: Clean up test-generated records

@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, SessionUser, ROLES } from '../types';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { supabaseAuthService } from '../services/supabaseAuthService';
 import { api } from '../services/api';
+
+export type AuthModalView = 'login' | 'select-role' | 'select-student' | 'forgot' | 'reset-token' | 'change';
 
 interface AuthContextType {
   user: SessionUser | null;
@@ -17,7 +17,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   switchStudent: (studentId: string) => Promise<void>;
   isLoginModalOpen: boolean;
-  openLoginModal: () => void;
+  loginModalInitialView: AuthModalView;
+  openLoginModal: (initialView?: AuthModalView) => void;
   closeLoginModal: () => void;
 }
 
@@ -28,13 +29,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(() => typeof window !== 'undefined');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [loginModalInitialView, setLoginModalInitialView] = useState<AuthModalView>('login');
   const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
-    let authListener: { subscription: { unsubscribe: () => void } } | null = null;
-
     const validateStoredSession = async () => {
-      // 1. Check Server Stored Session via httpOnly cookie first
+      // Check Server Stored Session via httpOnly cookie or stored access token
       const savedToken = localStorage.getItem('smartpen_token');
       const savedUser = localStorage.getItem('smartpen_user');
 
@@ -44,100 +44,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           headers['Authorization'] = `Bearer ${savedToken}`;
         }
 
-        const res = await fetch('/api/auth/me', {
+        const res = await fetch('/api/auth/session', {
           credentials: 'include',
           headers
         });
 
         if (res.ok) {
-          const verifiedUser = await res.json();
-          setUser(verifiedUser);
-          if (savedToken) setToken(savedToken);
-          setSessionExpired(false);
-          setIsLoading(false);
-          return;
+          const data = await res.json();
+          if (data.authenticated && data.user) {
+            setUser(data.user);
+            if (savedToken) setToken(savedToken);
+            setSessionExpired(false);
+            setIsLoading(false);
+            return;
+          }
         }
       } catch (e) {
-        console.warn('[AUTH] Error checking /api/auth/me:', e);
-      }
-
-      // 2. Check Supabase Auth Session Fallback & Harmonize with Backend
-      if (isSupabaseConfigured && supabase) {
-        try {
-          const supabaseUser = await supabaseAuthService.getCurrentUser();
-          const { data: { session } } = await supabase.auth.getSession();
-          if (supabaseUser && session && supabaseUser.email) {
-            // Exchange with backend to establish httpOnly cookie & custom backend JWT
-            const exchangeRes = await fetch('/api/auth/supabase-session', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({
-                supabaseToken: session.access_token,
-                email: supabaseUser.email,
-                firstName: supabaseUser.firstName,
-                lastName: supabaseUser.lastName,
-                role: supabaseUser.role,
-                studentId: supabaseUser.studentId,
-                id: supabaseUser.id,
-                username: supabaseUser.username
-              })
-            });
-
-            if (exchangeRes.ok) {
-              const sessionData = await exchangeRes.json();
-              setUser(sessionData.user);
-              setToken(sessionData.token);
-              localStorage.setItem('smartpen_token', sessionData.token);
-              localStorage.setItem('smartpen_user', JSON.stringify(sessionData.user));
-              setSessionExpired(false);
-              setIsLoading(false);
-              return;
-            }
-          }
-        } catch (e) {
-          console.warn('[AUTH] Supabase session check:', e);
-        }
-
-        // Subscribe to auth state changes from Supabase
-        const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-          if (event === 'SIGNED_IN' && session?.user && session.user.email) {
-            const current = await supabaseAuthService.getCurrentUser();
-            if (current) {
-              try {
-                const exchangeRes = await fetch('/api/auth/supabase-session', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  credentials: 'include',
-                  body: JSON.stringify({
-                    supabaseToken: session.access_token,
-                    email: current.email,
-                    firstName: current.firstName,
-                    lastName: current.lastName,
-                    role: current.role,
-                    studentId: current.studentId,
-                    id: current.id,
-                    username: current.username
-                  })
-                });
-                if (exchangeRes.ok) {
-                  const sessionData = await exchangeRes.json();
-                  setUser(sessionData.user);
-                  setToken(sessionData.token);
-                  localStorage.setItem('smartpen_token', sessionData.token);
-                  localStorage.setItem('smartpen_user', JSON.stringify(sessionData.user));
-                  setSessionExpired(false);
-                }
-              } catch (err) {
-                console.warn('[AUTH] Supabase session sync error:', err);
-              }
-            }
-          } else if (event === 'SIGNED_OUT') {
-            setUser(null);
-            setToken(null);
-          }
-        });
-        authListener = data;
+        console.warn('[AUTH] Error checking session:', e);
       }
 
       // If no valid session found, clear stale credentials
@@ -157,12 +80,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     validateStoredSession().finally(() => {
       clearTimeout(sessionTimer);
     });
-
-    return () => {
-      if (authListener?.subscription) {
-        authListener.subscription.unsubscribe();
-      }
-    };
   }, []);
 
   const login = (newToken: string, newUser: SessionUser) => {
@@ -176,9 +93,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      if (isSupabaseConfigured && supabase) {
-        await supabase.auth.signOut().catch(() => {});
-      }
       await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include'
@@ -209,7 +123,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const openLoginModal = () => {
+  const openLoginModal = (view: AuthModalView = 'login') => {
+    setLoginModalInitialView(view);
     setIsLoginModalOpen(true);
   };
 
@@ -236,6 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         switchStudent,
         isLoginModalOpen,
+        loginModalInitialView,
         openLoginModal,
         closeLoginModal,
       }}

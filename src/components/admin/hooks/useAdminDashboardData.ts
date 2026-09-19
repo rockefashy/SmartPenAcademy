@@ -142,9 +142,12 @@ export function useAdminDashboardData() {
       });
   }, [students, searchQuery, statusFilter, gradeFilter, timingFilter, rosterCoachFilter, sortBy, sortOrder]);
 
-  // Derived: Assignment Students
+  // Derived: Assignment Students (Active only)
   const assignmentStudents = useMemo(() => {
     return students.filter((st) => {
+      // Only active students are eligible for coach assignment
+      if (st.status !== 'Active') return false;
+
       const matchesSearch =
         !assignmentSearch.trim() ||
         st.firstName.toLowerCase().includes(assignmentSearch.toLowerCase()) ||
@@ -201,8 +204,9 @@ export function useAdminDashboardData() {
   // Counts and Metadata
   const unreadAlertsCount = useMemo(() => alerts.filter((a) => !a.isRead).length, [alerts]);
   const newBookingsCount = useMemo(() => demoBookings.filter((b) => b.status === 'New').length, [demoBookings]);
-  const unassignedStudentsCount = useMemo(() => students.filter((s) => !s.coachId).length, [students]);
-  const assignedStudentsCount = useMemo(() => students.filter((s) => Boolean(s.coachId)).length, [students]);
+  const activeStudents = useMemo(() => students.filter((s) => s.status === 'Active'), [students]);
+  const unassignedStudentsCount = useMemo(() => activeStudents.filter((s) => !s.coachId).length, [activeStudents]);
+  const assignedStudentsCount = useMemo(() => activeStudents.filter((s) => Boolean(s.coachId)).length, [activeStudents]);
 
   const uniqueGrades = useMemo(
     () => Array.from(new Set(students.map((s) => s.gradeClass))).filter(Boolean),
@@ -233,6 +237,7 @@ export function useAdminDashboardData() {
       loadStudents();
       loadCoaches();
     } catch (err: any) {
+      console.error('[ADMIN_DASHBOARD] Failed to update coach assignment:', err);
       alert(err.message || 'Failed to update coach assignment');
     } finally {
       setUpdatingStudentCoachId(null);
@@ -258,6 +263,7 @@ export function useAdminDashboardData() {
         );
         loadStudents();
       } catch (err: any) {
+        console.error('[ADMIN_DASHBOARD] Failed to deactivate student:', err);
         alert(err.message || 'Failed to deactivate student');
       }
     } else {
@@ -273,6 +279,7 @@ export function useAdminDashboardData() {
         showNotification(`Student ${student.firstName} has been reactivated to Active status.`);
         loadStudents();
       } catch (err: any) {
+        console.error('[ADMIN_DASHBOARD] Failed to reactivate student:', err);
         alert(err.message || 'Failed to reactivate student');
       }
     }
@@ -298,6 +305,7 @@ export function useAdminDashboardData() {
         loadCoaches();
         loadStudents();
       } catch (err: any) {
+        console.error('[ADMIN_DASHBOARD] Failed to deactivate coach:', err);
         alert(err.message || 'Failed to deactivate coach');
       } finally {
         setDeletingCoachId(null);
@@ -312,10 +320,11 @@ export function useAdminDashboardData() {
       }
       setDeletingCoachId(coach.id);
       try {
-        await api.updateCoach(coach.id, { status: 'Active', dateOfLeaving: null as any });
+        await api.updateCoach(coach.id, { status: 'Active', dateOfLeaving: null });
         showNotification(`Coach ${coach.firstName} has been reactivated to Active status.`);
         loadCoaches();
       } catch (err: any) {
+        console.error('[ADMIN_DASHBOARD] Failed to reactivate coach:', err);
         alert(err.message || 'Failed to reactivate coach');
       } finally {
         setDeletingCoachId(null);
@@ -329,6 +338,7 @@ export function useAdminDashboardData() {
       showNotification(`Booking status updated to "${newStatus}"!`, 3000);
       loadAlertsAndBookings();
     } catch (err: any) {
+      console.error('[ADMIN_DASHBOARD] Failed to update booking status:', err);
       alert(err.message || 'Failed to update booking status');
     }
   };
@@ -339,6 +349,7 @@ export function useAdminDashboardData() {
       showNotification(`Assessment notes updated successfully!`, 3000);
       loadAlertsAndBookings();
     } catch (err: any) {
+      console.error('[ADMIN_DASHBOARD] Failed to save booking notes:', err);
       alert(err.message || 'Failed to save booking notes');
     }
   };
@@ -368,6 +379,7 @@ export function useAdminDashboardData() {
       showNotification('Demo booking inquiry deleted successfully');
       loadAlertsAndBookings();
     } catch (err: any) {
+      console.error('[ADMIN_DASHBOARD] Failed to delete booking inquiry:', err);
       alert(err.message || 'Failed to delete booking inquiry');
     }
   };
@@ -453,6 +465,7 @@ export function useAdminDashboardData() {
     assignmentStatusFilter,
     setAssignmentStatusFilter,
     assignmentStudents,
+    activeStudents,
     unassignedStudentsCount,
     assignedStudentsCount,
     updatingStudentCoachId,

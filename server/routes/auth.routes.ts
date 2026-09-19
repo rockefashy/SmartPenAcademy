@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from '../supabaseDb.ts';
 import { ROLES } from '../../src/types.ts';
-import { AuthRequest, authenticateJwt, getJwtSecret } from '../middleware/auth.ts';
+import { AuthRequest, authenticateJwt, optionalAuthenticateJwt, getJwtSecret } from '../middleware/auth.ts';
 import { authRateLimiter } from '../middleware/rateLimiter.ts';
 import { asyncHandler } from '../middleware/errorHandler.ts';
 import { recordAudit } from '../helpers/audit.ts';
@@ -20,6 +20,8 @@ import {
 import { Logger } from '../logger.ts';
 import { sendPasswordResetLinkEmail, sendPasswordChangedEmail } from '../email.ts';
 import { switchStudentSchema } from '../schemas.ts';
+
+import { authService } from '../services/auth.service.ts';
 
 const authLogger = Logger.get('AUTH');
 
@@ -44,259 +46,34 @@ authRouter.post('/login', authRateLimiter, asyncHandler(async (req: Request, res
   const { email, username, phoneNumber, identifier, password, role } = req.body;
   const loginIdentifier = identifier || email || username || phoneNumber;
 
-  if (!loginIdentifier || !password) {
-    recordAudit({
-      actorId: 'anonymous',
-      action: 'auth_login_failed',
-      summary: 'Login attempt rejected: Missing identifier or password',
-      arguments: { identifier: loginIdentifier },
-      status: 'failed'
-    });
-    throw new ValidationError('Registered email address and password are required.');
-  }
-
-  // Look up candidate users matching email, username, or phone
-  const candidateUsers = await db.findUsersByIdentifier(loginIdentifier);
-  if (!candidateUsers || candidateUsers.length === 0) {
-    recordAudit({
-      actorId: 'anonymous',
-      action: 'auth_login_failed',
-      summary: `Login failed: No account found for identifier ${loginIdentifier}`,
-      arguments: { identifier: loginIdentifier },
-      status: 'failed'
-    });
-    throw new AuthenticationError('Invalid login credentials. No account found.');
-  }
-
-  // Filter candidates where password matches
-  const validPasswordUsers = candidateUsers.filter(u => {
-    return Boolean(u.passwordHash && bcrypt.compareSync(password, u.passwordHash));
+  const result = await authService.authenticateUser({
+    identifier: loginIdentifier,
+    password,
+    role
   });
 
-  if (validPasswordUsers.length === 0) {
-    recordAudit({
-      actorId: candidateUsers[0]?.id || 'anonymous',
-      actorUsername: candidateUsers[0]?.username,
-      actorRole: candidateUsers[0]?.role,
-      action: 'auth_login_failed',
-      summary: `Login failed: Invalid password supplied for ${loginIdentifier}`,
-      arguments: { identifier: loginIdentifier },
-      status: 'failed'
-    });
-    throw new AuthenticationError('Invalid password. Please verify your password.');
+  if (result.type === 'SESSION') {
+    return await issueUserSession(result.user, res);
   }
 
-  // Check active status helper for coach
-  const isCoachActive = async (userObj: any) => {
-    if (userObj.isActive === false) return false;
-    const coachProfile = await db.getCoachById(userObj.coachId || userObj.id);
-    return coachProfile ? coachProfile.status === 'Active' : true;
-  };
-
-  // If a specific role was requested and matches exactly one user
-  if (role) {
-    const roleMatched = validPasswordUsers.filter(u => u.role === role);
-    if (roleMatched.length === 1) {
-      const loggedUser = roleMatched[0];
-
-      // Active status check during login for coaches (inactive coaches are strictly blocked)
-      if (loggedUser.role === 'coach') {
-        const active = await isCoachActive(loggedUser);
-        if (!active) {
-          recordAudit({
-            actorId: loggedUser.id,
-            action: 'auth_login_rejected_inactive_coach',
-            summary: `Login rejected: Coach account ${loggedUser.email} is inactive`,
-            arguments: { identifier: loginIdentifier },
-            status: 'failed'
-          });
-          throw new AuthorizationError('Your coach account is currently inactive. Please contact administration.');
-        }
-      }
-
-      recordAudit({
-        actorId: loggedUser.id,
-        actorUsername: loggedUser.username,
-        actorRole: loggedUser.role,
-        actorStudentId: loggedUser.studentId,
-        action: 'auth_login',
-        summary: `User ${loggedUser.firstName} (${loggedUser.username || loggedUser.email}) logged in successfully as ${loggedUser.role}`,
-        arguments: { identifier: loginIdentifier, role: loggedUser.role },
-        result: { userId: loggedUser.id, role: loggedUser.role }
-      });
-      return await issueUserSession(loggedUser, res);
-    }
-  }
-
-  // Scenario A: Single user match
-  if (validPasswordUsers.length === 1) {
-    const loggedUser = validPasswordUsers[0];
-
-    // Active status check during login for coaches (inactive coaches are strictly blocked)
-    if (loggedUser.role === 'coach') {
-      const active = await isCoachActive(loggedUser);
-      if (!active) {
-        recordAudit({
-          actorId: loggedUser.id,
-          action: 'auth_login_rejected_inactive_coach',
-          summary: `Login rejected: Coach account ${loggedUser.email} is inactive`,
-          arguments: { identifier: loginIdentifier },
-          status: 'failed'
-        });
-        throw new AuthorizationError('Your coach account is currently inactive. Please contact administration.');
-      }
-    }
-
-    // Single student or admin or coach
-    if (loggedUser.role === ROLES.STUDENT) {
-      // Check if this student/parent has siblings under the same email
-      const siblings = await db.getSiblingStudentsForUser(loggedUser);
-      if (siblings && siblings.length > 1) {
-        // Multi-child disambiguation required
-        const jwtSecret = getJwtSecret();
-        const selectionToken = jwt.sign(
-          {
-            type: 'STUDENT_SELECTION',
-            userId: loggedUser.id,
-            candidateUserIds: [loggedUser.id]
-          },
-          jwtSecret,
-          { expiresIn: '15m' }
-        );
-
-        recordAudit({
-          actorId: loggedUser.id,
-          actorUsername: loggedUser.username,
-          actorRole: loggedUser.role,
-          action: 'auth_login_disambiguation_students',
-          summary: `Login required sibling selection for parent ${loggedUser.firstName} (${siblings.length} children linked)`,
-          arguments: { identifier: loginIdentifier, studentCount: siblings.length }
-        });
-
-        const studentOptions = siblings.map(s => ({
-          id: s.id,
-          studentId: s.id,
-          firstName: s.firstName || 'Student',
-          displayName: s.displayName || s.firstName || 'Student',
-          age: s.age,
-          gender: s.gender,
-          gradeClass: s.gradeClass,
-          schoolName: s.schoolName,
-          avatarUrl: s.avatarUrl
-        }));
-
-        return res.json({
-          requiresStudentSelection: true,
-          selectionToken,
-          parentName: loggedUser.firstName,
-          students: studentOptions,
-          availableStudents: studentOptions
-        });
-      }
-    }
-
-    recordAudit({
-      actorId: loggedUser.id,
-      actorUsername: loggedUser.username,
-      actorRole: loggedUser.role,
-      actorStudentId: loggedUser.studentId,
-      action: 'auth_login',
-      summary: `User ${loggedUser.firstName} (${loggedUser.username || loggedUser.email}) logged in successfully as ${loggedUser.role}`,
-      arguments: { identifier: loginIdentifier, role: loggedUser.role },
-      result: { userId: loggedUser.id, role: loggedUser.role }
-    });
-
-    return await issueUserSession(loggedUser, res);
-  }
-
-  // Scenario B: Multiple user accounts share this identifier (e.g. Dual Role Admin + Coach, or Sibling Accounts)
-  const distinctRoles = Array.from(new Set(validPasswordUsers.map(u => u.role)));
-
-  // Dual Role (e.g. user is both Admin and Coach, or Coach and Parent)
-  if (distinctRoles.length > 1) {
-    const jwtSecret = getJwtSecret();
-    const selectionToken = jwt.sign(
-      {
-        type: 'ROLE_SELECTION',
-        candidateUserIds: validPasswordUsers.map(u => u.id)
-      },
-      jwtSecret,
-      { expiresIn: '15m' }
-    );
-
-    recordAudit({
-      actorId: validPasswordUsers[0]?.id || 'anonymous',
-      action: 'auth_login_disambiguation_roles',
-      summary: `Login required role selection for ${loginIdentifier} (${distinctRoles.join(', ')})`,
-      arguments: { identifier: loginIdentifier, roles: distinctRoles }
-    });
-
-    return res.json({
-      requiresRoleSelection: true,
-      selectionToken,
-      roles: distinctRoles,
-      users: validPasswordUsers.map(u => ({
-        id: u.id,
-        role: u.role,
-        firstName: u.firstName,
-        lastName: u.lastName
-      }))
-    });
-  }
-
-  // All matching accounts have the same role (e.g. multiple students under the same parent email)
-  if (distinctRoles[0] === ROLES.STUDENT) {
-    // Sibling students under common parent
-    const allSiblings = await db.getSiblingStudentsForUser(validPasswordUsers[0]);
-    const jwtSecret = getJwtSecret();
-    const selectionToken = jwt.sign(
-      {
-        type: 'STUDENT_SELECTION',
-        candidateUserIds: validPasswordUsers.map(u => u.id)
-      },
-      jwtSecret,
-      { expiresIn: '15m' }
-    );
-
-    recordAudit({
-      actorId: validPasswordUsers[0]?.id || 'anonymous',
-      action: 'auth_login_disambiguation_students',
-      summary: `Login required sibling selection for parent ${validPasswordUsers[0]?.firstName} (${allSiblings.length} children)`,
-      arguments: { identifier: loginIdentifier, siblingCount: allSiblings.length }
-    });
-
-    const studentOptions = allSiblings.map(s => ({
-      id: s.id,
-      studentId: s.id,
-      firstName: s.firstName || 'Student',
-      displayName: s.displayName || s.firstName || 'Student',
-      age: s.age,
-      gender: s.gender,
-      gradeClass: s.gradeClass,
-      schoolName: s.schoolName,
-      avatarUrl: s.avatarUrl
-    }));
-
+  if (result.type === 'STUDENT_SELECTION') {
     return res.json({
       requiresStudentSelection: true,
-      selectionToken,
-      parentName: validPasswordUsers[0]?.firstName,
-      students: studentOptions,
-      availableStudents: studentOptions
+      selectionToken: result.selectionToken,
+      parentName: result.parentName,
+      students: result.students,
+      availableStudents: result.students
     });
   }
 
-  // Default fallback: log in with the first matching user
-  const loggedUser = validPasswordUsers[0];
-  recordAudit({
-    actorId: loggedUser.id,
-    actorUsername: loggedUser.username,
-    actorRole: loggedUser.role,
-    action: 'auth_login',
-    summary: `User ${loggedUser.firstName} logged in via single fallback`,
-    arguments: { identifier: loginIdentifier }
-  });
-  return await issueUserSession(loggedUser, res);
+  if (result.type === 'ROLE_SELECTION') {
+    return res.json({
+      requiresRoleSelection: true,
+      selectionToken: result.selectionToken,
+      roles: result.roles,
+      users: result.users
+    });
+  }
 }));
 
 const selectRoleSchema = z.object({
@@ -456,7 +233,7 @@ const requestResetLinkSchema = z.object({
   identifier: z.string().min(1, 'Registered email or username is required.'),
 });
 
-authRouter.post('/request-reset-link', authRateLimiter, asyncHandler(async (req: Request, res: Response) => {
+authRouter.post(['/request-reset-link', '/forgot-password'], authRateLimiter, asyncHandler(async (req: Request, res: Response) => {
   const rrlParse = requestResetLinkSchema.safeParse(req.body);
   if (!rrlParse.success) {
     throw new ValidationError(rrlParse.error.issues[0]?.message || 'Invalid request body.');
@@ -531,7 +308,7 @@ authRouter.get('/verify-reset-token', authRateLimiter, asyncHandler(async (req: 
 // Reset Password using Token
 const resetPasswordSchema = z.object({
   token: z.string().min(1, 'Reset token is required.'),
-  newPassword: z.string().min(8, 'Password must be at least 8 characters long.'),
+  newPassword: z.string().min(8, 'Password must be at least 8 characters long.').regex(/^(?=.*[A-Za-z])(?=.*\d)/, 'Password must contain at least one letter and one number.'),
 });
 
 authRouter.post('/reset-password', authRateLimiter, asyncHandler(async (req: Request, res: Response) => {
@@ -544,7 +321,7 @@ authRouter.post('/reset-password', authRateLimiter, asyncHandler(async (req: Req
   const result = await db.resetPasswordWithToken(token, newPassword);
   if (!result.success) {
     recordAudit({
-      actorId: 'system',
+      actorId: 'anonymous',
       action: 'auth_reset_password_failed',
       summary: `Password reset token verification failed: ${result.error}`,
       status: 'failed'
@@ -553,11 +330,11 @@ authRouter.post('/reset-password', authRateLimiter, asyncHandler(async (req: Req
   }
 
   recordAudit({
-    actorId: 'system',
+    actorId: 'anonymous',
     action: 'auth_reset_password',
-    summary: 'Password successfully updated via secure reset token',
+    summary: `Password successfully updated via secure reset token for account ${result.email || ''}`,
     arguments: {},
-    result: { success: true }
+    result: { success: true, email: result.email }
   });
 
   return res.json({
@@ -569,13 +346,13 @@ authRouter.post('/reset-password', authRateLimiter, asyncHandler(async (req: Req
 const changePasswordSchema = z.object({
   email: z.string().email('Invalid email address format.'),
   currentPassword: z.string().min(1, 'Current password is required.'),
-  newPassword: z.string().min(8, 'New password must be at least 8 characters long.'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters long.').regex(/^(?=.*[A-Za-z])(?=.*\d)/, 'Password must contain at least one letter and one number.'),
   targetStudentId: z.string().optional(),
   targetUserId: z.string().optional(),
   applyToAll: z.boolean().optional(),
 });
 
-authRouter.post('/change-password', authenticateJwt, authRateLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
+authRouter.post('/change-password', optionalAuthenticateJwt, authRateLimiter, asyncHandler(async (req: AuthRequest, res: Response) => {
   const cpParse = changePasswordSchema.safeParse(req.body);
   if (!cpParse.success) {
     throw new ValidationError(cpParse.error.issues[0]?.message || 'Invalid request body.');
@@ -590,7 +367,9 @@ authRouter.post('/change-password', authenticateJwt, authRateLimiter, asyncHandl
 
   if (!result.success) {
     recordAudit({
-      actorId: 'system',
+      actorId: req.user?.id || 'anonymous',
+      actorUsername: req.user?.username || email,
+      actorRole: req.user?.role || 'student',
       action: 'auth_change_password_failed',
       summary: `Password change failed for ${email}: ${result.error}`,
       arguments: { email, targetStudentId },
@@ -613,9 +392,9 @@ authRouter.post('/change-password', authenticateJwt, authRateLimiter, asyncHandl
 
   console.log(`[PASSWORD CHANGED] Password updated for ${email} (targetStudentId: ${targetStudentId || 'all'}). User logged out.`);
   recordAudit({
-    actorId: user?.id || 'system',
-    actorUsername: user?.username || email,
-    actorRole: user?.role || 'student',
+    actorId: req.user?.id || user?.id || 'anonymous',
+    actorUsername: req.user?.username || user?.username || email,
+    actorRole: req.user?.role || user?.role || 'student',
     action: 'auth_change_password',
     summary: `Password updated successfully for account ${email}. Target: ${targetStudentId || 'all'}. User logged out.`,
     arguments: { email, targetStudentId, applyToAll },
@@ -636,13 +415,22 @@ const familyStudentsSchema = z.object({
   message: 'Email or identifier is required.'
 });
 
-// Family students discovery for password change and account management
-authRouter.post('/family-students', asyncHandler(async (req: Request, res: Response) => {
+// Family students discovery for password change and account management (Authenticated)
+authRouter.post('/family-students', authenticateJwt, asyncHandler(async (req: AuthRequest, res: Response) => {
   const parsed = familyStudentsSchema.safeParse(req.body);
   if (!parsed.success) {
     throw new ValidationError(parsed.error.issues[0]?.message || 'Email or identifier is required.');
   }
-  const target = (parsed.data.email || parsed.data.identifier || '').trim();
+  const target = (parsed.data.email || parsed.data.identifier || '').trim().toLowerCase();
+
+  // Non-admins can only query family students for their own registered email
+  if (req.user?.role !== ROLES.ADMIN) {
+    const callerEmail = (req.user?.email || '').trim().toLowerCase();
+    if (!callerEmail || callerEmail !== target) {
+      throw new AuthorizationError('Access denied: You can only query family students for your own account.');
+    }
+  }
+
   const siblings = await db.getFamilyStudentsByEmailOrPhone(target);
   return res.json({
     students: siblings.map(s => ({
@@ -653,68 +441,7 @@ authRouter.post('/family-students', asyncHandler(async (req: Request, res: Respo
   });
 }));
 
-// Exchange/Harmonize Supabase Auth Session with Backend Custom JWT & httpOnly Cookie
-const supabaseSessionSchema = z.object({
-  email: z.string().email('Valid email is required for session synchronization.'),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  role: z.enum([ROLES.ADMIN, ROLES.COACH, ROLES.STUDENT]).optional(),
-  studentId: z.string().optional(),
-  id: z.string().optional(),
-  username: z.string().optional(),
-});
 
-authRouter.post('/supabase-session', asyncHandler(async (req: Request, res: Response) => {
-  const ssParse = supabaseSessionSchema.safeParse(req.body);
-  if (!ssParse.success) {
-    throw new ValidationError(ssParse.error.issues[0]?.message || 'Invalid request body.');
-  }
-  const { email, firstName, lastName, role, studentId, id, username } = ssParse.data;
-
-  const user = await db.upsertUserFromSupabase({
-    email,
-    firstName,
-    lastName,
-    role,
-    studentId,
-    id,
-    username
-  });
-
-  const payload = {
-    id: user.id,
-    username: user.username,
-    role: user.role,
-    studentId: user.studentId,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    email: user.email
-  };
-
-  const jwtSecret = getJwtSecret();
-  const token = jwt.sign(payload, jwtSecret, { expiresIn: '7d' });
-
-  // Set secure, httpOnly, SameSite=strict cookie
-  res.cookie('smartpen_token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-  });
-
-  recordAudit({
-    actorId: user.id,
-    actorUsername: user.username,
-    actorRole: user.role,
-    actorStudentId: user.studentId,
-    action: 'auth_supabase_sync_session',
-    summary: `Harmonized Supabase OAuth / Auth session for ${user.firstName} (${user.email})`,
-    arguments: { email: user.email, role: user.role },
-    result: { userId: user.id, role: user.role }
-  });
-
-  return res.json({ token, user: payload });
-}));
 
 authRouter.post('/logout', asyncHandler(async (req: Request, res: Response) => {
   res.clearCookie('smartpen_token', {
@@ -754,7 +481,12 @@ authRouter.post('/forgot-password', authRateLimiter, asyncHandler(async (req: Re
       arguments: { identifier },
       status: 'failed'
     });
-    throw new NotFoundError('No account found with this email address.');
+    // Anti-enumeration defense: Return generic success without revealing account non-existence
+    return res.json({
+      success: true,
+      message: 'If an account is associated with this email address, a password reset link has been dispatched.',
+      deliveryStatus: 'simulated'
+    });
   }
 
   const resetData = await db.createPasswordResetToken(user.email);
@@ -762,8 +494,9 @@ authRouter.post('/forgot-password', authRateLimiter, asyncHandler(async (req: Re
     throw new DatabaseError((resetData && 'error' in resetData) ? resetData.error : 'Failed to generate reset link.');
   }
 
-  const origin = req.headers.origin || 'http://localhost:3000';
-  const resetLink = `${origin}?resetToken=${resetData.token}&email=${encodeURIComponent(user.email)}#reset-password`;
+  // Strictly use configured APP_URL or server host, never unvalidated client Origin
+  const appBaseUrl = (process.env.APP_URL || (process.env.NODE_ENV === 'production' ? 'https://smartpenacademy.com' : 'http://localhost:3000')).trim().replace(/\/$/, '');
+  const resetLink = `${appBaseUrl}?resetToken=${resetData.token}&email=${encodeURIComponent(user.email)}#reset-password`;
 
   const emailResult = await sendPasswordResetLinkEmail(user.email, {
     firstName: user.firstName,
@@ -785,9 +518,43 @@ authRouter.post('/forgot-password', authRateLimiter, asyncHandler(async (req: Re
 
   return res.json({
     success: true,
-    message: `Password reset link dispatched to ${user.email}. Link valid for 60 minutes.`,
-    email: user.email,
+    message: 'If an account is associated with this email address, a password reset link has been dispatched.',
     deliveryStatus: emailResult.success ? 'sent' : 'simulated'
+  });
+}));
+
+// Session Probe Endpoint (Returns 200 with user or null, preventing console 401s on initial landing load)
+authRouter.get('/session', optionalAuthenticateJwt, asyncHandler(async (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    return res.json({ authenticated: false, user: null });
+  }
+
+  const user = (req.user.username ? await db.findUserByUsername(req.user.username) : null) || (await db.findUserById(req.user.id));
+  if (!user) {
+    return res.json({ authenticated: false, user: null });
+  }
+
+  const {
+    activeStudentId,
+    activeFirstName,
+    activeLastName,
+    siblingStudents
+  } = await resolveStudentContext(user, req.user.studentId);
+
+  return res.json({
+    authenticated: true,
+    user: {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      studentId: activeStudentId,
+      firstName: activeFirstName,
+      lastName: activeLastName,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      designation: user.designation,
+      siblingStudents
+    }
   });
 }));
 
@@ -818,10 +585,13 @@ authRouter.get('/me', authenticateJwt, asyncHandler(async (req: AuthRequest, res
 }));
 
 const patchMeSchema = z.object({
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  phoneNumber: z.string().optional(),
-  avatarUrl: z.string().optional()
+  firstName: z.string().max(100).optional(),
+  lastName: z.string().max(100).optional(),
+  phoneNumber: z.string().max(25).optional(),
+  avatarUrl: z.string().max(500).refine(val => {
+    if (!val) return true;
+    return val.startsWith('data:image/') || val.startsWith('/') || val.startsWith('https://') || val.startsWith('http://');
+  }, 'avatarUrl must be a valid image data URI, relative path, or URL').optional()
 });
 
 authRouter.patch('/me', authenticateJwt, asyncHandler(async (req: AuthRequest, res: Response) => {

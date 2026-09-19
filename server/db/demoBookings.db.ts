@@ -55,7 +55,7 @@ export class DemoBookingsDatabase {
     if (!preferredDate) throw new Error("Preferred date is required for demo booking.");
     if (!preferredTimeSlot) throw new Error("Preferred time slot is required for demo booking.");
 
-    const id = `demo-${Date.now()}`;
+    const id = crypto.randomUUID();
     const ageNum = parseInt(ageStr, 10);
 
     const row: any = {
@@ -84,7 +84,7 @@ export class DemoBookingsDatabase {
     }
 
     // Create system alert for admin
-    const alertId = `alert-${Date.now()}`;
+    const alertId = crypto.randomUUID();
     const alertRow = {
       id: alertId,
       title: `New Demo Booking: ${childName}`,
@@ -150,7 +150,8 @@ export class DemoBookingsDatabase {
     const supabase = getSupabase();
     // Attempt to delete any associated demo alert
     try {
-      await supabase.from('alerts').delete().ilike('action_url', `%${id}%`);
+      const escapedId = id.replace(/[%_\\]/g, '\\$&');
+      await supabase.from('alerts').delete().ilike('action_url', `%${escapedId}%`);
     } catch {
       // ignore if not found
     }

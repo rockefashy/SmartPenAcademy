@@ -320,7 +320,7 @@ export interface Testimonial {
   updatedAt?: string;
 }
 
-export type AuditExecutionMode = 'remote_gemini' | 'local_agent' | 'direct_api';
+export type AuditExecutionMode = 'remote_gemini' | 'local_agent' | 'direct_api' | 'direct_execution';
 
 export interface ToolAuditLog {
   id: string;

@@ -11,7 +11,29 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ============================================================================
--- 2. MASTER PROFILES: COACHES
+-- 2. CORE IDENTITY & AUTH: USERS
+-- Single Source of Truth for Express JWT Authentication & Portal RBAC
+-- Passwords must be hashed using bcrypt; never plaintext
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.users (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  first_name TEXT NOT NULL DEFAULT '',
+  last_name TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  role TEXT NOT NULL CHECK (role IN ('admin', 'coach', 'student')),
+  avatar_url TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  password_hash TEXT NOT NULL DEFAULT '',
+  reset_password_token TEXT,
+  reset_password_expiry BIGINT,
+  token_version INTEGER DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================================
+-- 3. MASTER PROFILES: COACHES
 -- Master registry for academy coaches & founder
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.coaches (
@@ -32,7 +54,7 @@ CREATE TABLE IF NOT EXISTS public.coaches (
 );
 
 -- ============================================================================
--- 3. ACADEMIC PROFILES: STUDENTS
+-- 4. ACADEMIC PROFILES: STUDENTS
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.students (
   id TEXT PRIMARY KEY,
@@ -56,28 +78,6 @@ CREATE TABLE IF NOT EXISTS public.students (
   notes TEXT,
   avatar_url TEXT,
   diagnostic_observations JSONB DEFAULT '[]'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- ============================================================================
--- 4. CORE IDENTITY & AUTH: USERS
--- Single Source of Truth for Express JWT Authentication & Portal RBAC
--- Passwords must be hashed using bcrypt; never plaintext
--- ============================================================================
-CREATE TABLE IF NOT EXISTS public.users (
-  id TEXT PRIMARY KEY,
-  email TEXT NOT NULL,
-  first_name TEXT NOT NULL DEFAULT '',
-  last_name TEXT NOT NULL DEFAULT '',
-  phone TEXT NOT NULL DEFAULT '',
-  role TEXT NOT NULL CHECK (role IN ('admin', 'coach', 'student')),
-  avatar_url TEXT,
-  is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  password_hash TEXT NOT NULL DEFAULT '',
-  reset_password_token TEXT,
-  reset_password_expiry BIGINT,
-  token_version INTEGER DEFAULT 1,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS public.fees (
   year_month TEXT NOT NULL,
   milestone TEXT,
   amount NUMERIC(10, 2) NOT NULL DEFAULT 1600.00,
-  status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Paid', 'Pending', 'Overdue')),
+  status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Paid', 'Pending', 'Overdue', 'Waived')),
   receipt_number TEXT,
   payment_method TEXT,
   notes TEXT,
@@ -230,6 +230,7 @@ CREATE TABLE IF NOT EXISTS public.testimonials (
   image TEXT,
   is_featured BOOLEAN DEFAULT FALSE,
   verified_student BOOLEAN DEFAULT TRUE,
+  media_consent BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -450,10 +451,6 @@ CREATE POLICY rls_coaches_self_select ON public.coaches
 
 DROP POLICY IF EXISTS rls_coaches_self_update ON public.coaches;
 
-DROP POLICY IF EXISTS rls_coaches_active_select ON public.coaches;
-CREATE POLICY rls_coaches_active_select ON public.coaches
-  FOR SELECT
-  USING (status = 'Active');
 
 -- ----------------------------------------------------------------------------
 -- STUDENTS POLICIES
@@ -608,11 +605,11 @@ CREATE POLICY rls_student_works_student_select ON public.student_works
 --   1. Initial Batches (Schedule slots 4:00 PM – 7:00 PM)
 --   2. One Primary Administrator (Admin Coach)
 -- No coaches seeded during bootstrap. Coaches are created dynamically via portal.
--- Default initial password for Administrator: Admin@SmartPen2026
+-- Initial bootstrap seed for primary administrator account
 -- ============================================================================
 
 
--- 2. Seed Single Initial Administrator Account (password: Admin@SmartPen2026)
+-- 2. Seed Single Initial Administrator Account (if not already existing)
 INSERT INTO public.users (
   id,
   email,
@@ -620,7 +617,6 @@ INSERT INTO public.users (
   last_name,
   phone,
   role,
-  coach_id,
   password_hash,
   is_active
 ) VALUES 
@@ -631,18 +627,9 @@ INSERT INTO public.users (
   'Coach',
   '8861751000',
   'admin',
-  NULL,
-  -- Precomputed bcrypt hash for 'Admin@SmartPen2026' (cost factor 10)
   '$2b$10$zkgI8pF3UaNpN7Og0Ddit..LiDy99fywIN54BYdvkOGYZY3uuzHqm',
   TRUE
-) ON CONFLICT (email) DO UPDATE SET
-  first_name = EXCLUDED.first_name,
-  last_name = EXCLUDED.last_name,
-  phone = EXCLUDED.phone,
-  role = 'admin',
-  coach_id = NULL,
-  password_hash = EXCLUDED.password_hash,
-  is_active = TRUE;
+) ON CONFLICT (id) DO NOTHING;
 
 -- Refresh PostgREST API schema cache
 NOTIFY pgrst, 'reload schema';

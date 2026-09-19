@@ -23,16 +23,15 @@ Authentication is handled by the Node/Express backend. Supabase Auth MUST NOT be
 2. Express validates the request (Zod).
 3. Express retrieves the user’s credential record via a controlled backend-only path (service-role or equivalent).
 4. Password is verified using bcrypt/bcryptjs.
-5. Express issues a signed JWT (short-lived access token + refresh token).
-6. Protected requests include the JWT.
-7. Express validates the JWT and extracts:
+5. Express issues a signed JWT (short-lived access token + httpOnly refresh token).
+6. Protected requests include the JWT (via httpOnly cookie or Authorization Bearer header).
+7. Express validates the JWT, checks `token_version` revocation, and extracts:
    - user ID
    - role (`admin`, `coach`, `student`)
    - any other trusted claims
-8. Express establishes a trusted, transaction-scoped PostgreSQL identity (e.g., via `SET LOCAL` or equivalent).
-9. PostgreSQL RLS evaluates access using that trusted context.
+8. Express enforces strict application-layer authorization, relationship scoping (e.g. `verifyStudentAccess`, `canAccessStudent`), and input validation.
+9. Database operations execute via the backend service role with parameterized queries, while PostgreSQL Row Level Security (RLS) and revoked public schema privileges act as a defense-in-depth deny-all backstop against any direct client PostgREST/anon access.
 
-PostgreSQL does NOT independently validate the JWT. The backend validates the JWT and then establishes the trusted identity used by RLS.
 
 ---
 
@@ -88,7 +87,7 @@ Prevent:
 
 ---
 
-## 5. PostgreSQL Row Level Security (RLS)
+## 5. PostgreSQL Row Level Security (RLS) & Schema Access
 
 Sensitive tables MUST use RLS. At minimum, enforce RLS on:
 
@@ -100,11 +99,8 @@ Sensitive tables MUST use RLS. At minimum, enforce RLS on:
 - `progress_trackers`
 - `student_works`
 
-RLS must be based on the trusted transaction-scoped identity established by the backend, not on client-supplied values.
+RLS policies and public schema privilege revocations (`015_lockdown_supabase_anon_and_rpc_privileges.sql`) act as a defense-in-depth deny-all backstop on direct client PostgREST/anon access. All external API requests must terminate at the Express backend where RBAC, relationship validation, and input sanitization are strictly evaluated before database persistence operations occur.
 
-Use explicit operation policies where appropriate: `SELECT`, `INSERT`, `UPDATE`, `DELETE`.  
-Avoid overly broad `FOR ALL` policies when granular policies provide better control.  
-Coaches and students must NOT have `DELETE` access to sensitive records unless explicitly authorized.
 
 ---
 

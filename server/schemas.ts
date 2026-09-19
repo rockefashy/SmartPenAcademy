@@ -16,7 +16,7 @@ export const attendanceItemSchema = z.object({
   notes: z.string().optional().nullable(),
   coachNotes: z.string().optional().nullable(),
   markedBy: z.string().optional().nullable()
-}).passthrough();
+});
 
 export const attendanceBatchSchema = z.object({
   records: z.array(attendanceItemSchema).min(1, 'Records array must contain at least one attendance record.')
@@ -24,21 +24,19 @@ export const attendanceBatchSchema = z.object({
 
 // 2. Fee Schemas
 export const createFeeSchema = z.object({
-  id: z.string().optional(),
   studentId: z.string().min(1, 'studentId is required'),
   amount: z.coerce.number().positive('amount must be a positive number'),
   date: z.string().optional(),
   paidDate: z.string().optional(),
   yearMonth: z.string().optional(),
   milestone: z.string().optional(),
-  status: z.enum(['Paid', 'Pending', 'Overdue', 'Waived']).optional().default('Paid'),
+  status: z.enum(['Paid', 'Pending', 'Overdue', 'Waived']).optional().default('Pending'),
   receiptNumber: z.string().optional(),
   paymentMethod: z.string().optional().default('GPAY'),
   notes: z.string().optional()
-}).passthrough();
+});
 
 export const updateFeeSchema = z.object({
-  studentId: z.string().optional(),
   amount: z.coerce.number().positive('amount must be a positive number').optional(),
   date: z.string().optional(),
   paidDate: z.string().optional(),
@@ -48,7 +46,7 @@ export const updateFeeSchema = z.object({
   receiptNumber: z.string().optional(),
   paymentMethod: z.string().optional(),
   notes: z.string().optional()
-}).passthrough();
+});
 
 // 3. Demo Booking Schemas
 export const createDemoBookingSchema = z.object({
@@ -94,8 +92,21 @@ export const enrollStudentSchema = z.object({
   preferredSlot: z.string().optional(),
   classesPerCycle: z.coerce.number().int().min(1, 'Classes per cycle must be at least 1.').max(50, 'Classes per cycle cannot exceed 50.').optional().default(8),
   feePerCycle: z.coerce.number().min(0, 'Fee per cycle must be non-negative.').optional().default(1600),
+  dominantHand: z.enum(['Right', 'Left']).optional(),
+  gender: z.enum(['Male', 'Female', 'Other']).optional(),
+  coachId: z.string().optional().nullable(),
+  coachName: z.string().optional().nullable(),
+  scriptsRequired: z.array(z.string()).optional(),
+  academicModules: z.array(z.string()).optional(),
+  diagnosticObservations: z.array(z.string()).optional(),
+  residentialArea: z.string().optional(),
+  emergencyPhone: z.string().optional(),
+  emergencyContactName: z.string().optional(),
+  emergencyContactPhone: z.string().optional(),
+  instructionMedium: z.string().optional(),
+  siblingOfStudentId: z.string().optional(),
   notes: z.string().optional()
-}).passthrough();
+});
 
 export const updateStudentSchema = z.object({
   firstName: z.string().trim().optional(),
@@ -123,7 +134,7 @@ export const updateStudentSchema = z.object({
   classesPerCycle: z.coerce.number().int().min(1, 'Classes per cycle must be at least 1.').max(50, 'Classes per cycle cannot exceed 50.').optional(),
   feePerCycle: z.coerce.number().min(0, 'Fee per cycle must be non-negative.').optional(),
   notes: z.string().optional()
-}).passthrough();
+});
 
 export const switchStudentSchema = z.object({
   studentId: z.string().min(1, 'Target studentId is required.')
@@ -138,7 +149,7 @@ export const createCoachSchema = z.object({
   password: z.string().min(8, 'Coach initial password must be at least 8 characters'),
   address: z.string().optional().default(''),
   dateOfJoining: z.string().optional(),
-  dateOfLeaving: z.string().optional(),
+  dateOfLeaving: z.string().optional().nullable(),
   status: z.enum(['Active', 'Inactive']).optional().default('Active'),
   educationalQualification: z.string().optional().default(''),
   designation: z.string().optional().default('Associate Tutor'),
@@ -164,7 +175,7 @@ export const updateCoachSchema = z.object({
   phoneNumber: z.string().optional(),
   address: z.string().optional(),
   dateOfJoining: z.string().optional(),
-  dateOfLeaving: z.string().optional(),
+  dateOfLeaving: z.string().optional().nullable(),
   status: z.enum(['Active', 'Inactive']).optional(),
   educationalQualification: z.string().optional(),
   designation: z.string().optional(),
@@ -188,7 +199,6 @@ export const assignCoachSchema = z.object({
 
 // 6. Progress Tracking & Student Works Schemas
 export const progressTrackerSchema = z.object({
-  id: z.string().optional(),
   studentId: z.string().min(1, 'studentId is required'),
   evaluationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'evaluationDate must be in YYYY-MM-DD format'),
   gripScore: z.coerce.number().optional(),
@@ -199,7 +209,7 @@ export const progressTrackerSchema = z.object({
   overallScore: z.coerce.number().optional(),
   remarks: z.string().optional(),
   coachNotes: z.string().optional()
-}).passthrough();
+});
 
 export const studentWorkUploadSchema = z.object({
   studentId: z.string().min(1, 'studentId is required'),
@@ -207,7 +217,7 @@ export const studentWorkUploadSchema = z.object({
   captureDate: z.string().optional(),
   category: z.string().optional().default('Classwork'),
   comments: z.string().optional()
-}).passthrough();
+});
 
 export const bulkDeleteWorksSchema = z.object({
   ids: z.array(z.string().min(1)).min(1, 'ids array must contain at least one ID')
@@ -226,7 +236,7 @@ export const createTestimonialSchema = z.object({
   review: z.string().min(1, 'review text is required'),
   beforeAfterTag: z.string().optional(),
   image: z.string().optional(),
-  mediaConsent: z.boolean().optional().default(true)
+  mediaConsent: z.boolean().optional().default(false)
 });
 
 export const patchTestimonialSchema = z.object({

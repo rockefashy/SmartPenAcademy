@@ -176,7 +176,7 @@ export class CoachesDatabase {
     }
 
     const supabase = getSupabase();
-    const coachId = `coach-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const coachId = crypto.randomUUID();
 
     let firstName = (data.firstName || '').trim();
     let lastName = (data.lastName || '').trim();
@@ -208,7 +208,7 @@ export class CoachesDatabase {
       throw new Error("A valid password (minimum 8 characters) is required to create a coach account.");
     }
     const initialPassword = data.password.trim();
-    const passwordHash = bcrypt.hashSync(initialPassword, 10);
+    const passwordHash = await bcrypt.hash(initialPassword, 12);
 
     // 2. Identity-First: Create or resolve user record first
     let createdUser: any = null;
@@ -364,7 +364,7 @@ export class CoachesDatabase {
     if (updates.phoneNumber) userPatch.phone = updates.phoneNumber.trim();
     if (updates.status) userPatch.is_active = updates.status === 'Active';
     if (updates.password && updates.password.trim().length >= 8) {
-      userPatch.password_hash = bcrypt.hashSync(updates.password.trim(), 10);
+      userPatch.password_hash = await bcrypt.hash(updates.password.trim(), 12);
     }
 
     let updatedUser: any = null;

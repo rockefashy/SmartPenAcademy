@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { db } from '../supabaseDb.ts';
-import { AuthRequest, authenticateJwt, requireAdmin } from '../middleware/auth.ts';
+import { AuthRequest, authenticateJwt, optionalAuthenticateJwt, requireAdmin, canAccessStudent } from '../middleware/auth.ts';
 import { asyncHandler } from '../middleware/errorHandler.ts';
 import { recordAudit } from '../helpers/audit.ts';
 import { saveBase64Image } from '../helpers/fileHelper.ts';
@@ -16,16 +16,47 @@ if (!fs.existsSync(testimonialsDir)) {
   fs.mkdirSync(testimonialsDir, { recursive: true });
 }
 
-// GET /api/testimonials (Public)
-testimonialsRouter.get('/', asyncHandler(async (req: Request, res: Response) => {
+// GET /api/testimonials (Public & Admin)
+testimonialsRouter.get('/', optionalAuthenticateJwt, asyncHandler(async (req: AuthRequest, res: Response) => {
   const { studentId, status } = req.query;
-  const testimonials = await db.getTestimonials(studentId as string, status as string);
+  const isAdmin = req.user?.role === 'admin';
+
+  let filterStatus: string | undefined;
+  if (isAdmin) {
+    // Admins can filter by specific status (e.g. 'Pending', 'Archived') or view all if status omitted
+    filterStatus = (status as string) || undefined;
+  } else {
+    // Public and non-admin callers strictly only see Published / Featured reviews
+    filterStatus = 'Published';
+  }
+
+  const testimonials = await db.getTestimonials(studentId as string, filterStatus);
+
+  // For non-admin/public users, strip studentId to protect internal student identifier privacy
+  if (!isAdmin) {
+    const sanitized = testimonials.map(t => ({
+      ...t,
+      studentId: undefined
+    }));
+    return res.json(sanitized);
+  }
+
   return res.json(testimonials);
 }));
 
-// GET /api/testimonials/student/:id (Public)
-testimonialsRouter.get('/student/:id', asyncHandler(async (req: Request, res: Response) => {
-  const testimonials = await db.getTestimonials(req.params.id);
+// GET /api/testimonials/student/:id (Scoped: Owner, Admin, or Published only)
+testimonialsRouter.get('/student/:id', optionalAuthenticateJwt, asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const isAdmin = req.user?.role === 'admin';
+  const isOwner = req.user && await canAccessStudent(req.user, id);
+
+  // If caller is neither an admin nor the verified student/parent owner, strictly filter to Published
+  let filterStatus: string | undefined;
+  if (!isAdmin && !isOwner) {
+    filterStatus = 'Published';
+  }
+
+  const testimonials = await db.getTestimonials(id, filterStatus);
   return res.json(testimonials);
 }));
 
@@ -53,7 +84,18 @@ testimonialsRouter.post('/', authenticateJwt, asyncHandler(async (req: AuthReque
     mediaConsent 
   } = parsed.data;
 
-  const finalImagePath = saveBase64Image(image, testimonialsDir, `testimony_${studentId}`);
+  // Student ownership boundary check: Parents/students can only submit reviews for their own enrolled students
+  if (req.user?.role === 'student') {
+    const hasAccess = await canAccessStudent(req.user, studentId);
+    if (!hasAccess) {
+      throw new AuthorizationError('Access denied: You can only submit testimonials for your own student profile.');
+    }
+  }
+
+  const finalImagePath = await saveBase64Image(image, testimonialsDir, 'testimony');
+
+  // Moderation status: non-admins default strictly to 'Pending' for admin review
+  const finalStatus = req.user?.role === 'admin' ? 'Featured' : 'Pending';
 
   const saved = await db.saveTestimonial({
     studentId,
@@ -68,7 +110,7 @@ testimonialsRouter.post('/', authenticateJwt, asyncHandler(async (req: AuthReque
     beforeAfterTag,
     image: finalImagePath,
     mediaConsent,
-    status: 'Featured'
+    status: finalStatus
   });
 
   recordAudit({

@@ -61,13 +61,13 @@ export const CoachAssignmentTab: React.FC<CoachAssignmentTabProps> = ({
         <StatCard
           icon={<UserCheck className="w-4 h-4" />}
           value={assignedStudentsCount}
-          label="Students Assigned to Coaches"
+          label="Active Students Assigned"
           colorScheme="emerald"
         />
         <StatCard
           icon={<BadgeAlert className="w-4 h-4" />}
           value={unassignedStudentsCount}
-          label="Students Pending Assignment"
+          label="Active Students Pending Assignment"
           colorScheme="amber"
         />
       </div>
@@ -92,7 +92,7 @@ export const CoachAssignmentTab: React.FC<CoachAssignmentTabProps> = ({
               value={assignmentStatusFilter}
               onChange={(e) => setAssignmentStatusFilter(e.target.value as any)}
             >
-              <option value="All">All Students ({allStudents.length})</option>
+              <option value="All">All Active Students ({allStudents.length})</option>
               <option value="Unassigned">⚠️ Unassigned Only ({unassignedStudentsCount})</option>
               <option value="Assigned">✓ Assigned Only ({assignedStudentsCount})</option>
             </Select>
@@ -116,7 +116,7 @@ export const CoachAssignmentTab: React.FC<CoachAssignmentTabProps> = ({
         </div>
 
         <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
-          <span>Showing <strong>{students.length}</strong> students</span>
+          <span>Showing <strong>{students.length}</strong> active students</span>
           <span>Select any coach from the dropdown to instantly reassign</span>
         </div>
       </div>
@@ -220,11 +220,13 @@ export const CoachAssignmentTab: React.FC<CoachAssignmentTabProps> = ({
                             }}
                           >
                             <option value="">-- No Coach Assigned --</option>
-                            {coaches.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                Coach {c.firstName} ({c.designation})
-                              </option>
-                            ))}
+                            {coaches
+                              .filter((c) => c.status === 'Active' || c.id === student.coachId)
+                              .map((c) => (
+                                <option key={c.id} value={c.id} disabled={c.status === 'Inactive' && c.id !== student.coachId}>
+                                  Coach {c.firstName} ({c.designation}){c.status === 'Inactive' ? ' (Inactive)' : ''}
+                                </option>
+                              ))}
                           </Select>
                           {isUpdating && <RefreshCw className="w-4 h-4 animate-spin text-[#0E3589]" />}
                         </div>

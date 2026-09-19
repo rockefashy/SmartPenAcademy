@@ -132,7 +132,7 @@ studentsRouter.post('/enroll', authenticateJwt, requireAdmin, asyncHandler(async
     throw new ConflictError('Student is already enrolled.');
   }
 
-  const newId = `std-${Date.now()}`;
+  const newId = crypto.randomUUID();
   const password = data.password ? data.password.trim() : undefined;
 
   const newStudent = {

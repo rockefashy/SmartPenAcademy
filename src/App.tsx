@@ -26,6 +26,7 @@ function MainApp({ initialView }: { initialView?: string } = {}) {
     isLoginModalOpen, 
     closeLoginModal, 
     openLoginModal, 
+    loginModalInitialView,
     user, 
     token,
     isAuthenticated,
@@ -79,12 +80,6 @@ function MainApp({ initialView }: { initialView?: string } = {}) {
         return 'landing';
       }
       const params = new URLSearchParams(window.location.search);
-      const qToken = params.get('token');
-      if (qToken) {
-        try {
-          localStorage.setItem('smartpen_token', qToken);
-        } catch {}
-      }
       const qView = params.get('view');
       if (qView && ['landing', 'about', 'enroll'].includes(qView)) {
         return qView;
@@ -513,6 +508,7 @@ function MainApp({ initialView }: { initialView?: string } = {}) {
         }}
         initialResetToken={urlResetToken || undefined}
         initialResetEmail={urlResetEmail || undefined}
+        initialView={loginModalInitialView}
         onLoginSuccess={(loggedInUser) => {
           if (urlResetToken || (typeof window !== 'undefined' && window.location.hash === '#reset-password')) {
             setUrlResetToken(null);

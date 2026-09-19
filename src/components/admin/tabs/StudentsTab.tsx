@@ -319,7 +319,7 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                                 <ShieldCheck className="w-3 h-3 text-[#0E3589]" />
                                 {student.coachName || 'Assigned'}
                               </span>
-                              {isAdmin && (
+                              {isAdmin && student.status === 'Active' && (
                                 <Button
                                   type="button"
                                   variant="ghost"
@@ -331,8 +331,8 @@ export const StudentsTab: React.FC<StudentsTabProps> = ({
                                 </Button>
                               )}
                             </div>
-                          ) : !isAdmin ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium text-slate-500">
+                          ) : !isAdmin || student.status === 'Inactive' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium text-slate-400">
                               Unassigned
                             </span>
                           ) : (

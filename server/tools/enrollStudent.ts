@@ -158,7 +158,7 @@ export const enrollStudentTool: AgentTool = {
     }
 
     // 4. Construct record and execute shared DB write path
-    const newId = `std-${Date.now()}`;
+    const newId = crypto.randomUUID();
     const effectivePassword = isSibling ? undefined : generatedPassword;
 
     const newStudentPayload = {

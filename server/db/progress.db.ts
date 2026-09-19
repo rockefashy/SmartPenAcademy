@@ -160,7 +160,7 @@ export class ProgressDatabase {
 
   async saveProgressTracker(tracker: Partial<ProgressTracker>): Promise<ProgressTracker> {
     const supabase = getSupabase();
-    const id = tracker.id || `pt-${Date.now()}`;
+    const id = tracker.id || crypto.randomUUID();
     const row = {
       id,
       student_id: tracker.studentId,
@@ -244,7 +244,7 @@ export class ProgressDatabase {
 
   async saveStudentWork(work: Partial<StudentWorkImage>): Promise<StudentWorkImage> {
     const supabase = getSupabase();
-    const id = work.id || `work-${Date.now()}`;
+    const id = work.id || crypto.randomUUID();
     const captureDate = work.captureDate || new Date().toISOString().split('T')[0];
     const category = work.category || 'Practice Sheet';
     const defaultTitle = `${category} - ${captureDate}`;
@@ -327,7 +327,7 @@ export class ProgressDatabase {
 
   async saveProgressReport(report: Partial<ProgressReport>): Promise<ProgressReport> {
     const supabase = getSupabase();
-    const id = report.id || `pt-rep-${Date.now()}`;
+    const id = report.id || crypto.randomUUID();
 
     let formationStars: number | null = null;
     let spacingStars: number | null = null;

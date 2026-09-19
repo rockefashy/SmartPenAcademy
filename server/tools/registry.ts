@@ -112,30 +112,32 @@ export const toolRegistry: Record<string, AgentTool> = {
 };
 
 /**
- * Single DRY filter for role-based tool availability.
+ * Single DRY filter for role-based tool availability and authorization.
  * - Public tools (!t.allowedRoles) are available to everyone.
  * - Self-service tools (t.selfServiceOnly) are restricted strictly to declared roles (no admin bypass).
  * - Admin has unrestricted access to all non-selfService tools.
  * - Other roles receive only tools where their role is explicitly allowed.
  */
+export function isToolAllowedForRole(t: AgentTool, role?: string): boolean {
+  // Public tools (no allowedRoles defined)
+  if (!t.allowedRoles || t.allowedRoles.length === 0) return true;
+  if (!role) return false;
+
+  // Self-service only tools (e.g. personal student identity tools): admin bypass does NOT apply
+  if (t.selfServiceOnly) {
+    return t.allowedRoles.includes(role as any);
+  }
+
+  // Admin has unrestricted access to all general/staff operational tools
+  if (role === ROLES.ADMIN) return true;
+
+  // Other roles must match declared allowedRoles
+  return t.allowedRoles.includes(role as any);
+}
+
 export function getToolsForRole(role?: string): FunctionDeclaration[] {
   return Object.values(toolRegistry)
-    .filter(t => {
-      // Public tools (no allowedRoles defined)
-      if (!t.allowedRoles || t.allowedRoles.length === 0) return true;
-      if (!role) return false;
-
-      // Self-service only tools (e.g. personal student identity tools): admin bypass does NOT apply
-      if (t.selfServiceOnly) {
-        return t.allowedRoles.includes(role as any);
-      }
-
-      // Admin has unrestricted access to all general/staff operational tools
-      if (role === ROLES.ADMIN) return true;
-
-      // Other roles must match declared allowedRoles
-      return t.allowedRoles.includes(role as any);
-    })
+    .filter(t => isToolAllowedForRole(t, role))
     .map(t => t.declaration);
 }
 

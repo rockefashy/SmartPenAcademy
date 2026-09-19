@@ -3,8 +3,8 @@ import { db } from './supabaseDb.ts';
 import { User, StudentProfile, ROLES, AuditExecutionMode, ToolCallResult } from '../src/types';
 import { sendFeeReminderEmail } from './email.ts';
 import { landingProperties } from '../src/properties/landing.properties.ts';
-import { ALL_TOOLS, PUBLIC_TOOLS, getToolsForRole, toolRegistry } from './tools/registry.ts';
-export { ALL_TOOLS, PUBLIC_TOOLS, getToolsForRole, toolRegistry };
+import { ALL_TOOLS, PUBLIC_TOOLS, getToolsForRole, toolRegistry, isToolAllowedForRole } from './tools/registry.ts';
+export { ALL_TOOLS, PUBLIC_TOOLS, getToolsForRole, toolRegistry, isToolAllowedForRole };
 import { verifyToolStudentAccess, canCoachAccessStudent, findStudent } from './tools/helpers.ts';
 export { verifyToolStudentAccess, canCoachAccessStudent, findStudent };
 import { buildRoleSystemInstruction } from './prompts/agentPrompts.ts';
@@ -15,12 +15,12 @@ export type EnrollmentIntent = 'student' | 'coach' | null;
 
 // ================= RATE LIMITING FOR MUTATING TOOLS (SUPABASE-BACKED ATOMIC RPC) =================
 async function checkToolRateLimit(
-  userId: string,
+  userKey: string,
   toolName: string,
   maxCalls: number,
   windowMs: number
 ): Promise<{ allowed: boolean; retryAfter: number }> {
-  const key = `tool:${userId}:${toolName}`;
+  const key = `tool:${userKey}:${toolName}`;
   const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
   return await db.checkRateLimit(key, maxCalls, windowSeconds);
 }
@@ -36,9 +36,8 @@ export interface ChatMessage {
 export interface AIAgentRequest {
   messages: ChatMessage[];
   userContext: User | null;
+  clientIp?: string;
   settings?: {
-    apiKey?: string;
-    apiUrl?: string;
     model?: string;
     temperature?: number;
   };
@@ -49,7 +48,8 @@ export async function executeTool(
   name: string,
   args: any,
   userContext: User | null,
-  executionMode: AuditExecutionMode = 'remote_gemini'
+  executionMode: AuditExecutionMode = 'remote_gemini',
+  clientIp?: string
 ): Promise<ToolCallResult> {
   const today = new Date().toISOString().split('T')[0];
 
@@ -90,7 +90,8 @@ export async function executeTool(
 
   // 2. Atomic PostgreSQL Rate Limiting via tool-declared threshold
   const rateLimit = tool.rateLimit || { maxCalls: 30, windowMs: 60 * 1000 };
-  const rateCheck = await checkToolRateLimit(userContext?.id || 'anonymous', name, rateLimit.maxCalls, rateLimit.windowMs);
+  const userRateKey = userContext?.id || `guest:${clientIp || 'unknown'}`;
+  const rateCheck = await checkToolRateLimit(userRateKey, name, rateLimit.maxCalls, rateLimit.windowMs);
   if (!rateCheck.allowed) {
     return await logAudit(
       null,
@@ -100,14 +101,12 @@ export async function executeTool(
   }
 
   // 3. Declarative Role-Based Access Control
-  if (tool.allowedRoles && tool.allowedRoles.length > 0) {
-    if (!userContext || !tool.allowedRoles.includes(userContext.role as any)) {
-      return await logAudit(
-        null,
-        tool.accessDeniedMessage || `Access Denied: You do not have permission to execute '${name}'.`,
-        false
-      );
-    }
+  if (!isToolAllowedForRole(tool, userContext?.role)) {
+    return await logAudit(
+      null,
+      tool.accessDeniedMessage || `Access Denied: You do not have permission to execute '${name}'.`,
+      false
+    );
   }
 
   // 4. Execution & Centralized Audit Logging
@@ -128,7 +127,7 @@ export async function executeTool(
 
 // Master AI Agent Process Function - Direct LLM Reasoning with Tools and Natural Language Response
 export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ reply: string; toolResults: ToolCallResult[] }> {
-  const { messages, userContext, settings } = reqBody;
+  const { messages, userContext, settings, clientIp } = reqBody;
 
   // Zero-LLM Fast-Path: Consolidated Intent Intercept
   const lastUserMessage = [...(messages || [])].reverse().find(m => m.role === 'user')?.content || '';
@@ -137,7 +136,7 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
     return fastPathResponse;
   }
 
-  const apiKey = settings?.apiKey || process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   const preferredModel = settings?.model || 'gemini-3.8-flash';
 
   if (!apiKey) {
@@ -214,7 +213,7 @@ export async function handleAIAgentChat(reqBody: AIAgentRequest): Promise<{ repl
       if (functionCalls && functionCalls.length > 0) {
         const functionResponses: any[] = [];
         for (const fc of functionCalls) {
-          const toolResult = await executeTool(fc.name, fc.args, userContext, 'remote_gemini');
+          const toolResult = await executeTool(fc.name, fc.args, userContext, 'remote_gemini', clientIp);
           toolResults.push(toolResult);
           functionResponses.push({
             functionResponse: {

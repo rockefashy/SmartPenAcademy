@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { FeeRecord, FeeReminder } from '../../src/types';
 import { getSupabase, PaginationParams, applyQueryPagination, safeIsoDate } from './client.ts';
 
@@ -113,7 +114,7 @@ export class FeesDatabase {
       throw new Error("Cannot save fee record without a valid numeric amount.");
     }
 
-    const feeId = fee.id || `fee-${Date.now()}`;
+    const feeId = crypto.randomUUID();
     const effectiveDate = safeIsoDate(fee.date) || safeIsoDate(fee.paidDate) || safeIsoDate((fee as any).createdAt) || safeIsoDate(new Date());
     if (!effectiveDate) {
       throw new Error("Cannot save fee record without a valid date.");
@@ -146,7 +147,7 @@ export class FeesDatabase {
 
     const { data, error } = await supabase
       .from('fees')
-      .upsert(row, { onConflict: 'id' })
+      .insert(row)
       .select()
       .single();
 
@@ -217,22 +218,40 @@ export class FeesDatabase {
     return data ? mapFeeRow(data) : null;
   }
 
-  async deleteFeeRecord(id: string): Promise<boolean> {
+  async voidFeeRecord(id: string, reason: string = 'Voided by administrator'): Promise<FeeRecord | null> {
     const supabase = getSupabase();
-    const { error } = await supabase
+    const existing = await this.findFeeById(id);
+    if (!existing) return null;
+
+    const updatedNotes = existing.notes
+      ? `${existing.notes} | [VOIDED: ${reason}]`
+      : `[VOIDED: ${reason}]`;
+
+    const { data, error } = await supabase
       .from('fees')
-      .delete()
-      .eq('id', id);
+      .update({
+        status: 'Waived',
+        notes: updatedNotes
+      })
+      .eq('id', id)
+      .select()
+      .maybeSingle();
 
     if (error) {
-      throw new Error(`Failed to delete fee record ${id}: ${error.message}`);
+      throw new Error(`Failed to void fee record ${id}: ${error.message}`);
     }
-    return true;
+    return data ? mapFeeRow(data) : null;
+  }
+
+  // Alias deleteFeeRecord to voidFeeRecord to preserve backward compatibility while preventing destructive ledger deletes
+  async deleteFeeRecord(id: string): Promise<boolean> {
+    const result = await this.voidFeeRecord(id, 'Deleted / Waived via API');
+    return result !== null;
   }
 
   async saveFeeReminder(reminder: Partial<FeeReminder>): Promise<FeeReminder> {
     const supabase = getSupabase();
-    const id = reminder.id || `rem-${Date.now()}`;
+    const id = reminder.id || crypto.randomUUID();
     const row = {
       id,
       student_id: reminder.studentId,

@@ -4,7 +4,7 @@ import { db } from '../supabaseDb.ts';
 
 const getJwtSecret = (): string => process.env.JWT_SECRET || '';
 
-export function createRateLimiter(options: { windowMs: number; max: number; message?: string }) {
+export function createRateLimiter(options: { windowMs: number; max: number; message?: string; failClosed?: boolean }) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       // Check for user identity from JWT (via req.user or cookie/header decode)
@@ -27,8 +27,15 @@ export function createRateLimiter(options: { windowMs: number; max: number; mess
 
       const ip = req.ip || req.socket.remoteAddress || 'unknown';
       const identifier = userKey || `ip:${ip}`;
-      const routePath = req.baseUrl || req.path || 'global';
-      const key = `api:${routePath}:${identifier}`;
+      const exactPath = req.originalUrl ? req.originalUrl.split('?')[0] : (req.path || 'global');
+
+      // If an account identifier is present in the request body (e.g. login, forgot-password), scope by account
+      const bodyIdentifier = typeof req.body?.identifier === 'string' && req.body.identifier.trim()
+        ? req.body.identifier.trim().toLowerCase()
+        : (typeof req.body?.email === 'string' && req.body.email.trim() ? req.body.email.trim().toLowerCase() : null);
+
+      const accountSuffix = bodyIdentifier ? `:acc:${bodyIdentifier}` : '';
+      const key = `api:${exactPath}:${identifier}${accountSuffix}`;
       const windowSeconds = Math.max(1, Math.ceil(options.windowMs / 1000));
 
       const rateCheck = await db.checkRateLimit(key, options.max, windowSeconds);
@@ -44,6 +51,14 @@ export function createRateLimiter(options: { windowMs: number; max: number; mess
 
       next();
     } catch (err) {
+      if (options.failClosed) {
+        console.error('[RateLimiter] Error evaluating rate limit on sensitive route (failing closed):', err);
+        res.status(503).json({
+          error: 'Rate limit service is temporarily unavailable. Please retry in a few moments.',
+          code: 'RATE_LIMIT_SERVICE_UNAVAILABLE'
+        });
+        return;
+      }
       console.warn('[RateLimiter] Error evaluating rate limit, proceeding:', err);
       next();
     }
@@ -69,9 +84,18 @@ export const demoBookingRateLimiter = createRateLimiter({
   message: 'Demo booking rate limit reached. Please try again in a few moments.'
 });
 
-// Auth endpoint rate limiter: 10 attempts per 15 minutes per IP/user
+// Auth endpoint rate limiter: 10 attempts per 15 minutes per IP/user (fails closed on error)
 export const authRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: 'Too many authentication attempts. Please wait 15 minutes before trying again.'
+  message: 'Too many authentication attempts. Please wait 15 minutes before trying again.',
+  failClosed: true
 });
+
+// AI Agent Chat endpoint rate limiter: 30 attempts per minute per IP/user
+export const aiChatRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: 'Too many AI requests. Please slow down and try again shortly.'
+});
+

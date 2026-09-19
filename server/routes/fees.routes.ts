@@ -5,6 +5,7 @@ import { ROLES } from '../../src/types.ts';
 import {
   AuthRequest,
   authenticateJwt,
+  requireAdmin,
   requireCoachOrAdmin,
   verifyStudentAccess,
   canAccessStudent
@@ -147,8 +148,8 @@ const handleFeeRecordUpdate = async (req: AuthRequest, res: Response, isPatch: b
     throw new AuthorizationError('Access denied: You can only update fee records for students assigned to you.');
   }
 
-  // Defensive immutability guard: if client passes a receiptNumber on PATCH, ensure it does not attempt to mutate an existing receiptNumber
-  if (isPatch && (updateData as any).receiptNumber !== undefined) {
+  // Defensive immutability guard: receipt_number is strictly immutable once assigned
+  if ((updateData as any).receiptNumber !== undefined) {
     const incomingReceipt = (updateData as any).receiptNumber?.trim();
     if (existingFee.receiptNumber && incomingReceipt && incomingReceipt !== existingFee.receiptNumber) {
       throw new ValidationError('receipt_number is immutable and cannot be modified.');
@@ -185,23 +186,24 @@ feesRouter.patch('/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(asyn
   return await handleFeeRecordUpdate(req, res, true);
 }));
 
-// DELETE /api/fees/:id
-feesRouter.delete('/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
+// DELETE /api/fees/:id (Soft-void fee record to maintain ledger integrity)
+feesRouter.delete('/:id', authenticateJwt, requireAdmin, asyncHandler(async (req: AuthRequest, res: Response) => {
   const paramsParsed = feeIdParamSchema.safeParse(req.params);
   if (!paramsParsed.success) {
     throw new ValidationError(paramsParsed.error.issues[0]?.message || 'Invalid fee record ID parameter.');
   }
   const { id } = paramsParsed.data;
+  const reason = typeof req.body?.reason === 'string' && req.body.reason.trim()
+    ? req.body.reason.trim()
+    : 'Voided by administrator';
+
   const existingFee = await db.findFeeById(id);
   if (!existingFee) {
     throw new NotFoundError('Fee record not found');
   }
-  if (!await canAccessStudent(req.user, existingFee.studentId)) {
-    throw new AuthorizationError('Access denied: You can only delete fee records for students assigned to you.');
-  }
 
-  const success = await db.deleteFeeRecord(id);
-  if (!success) {
+  const voided = await db.voidFeeRecord(id, reason);
+  if (!voided) {
     throw new NotFoundError('Fee record not found');
   }
 
@@ -210,11 +212,11 @@ feesRouter.delete('/:id', authenticateJwt, requireCoachOrAdmin, asyncHandler(asy
     actorUsername: req.user?.username,
     actorRole: req.user?.role,
     actorStudentId: existingFee.studentId,
-    action: 'fee_record_delete',
-    summary: `${req.user?.role === ROLES.COACH ? 'Coach' : 'Administrator'} deleted fee ledger record #${id}`,
-    arguments: { feeId: id },
-    result: { success: true }
+    action: 'fee_record_void',
+    summary: `Administrator voided fee ledger record #${id} (Amount: ₹${existingFee.amount}, Prior Status: ${existingFee.status}, Reason: ${reason})`,
+    arguments: { feeId: id, reason, priorSnapshot: existingFee },
+    result: { success: true, voidedFeeId: id, status: 'Waived' }
   });
 
-  return res.json({ success: true, message: 'Fee record deleted successfully' });
+  return res.json({ success: true, message: 'Fee record voided successfully (status changed to Waived)', fee: voided });
 }));

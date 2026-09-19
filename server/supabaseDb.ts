@@ -90,20 +90,10 @@ export class SupabaseDatabase {
   getUserByResetToken(token: string): Promise<{ email: string } | null> {
     return authDb.getUserByResetToken(token);
   }
-  resetPasswordWithToken(token: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+  resetPasswordWithToken(token: string, newPassword: string): Promise<{ success: boolean; email?: string; error?: string }> {
     return authDb.resetPasswordWithToken(token, newPassword);
   }
-  upsertUserFromSupabase(userData: {
-    email: string;
-    firstName?: string;
-    lastName?: string;
-    role?: 'admin' | 'coach' | 'student' | 'parent';
-    studentId?: string;
-    id?: string;
-    username?: string;
-  }): Promise<StoredUser> {
-    return authDb.upsertUserFromSupabase(userData);
-  }
+
   updateUserSelfProfile(userId: string, allowedUpdates: {
     firstName?: string;
     lastName?: string;
@@ -265,6 +255,9 @@ export class SupabaseDatabase {
   }
   deleteFeeRecord(id: string): Promise<boolean> {
     return feesDb.deleteFeeRecord(id);
+  }
+  voidFeeRecord(id: string, reason?: string): Promise<FeeRecord | null> {
+    return feesDb.voidFeeRecord(id, reason);
   }
   saveFeeReminder(reminder: Partial<FeeReminder>): Promise<FeeReminder> {
     return feesDb.saveFeeReminder(reminder);

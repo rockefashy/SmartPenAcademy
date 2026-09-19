@@ -277,23 +277,36 @@ export class StudentsDatabase {
   }
 
   async getFamilyStudentsByEmailOrPhone(identifier: string): Promise<StudentProfile[]> {
-    if (!identifier) return [];
+    if (!identifier || typeof identifier !== 'string') return [];
     const supabase = getSupabase();
     const clean = identifier.trim().toLowerCase();
+
+    // Strict defense: disallow wildcard-only identifiers
+    if (clean === '%' || clean === '_' || clean.length < 3) return [];
+
     const phoneDigits = identifier.replace(/\D/g, '');
 
-    const { data: users } = await supabase
+    let userQuery = supabase
       .from('users')
-      .select('id, email, phone, first_name, last_name')
-      .or(`email.ilike.${clean},phone.eq.${phoneDigits || clean}`);
+      .select('id, email, phone, first_name, last_name');
+
+    if (clean.includes('@')) {
+      userQuery = userQuery.eq('email', clean);
+    } else if (phoneDigits && phoneDigits.length >= 10) {
+      userQuery = userQuery.eq('phone', phoneDigits);
+    } else {
+      userQuery = userQuery.eq('email', clean);
+    }
+
+    const { data: users } = await userQuery.limit(10);
 
     const userIds = (users || []).map((u: any) => u.id);
     const orConditions: string[] = [];
     if (userIds.length > 0) {
       orConditions.push(`user_id.in.(${userIds.join(',')})`);
     }
-    if (phoneDigits && phoneDigits.length >= 7) {
-      orConditions.push(`emergency_contact_phone.ilike.%${phoneDigits.slice(-10)}%`);
+    if (phoneDigits && phoneDigits.length >= 10) {
+      orConditions.push(`emergency_contact_phone.eq.${phoneDigits.slice(-10)}`);
     }
 
     if (orConditions.length === 0) return [];
@@ -593,7 +606,7 @@ export class StudentsDatabase {
 
   async createStudent(student: any): Promise<StudentProfile> {
     const supabase = getSupabase();
-    const studentId = student.id || `std-${Date.now()}`;
+    const studentId = student.id || crypto.randomUUID();
 
     const ageNum = student.age !== undefined && student.age !== null && student.age !== '' ? Number(student.age) : null;
 
@@ -618,6 +631,7 @@ export class StudentsDatabase {
     // 1. Identity-First: Create or link user account in public.users first
     let createdUser: any = null;
     let assignedUserId: string = student.userId || '';
+    let isNewUserCreated = false;
 
     // Check if an existing user account already exists with the EXACT SAME first name, last name, and email
     if (!assignedUserId && email) {
@@ -638,12 +652,12 @@ export class StudentsDatabase {
     if (!assignedUserId && (email || student.password || student.passwordHash)) {
       let passwordHash = student.passwordHash;
       if (!passwordHash && student.password && student.password.trim()) {
-        passwordHash = bcrypt.hashSync(student.password.trim(), 10);
+        passwordHash = await bcrypt.hash(student.password.trim(), 12);
       }
       if (!passwordHash) {
         throw new Error("A valid password is required to create a student user account.");
       }
-      assignedUserId = `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      assignedUserId = crypto.randomUUID();
 
       const { data: uData, error: uError } = await supabase
         .from('users')
@@ -664,6 +678,7 @@ export class StudentsDatabase {
         throw new Error(`Failed to create student user account: ${uError.message}`);
       }
       createdUser = uData;
+      isNewUserCreated = true;
     }
 
     // 2. Insert into students table with forward-written user_id
@@ -720,8 +735,8 @@ export class StudentsDatabase {
     }
 
     if (error) {
-      if (createdUser?.id) {
-        await supabase.from('users').delete().eq('id', createdUser.id);
+      if (isNewUserCreated && assignedUserId) {
+        await supabase.from('users').delete().eq('id', assignedUserId);
       }
       throw new Error(`Failed to create student in database: ${error.message}`);
     }
@@ -838,7 +853,7 @@ export class StudentsDatabase {
       if (firstName !== undefined) userUpdates.first_name = firstName;
       if (lastName !== undefined) userUpdates.last_name = lastName;
       if (updates.password && updates.password.trim().length >= 8) {
-        userUpdates.password_hash = bcrypt.hashSync(updates.password.trim(), 10);
+        userUpdates.password_hash = await bcrypt.hash(updates.password.trim(), 12);
       }
 
       let targetUserId = updatedStudent?.user_id;

@@ -52,7 +52,7 @@ export class TestimonialsDatabase {
 
   async saveTestimonial(testimonial: Partial<Testimonial>): Promise<Testimonial> {
     const supabase = getSupabase();
-    const id = testimonial.id || `test-${Date.now()}`;
+    const id = crypto.randomUUID();
     const row = {
       id,
       student_id: testimonial.studentId || null,
@@ -63,15 +63,16 @@ export class TestimonialsDatabase {
       review: testimonial.review || null,
       title: testimonial.title || testimonial.beforeAfterTag || null,
       before_after_tag: testimonial.beforeAfterTag || null,
-      status: testimonial.status || null,
-      is_featured: testimonial.status === 'Featured' ? true : (testimonial.status === 'Approved' ? false : null),
+      status: testimonial.status || 'Pending',
+      is_featured: testimonial.status === 'Featured',
       image: testimonial.image || null,
+      media_consent: Boolean(testimonial.mediaConsent),
       created_at: new Date().toISOString()
     };
 
     const { data, error } = await supabase
       .from('testimonials')
-      .upsert(row, { onConflict: 'id' })
+      .insert(row)
       .select()
       .single();
 

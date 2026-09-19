@@ -65,25 +65,91 @@ export const authenticateJwt = async (req: AuthRequest, res: Response, next: Nex
     return;
   }
 
-  // Validate token_version: if the user changed their password after this token was issued,
-  // the token_version in the DB will be higher than what is stored in the JWT claim.
-  if (decoded.id && decoded.tokenVersion !== undefined) {
+  // 1. Reject disambiguation/selection tokens from accessing standard API routes
+  if (decoded.type === 'STUDENT_SELECTION' || decoded.type === 'ROLE_SELECTION') {
+    res.status(401).json({
+      error: 'Invalid session token: Selection token cannot be used for API access.',
+      requireLogin: true
+    });
+    return;
+  }
+
+  // 2. Validate token_version: if the user changed their password, token_version in DB is higher. Fail closed on error.
+  if (decoded.id) {
     try {
       const currentVersion = await db.findUserTokenVersion(decoded.id);
-      if (currentVersion !== null && currentVersion > decoded.tokenVersion) {
-        res.status(401).json({
-          error: 'Session invalidated. Your password was changed — please log in again.',
-          code: 'SESSION_INVALIDATED',
-          requireLogin: true
+      if (currentVersion !== null) {
+        const tokenVersion = typeof decoded.tokenVersion === 'number' ? decoded.tokenVersion : 0;
+        if (currentVersion > tokenVersion) {
+          res.status(401).json({
+            error: 'Session invalidated. Your password was changed — please log in again.',
+            code: 'SESSION_INVALIDATED',
+            requireLogin: true
+          });
+          return;
+        }
+      }
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to verify session security state.' });
+      return;
+    }
+  }
+
+  // 3. Reject deactivated coaches from continuing to make coach API requests
+  if (decoded.role === ROLES.COACH && decoded.id) {
+    try {
+      const coachProfile = await db.getCoachById(decoded.coachId || decoded.id);
+      if (coachProfile && coachProfile.status === 'Inactive') {
+        res.status(403).json({
+          error: 'Your coach account is currently inactive. Please contact administration.',
+          code: 'ACCOUNT_INACTIVE'
         });
         return;
       }
     } catch {
-      // Non-fatal: if the version check fails (e.g. DB transient error), allow the request through.
+      // Allow through if transient DB lookup fails for coach profile
     }
   }
 
   req.user = decoded;
+  next();
+};
+
+/**
+ * Optional authentication middleware that extracts user context if a valid session token
+ * is present, without throwing 401 if unauthenticated.
+ */
+export const optionalAuthenticateJwt = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  let token: string | undefined;
+
+  if (req.cookies && req.cookies.smartpen_token) {
+    token = req.cookies.smartpen_token;
+  }
+
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+  }
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded: any = jwt.verify(token, getJwtSecret());
+    if (decoded.type !== 'STUDENT_SELECTION' && decoded.type !== 'ROLE_SELECTION' && decoded.id) {
+      const currentVersion = await db.findUserTokenVersion(decoded.id);
+      const tokenVersion = typeof decoded.tokenVersion === 'number' ? decoded.tokenVersion : 0;
+      if (currentVersion === null || currentVersion <= tokenVersion) {
+        req.user = decoded;
+      }
+    }
+  } catch {
+    // Ignore invalid/expired tokens for optional auth
+  }
+
   next();
 };
 
@@ -126,7 +192,7 @@ export const canAccessStudent = async (user: AuthRequest['user'], studentId: str
     const currentStoredUser = await db.findUserById(user.id);
     if (currentStoredUser) {
       const siblings = await db.getSiblingStudentsForUser(currentStoredUser);
-      return siblings.some(s => s.id === studentId || (s.userId && s.userId === user.id));
+      return siblings.some(s => s.id === studentId);
     }
     return false;
   }

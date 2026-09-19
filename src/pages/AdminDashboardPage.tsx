@@ -8,6 +8,7 @@ import {
   UserPlus,
   CheckCircle,
   AlertTriangle,
+  MessageSquare,
 } from 'lucide-react';
 import { Button } from '../components/ui';
 import { StudentProfile, CoachProfile, DemoBooking } from '../types';
@@ -22,6 +23,7 @@ import {
   CoachesTab,
   CoachEnrollmentTab,
   AlertsTab,
+  TestimonialsTab,
 } from '../components/admin/tabs';
 import {
   QuickAttendanceModal,
@@ -35,7 +37,7 @@ import {
 
 interface AdminDashboardPageProps {
   onNavigate: (view: string, studentId?: string, defaultSection?: any, prefillData?: any) => void;
-  initialTab?: 'roster' | 'assignment' | 'coaches' | 'coachEnrollment' | 'studentEnrollment' | 'alerts';
+  initialTab?: 'roster' | 'assignment' | 'coaches' | 'coachEnrollment' | 'studentEnrollment' | 'alerts' | 'testimonials';
   initialPrefillData?: any;
 }
 
@@ -49,7 +51,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
   // Active Tab & Sub-Screen Routing
   const [activeTab, setActiveTab] = useState<
-    'roster' | 'assignment' | 'coaches' | 'coachEnrollment' | 'studentEnrollment' | 'alerts'
+    'roster' | 'assignment' | 'coaches' | 'coachEnrollment' | 'studentEnrollment' | 'alerts' | 'testimonials'
   >(initialTab || 'roster');
 
   // Student Enrollment / Edit Sub-Screen State
@@ -306,6 +308,21 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                   </span>
                 )}
               </Button>
+
+              {/* Testimonial & Review Moderation Tab */}
+              <Button
+                onClick={() => setActiveTab('testimonials')}
+                variant="ghost"
+                className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all cursor-pointer w-full sm:w-auto ${
+                  activeTab === 'testimonials'
+                    ? 'bg-[#0E3589] text-white shadow-md'
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                }`}
+                id="tab-btn-admin-testimonials"
+              >
+                <MessageSquare className="w-4 h-4 text-purple-500 shrink-0" />
+                <span>Reviews</span>
+              </Button>
             </>
           )}
         </div>
@@ -366,7 +383,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       {activeTab === 'assignment' && (
         <CoachAssignmentTab
           students={data.assignmentStudents}
-          allStudents={data.students}
+          allStudents={data.activeStudents}
           coaches={data.coaches}
           assignmentSearch={data.assignmentSearch}
           setAssignmentSearch={data.setAssignmentSearch}
@@ -490,6 +507,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           onDeleteBookingPrompt={(booking) => setBookingToDelete(booking)}
           onOpenQuickFee={handleOpenQuickFee}
         />
+      )}
+
+      {/* Screen 7: Parent Reviews & Testimonial Moderation */}
+      {activeTab === 'testimonials' && isAdmin && (
+        <TestimonialsTab />
       )}
 
       {/* ========================================================================= */}

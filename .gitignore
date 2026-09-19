@@ -4,7 +4,7 @@ dist/
 coverage/
 .DS_Store
 *.log
-!logs/render-errors.log
+logs/
 .env*
 !.env.example
 .render-log-watermark.json
@@ -12,4 +12,6 @@ coverage/
 supabase/.temp/
 .temp/
 supabase/snippets/
+Notes.txt
+scratch/
 

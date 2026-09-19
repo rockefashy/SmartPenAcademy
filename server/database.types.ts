@@ -622,6 +622,7 @@ export type Database = {
           student_name: string
           title: string | null
           verified_student: boolean | null
+          media_consent: boolean | null
         }
         Insert: {
           before_after_tag?: string | null
@@ -638,6 +639,7 @@ export type Database = {
           student_name: string
           title?: string | null
           verified_student?: boolean | null
+          media_consent?: boolean | null
         }
         Update: {
           before_after_tag?: string | null
@@ -654,6 +656,7 @@ export type Database = {
           student_name?: string
           title?: string | null
           verified_student?: boolean | null
+          media_consent?: boolean | null
         }
         Relationships: [
           {

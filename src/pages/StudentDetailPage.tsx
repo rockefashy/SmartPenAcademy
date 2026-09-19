@@ -34,6 +34,7 @@ import { StudentProfile, AttendanceRecord, FeeRecord, StudentWorkImage, Progress
 import { studentDetailProperties } from '../properties/studentDetail.properties';
 import { StarRating } from '../components/StarRating';
 import { formatGradeClass, formatDominantHand } from '../utils/formatters';
+import { calculateStudentCycleStatus } from '../utils/cycleCalculations';
 import { CameraCaptureModal } from '../components/CameraCaptureModal';
 import { ProgressReportCard } from '../components/ProgressReportCard';
 import { AttendanceCalendarTracker } from '../components/AttendanceCalendarTracker';
@@ -457,7 +458,13 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
     );
   }
 
-  const attendedCount = attendance.filter((a) => a.status === 'Present').length;
+  const {
+    cycleSize,
+    cycleFee,
+    attendedCount,
+    completedCycles,
+    isFeeDue
+  } = calculateStudentCycleStatus(student, attendance, fees);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 font-sans space-y-8">
@@ -871,36 +878,28 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       {activeTab === 2 && (
         <div className="space-y-6">
           {/* Alert Banner if cycle classes completed and fee receipt pending */}
-          {(() => {
-            const cycleSize = student.classesPerCycle || 8;
-            const cycleFee = student.feePerCycle || 1600;
-            const completedCycles = Math.floor(attendedCount / cycleSize);
-            const isFeeDue = attendedCount >= cycleSize && completedCycles > fees.filter(f => f.status === 'Paid').length;
-            if (!isFeeDue) return null;
-
-            return (
-              <div className="p-4 bg-orange-50 border-2 border-orange-200 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                <div className="space-y-0.5">
-                  <p className="text-xs font-black text-orange-950 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#F46E20]" />
-                    <span>{cycleSize} Classes Completed in Sequence • Fee Receipt Due</span>
-                  </p>
-                  <p className="text-[11px] text-orange-800 font-medium">
-                    {student.firstName} has completed {cycleSize} classes (Classes {(completedCycles - 1) * cycleSize + 1} - {completedCycles * cycleSize}). ₹{cycleFee.toLocaleString()} fee receipt is pending.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setActiveTab(3)}
-                  className="shrink-0"
-                >
-                  Record Receipt (₹{cycleFee.toLocaleString()})
-                </Button>
+          {isFeeDue && completedCycles > 0 && (
+            <div className="p-4 bg-orange-50 border-2 border-orange-200 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="space-y-0.5">
+                <p className="text-xs font-black text-orange-950 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#F46E20]" />
+                  <span>{cycleSize} Classes Completed in Sequence • Fee Receipt Due</span>
+                </p>
+                <p className="text-[11px] text-orange-800 font-medium">
+                  {student.firstName} has completed {cycleSize} classes (Classes {(completedCycles - 1) * cycleSize + 1} - {completedCycles * cycleSize}). ₹{cycleFee.toLocaleString()} fee receipt is pending.
+                </p>
               </div>
-            );
-          })()}
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => setActiveTab(3)}
+                className="shrink-0"
+              >
+                Record Receipt (₹{cycleFee.toLocaleString()})
+              </Button>
+            </div>
+          )}
 
           {/* Unified Attendance Calendar Tracker */}
           <AttendanceCalendarTracker

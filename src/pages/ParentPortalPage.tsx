@@ -42,6 +42,9 @@ import { parentPortalProperties } from '../properties/parentPortal.properties';
 import { commonProperties } from '../properties/common.properties';
 import { ProgressReportCard } from '../components/ProgressReportCard';
 import { formatGradeClass } from '../utils/formatters';
+import { calculateStudentCycleStatus } from '../utils/cycleCalculations';
+import { Avatar } from '../components/ui/Avatar';
+import { StarRating } from '../components/StarRating';
 import { SmartPenLogo } from '../components/SmartPenLogo';
 import { AttendanceCalendarTracker } from '../components/AttendanceCalendarTracker';
 
@@ -170,7 +173,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
         studentId: student.id,
         studentName: student.firstName,
         parentName: testimonyParentName.trim() || student.parentName || 'Parent',
-        grade: `Grade ${student.gradeClass}, ${student.schoolName}`,
+        grade: formatGradeClass(student.gradeClass) + (student.schoolName ? `, ${student.schoolName}` : ''),
         schoolName: student.schoolName,
         relationship: testimonyRelationship,
         rating: testimonyRating,
@@ -237,20 +240,16 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
   }
 
   const latestReport = reports.length > 0 ? reports[reports.length - 1] : null;
-  const cycleSize = student.classesPerCycle || 8;
-  const cycleFee = student.feePerCycle || 1600;
-  const attendedCount = attendance.filter((a) => a.status === 'Present').length;
-  const completedCycles = Math.floor(attendedCount / cycleSize);
-  const currentCycle = completedCycles + 1;
-  const currentCycleProgress = attendedCount % cycleSize;
-  const paidCyclesCount = fees.filter((f) => f.status === 'Paid').length;
-  const isFeeDueForCurrentCycle = completedCycles > 0 && paidCyclesCount < completedCycles;
-
-  // Pending fee records or cycle due calculation
-  const pendingFees = fees.filter((f) => f.status === 'Pending' || f.status === 'Overdue');
-  const pendingFeeTotal = pendingFees.reduce((sum, f) => sum + (f.amount || cycleFee), 0);
-  const hasFeeDue = pendingFees.length > 0 || isFeeDueForCurrentCycle || (student as any).feeStatus === 'Pending' || (student as any).feeStatus === 'Overdue';
-  const totalFeeDue = pendingFeeTotal > 0 ? pendingFeeTotal : (hasFeeDue ? cycleFee : 0);
+  const {
+    cycleSize,
+    cycleFee,
+    attendedCount,
+    completedCycles,
+    currentCycle,
+    currentCycleProgress,
+    isFeeDue: hasFeeDue,
+    totalFeeDue
+  } = calculateStudentCycleStatus(student, attendance, fees);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 font-sans space-y-6">
@@ -965,11 +964,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
 
                   <div className="space-y-3 pt-2">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex text-amber-400">
-                        {Array.from({ length: testimonyRating }).map((_, i) => (
-                          <Star key={i} className="w-4 h-4 fill-amber-400" />
-                        ))}
-                      </div>
+                      <StarRating readOnly rating={testimonyRating} size="sm" />
                       <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-full border border-emerald-200">
                         {testimonyHeadline.trim() ? (customTag.trim() || testimonyTag) : 'Verified Story'}
                       </span>
@@ -995,9 +990,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                   )}
 
                   <div className="pt-3 border-t border-slate-100 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#0E3589] text-white flex items-center justify-center font-black text-xs shadow-xs">
-                      {student.firstName.charAt(0)}
-                    </div>
+                    <Avatar name={student.firstName} size="md" />
                     <div>
                       <h4 className="text-xs font-bold text-slate-900">{student.firstName}</h4>
                       <p className="text-[11px] text-slate-500 font-sans">
@@ -1043,11 +1036,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                     className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 relative group"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex text-amber-400">
-                        {Array.from({ length: item.rating }).map((_, i) => (
-                          <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
-                        ))}
-                      </div>
+                      <StarRating readOnly rating={item.rating} size="sm" />
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold rounded-full">
                           {item.title && item.beforeAfterTag && item.title.toLowerCase() === item.beforeAfterTag.toLowerCase()

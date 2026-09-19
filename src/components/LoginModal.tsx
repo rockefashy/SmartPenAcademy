@@ -162,7 +162,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
       if (response.requiresStudentSelection && response.selectionToken) {
         setSelectionToken(response.selectionToken);
-        setAvailableStudents(response.availableStudents || []);
+        setAvailableStudents(response.availableStudents || response.students || []);
         setSelectionMessage(response.message || 'Multiple student profiles registered under this family email. Please select which student to access:');
         setCurrentView('select-student');
         return;
@@ -196,7 +196,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
       if (response.requiresStudentSelection && response.selectionToken) {
         setSelectionToken(response.selectionToken);
-        setAvailableStudents(response.availableStudents || []);
+        setAvailableStudents(response.availableStudents || response.students || []);
         setSelectionMessage(response.message || 'Please select the student profile you wish to sign into:');
         setCurrentView('select-student');
         return;
@@ -360,6 +360,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       size="md"
+      closeOnBackdropClick={false}
       showCloseButton={false}
       className="p-0 border-0 overflow-hidden"
       bodyClassName="p-0 flex flex-col"
@@ -581,7 +582,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                           </div>
                           <div>
                             <div className="text-sm font-bold text-slate-900">
-                              {std.firstName}
+                              {std.displayName || std.firstName}
                             </div>
                             <div className="text-xs text-slate-500">
                               {std.age ? `Age: ${std.age} yrs • ` : ''}{formatGradeClass(std.gradeClass) || 'Student'}{std.schoolName ? ` • ${std.schoolName}` : ''}

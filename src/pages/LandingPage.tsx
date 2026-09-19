@@ -34,6 +34,10 @@ import { HeroAgentPanel } from '../components/HeroAgentPanel';
 import { ChatMessage } from '../components/SmartPenAIAgentCore';
 import { api } from '../services/api';
 import { Testimonial, User, StudentProfile, ROLES } from '../types';
+import { StarRating } from '../components/StarRating';
+import { Avatar } from '../components/ui/Avatar';
+import { formatGradeClass } from '../utils/formatters';
+import { useAuth } from '../context/AuthContext';
 
 interface LandingPageProps {
   onNavigate: (view: string, extraId?: string, defaultSection?: number) => void;
@@ -54,6 +58,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   messages,
   setMessages 
 }) => {
+  const { user: authUser } = useAuth();
+  const activeUser = currentUser || authUser;
   const [activeModuleIndex, setActiveModuleIndex] = useState(0);
   const [liveTestimonials, setLiveTestimonials] = useState<Testimonial[]>([]);
 
@@ -443,9 +449,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         {liveTestimonials.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {liveTestimonials.slice(0, 6).map((rev, idx) => {
-              const displayTitle = (rev.title && rev.title !== 'Transformation Review')
-                ? rev.title
-                : (rev.beforeAfterTag || rev.title);
+              const displayTitle = rev.title;
               const isTitleSameAsTag = Boolean(displayTitle && rev.beforeAfterTag && displayTitle.toLowerCase() === rev.beforeAfterTag.toLowerCase());
               const badgeLabel = isTitleSameAsTag ? 'Verified Story' : (rev.beforeAfterTag || 'Featured');
 
@@ -456,11 +460,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <div className="flex text-amber-400">
-                        {Array.from({ length: rev.rating || 5 }).map((_, i) => (
-                          <Star key={i} className="w-4 h-4 fill-amber-400" />
-                        ))}
-                      </div>
+                      <StarRating readOnly rating={rev.rating || 5} size="sm" />
                       <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-full border border-emerald-200">
                         {badgeLabel}
                       </span>
@@ -479,13 +479,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-[#0E3589] text-white flex items-center justify-center font-black text-xs">
-                      {rev.studentName.charAt(0)}
-                    </div>
+                    <Avatar name={rev.studentName} size="md" />
                     <div>
                       <h4 className="text-xs font-bold text-slate-900">{rev.studentName}</h4>
                       <p className="text-[11px] text-slate-500 font-sans">
-                        {rev.grade || 'Student'} • {rev.parentName}
+                        {formatGradeClass(rev.grade) || 'Student'} • {rev.parentName}
                       </p>
                     </div>
                   </div>
@@ -510,12 +508,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="mt-8 text-center">
           <Button
             onClick={() => {
-              if (!currentUser) {
+              if (!activeUser) {
                 onOpenLogin();
-              } else if (currentUser?.role === ROLES.ADMIN) {
+              } else if (activeUser.role === ROLES.ADMIN) {
                 onNavigate('admin', undefined, 'roster' as any);
-              } else if (currentUser?.role === ROLES.STUDENT) {
-                onNavigate('parentPortal', currentUser.studentId, 'testimony' as any);
+              } else if (activeUser.role === ROLES.STUDENT) {
+                onNavigate('parentPortal', activeUser.studentId, 'testimony' as any);
               } else {
                 onNavigate('coach', undefined, 'students' as any);
               }
@@ -551,15 +549,35 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             >
               Book for a Free Demo Class
             </Button>
-            <Button
-              onClick={() => onOpenLogin()}
-              variant="ghost"
-              size="lg"
-              className="bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm border border-white/40"
-              id="btn-cta-portal-signin"
-            >
-              Sign In to Portal
-            </Button>
+            {!activeUser ? (
+              <Button
+                onClick={() => onOpenLogin()}
+                variant="ghost"
+                size="lg"
+                className="bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm border border-white/40"
+                id="btn-cta-portal-signin"
+              >
+                Sign In to Portal
+              </Button>
+            ) : (
+              <Button
+                onClick={() => {
+                  if (activeUser.role === ROLES.ADMIN) {
+                    onNavigate('admin');
+                  } else if (activeUser.role === ROLES.COACH) {
+                    onNavigate('coach');
+                  } else {
+                    onNavigate('parentPortal', activeUser.studentId);
+                  }
+                }}
+                variant="ghost"
+                size="lg"
+                className="bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm border border-white/40"
+                id="btn-cta-portal-go"
+              >
+                Go to Portal
+              </Button>
+            )}
           </div>
         </div>
       </section>

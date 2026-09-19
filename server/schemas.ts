@@ -224,7 +224,7 @@ export const createTestimonialSchema = z.object({
   rating: z.union([z.number(), z.string()]).transform(v => Number(v)).refine(n => !isNaN(n) && n >= 1 && n <= 5, 'Rating must be between 1 and 5'),
   title: z.string().optional().default(''),
   review: z.string().min(1, 'review text is required'),
-  beforeAfterTag: z.string().optional().default('5 Star Transformation'),
+  beforeAfterTag: z.string().optional(),
   image: z.string().optional(),
   mediaConsent: z.boolean().optional().default(true)
 });

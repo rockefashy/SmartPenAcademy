@@ -4,14 +4,18 @@ import { getSupabase, applyRowCeiling } from './client.ts';
 export function mapTestimonialRow(row: any): Testimonial {
   const displayTitle = (row.title && row.title !== 'Transformation Review')
     ? row.title
-    : (row.before_after_tag || row.title || undefined);
+    : (row.before_after_tag || undefined);
+
+  const cleanGrade = row.grade
+    ? String(row.grade).replace(/\bGrade\s+Grade\b/gi, 'Grade ')
+    : undefined;
 
   return {
     id: row.id,
     studentId: row.student_id || '',
     studentName: row.student_name || '',
     parentName: row.parent_name || '',
-    grade: row.grade || undefined,
+    grade: cleanGrade,
     schoolName: undefined,
     relationship: 'Parent',
     rating: row.rating !== undefined && row.rating !== null ? Number(row.rating) : 0,
@@ -57,8 +61,8 @@ export class TestimonialsDatabase {
       grade: testimonial.grade || null,
       rating: testimonial.rating !== undefined && testimonial.rating !== null ? Number(testimonial.rating) : null,
       review: testimonial.review || null,
-      title: testimonial.title || (testimonial as any).beforeAfterTag || null,
-      handwriting_style: (testimonial as any).handwritingStyle || null,
+      title: testimonial.title || testimonial.beforeAfterTag || null,
+      before_after_tag: testimonial.beforeAfterTag || null,
       status: testimonial.status || null,
       is_featured: testimonial.status === 'Featured' ? true : (testimonial.status === 'Approved' ? false : null),
       image: testimonial.image || null,
@@ -88,6 +92,7 @@ export class TestimonialsDatabase {
     }
     if (updates.rating !== undefined) updateData.rating = Number(updates.rating);
     if (updates.title !== undefined) updateData.title = updates.title;
+    if (updates.beforeAfterTag !== undefined) updateData.before_after_tag = updates.beforeAfterTag;
 
     const { data, error } = await supabase
       .from('testimonials')

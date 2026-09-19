@@ -373,7 +373,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
                     </Button>
                   )}
 
-                  {m.actionType === 'login' && (
+                  {m.actionType === 'login' && !currentUser && (
                     <Button
                       type="button"
                       variant="primary"

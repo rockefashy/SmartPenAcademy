@@ -83,16 +83,24 @@ export const Modal: React.FC<ModalProps> & {
 
   if (!isOpen) return null;
 
+  const backdropMouseDownRef = useRef<boolean>(false);
+
+  const handleBackdropMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    backdropMouseDownRef.current = (e.target === e.currentTarget);
+  };
+
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (closeOnBackdropClick && e.target === e.currentTarget) {
+    if (closeOnBackdropClick && e.target === e.currentTarget && backdropMouseDownRef.current) {
       onClose();
     }
+    backdropMouseDownRef.current = false;
   };
 
   return (
     <div
       id={id}
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 animate-in fade-in duration-150"
+      onMouseDown={handleBackdropMouseDown}
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"

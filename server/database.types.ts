@@ -608,9 +608,9 @@ export type Database = {
       }
       testimonials: {
         Row: {
+          before_after_tag: string | null
           created_at: string | null
           grade: string | null
-          handwriting_style: string | null
           id: string
           image: string | null
           is_featured: boolean | null
@@ -624,9 +624,9 @@ export type Database = {
           verified_student: boolean | null
         }
         Insert: {
+          before_after_tag?: string | null
           created_at?: string | null
           grade?: string | null
-          handwriting_style?: string | null
           id: string
           image?: string | null
           is_featured?: boolean | null
@@ -640,9 +640,9 @@ export type Database = {
           verified_student?: boolean | null
         }
         Update: {
+          before_after_tag?: string | null
           created_at?: string | null
           grade?: string | null
-          handwriting_style?: string | null
           id?: string
           image?: string | null
           is_featured?: boolean | null

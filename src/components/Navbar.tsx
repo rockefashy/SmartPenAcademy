@@ -1,6 +1,7 @@
 import { ROLES } from '../types';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
+import { Avatar } from './ui/Avatar';
 import React, { useState, useEffect } from 'react';
 import { 
   LogOut, 
@@ -207,9 +208,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                         title="Go to Admin Portal"
                         id="link-nav-admin-portal"
                       >
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-white text-xs font-black shadow-xs shrink-0 bg-[#0E3589] group-hover:ring-2 group-hover:ring-blue-400 transition-all">
-                          {user?.firstName?.charAt(0) || 'A'}
-                        </div>
+                        <Avatar name={user?.firstName} fallback="A" size="sm" bgColor="bg-[#0E3589] text-white" className="group-hover:ring-2 group-hover:ring-blue-400 transition-all" />
                         <div className="text-left hidden sm:block ml-1.5">
                           <p className="text-xs font-extrabold text-slate-800 leading-tight truncate max-w-[120px] group-hover:text-[#0E3589] transition-colors">
                             {user?.firstName}
@@ -230,9 +229,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                         title="Go to Coach Portal"
                         id="link-nav-coach-portal"
                       >
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-white text-xs font-black shadow-xs shrink-0 bg-amber-600 group-hover:ring-2 group-hover:ring-amber-400 transition-all">
-                          {user?.firstName?.charAt(0) || 'C'}
-                        </div>
+                        <Avatar name={user?.firstName} fallback="C" size="sm" bgColor="bg-amber-600 text-white" className="group-hover:ring-2 group-hover:ring-amber-400 transition-all" />
                         <div className="text-left hidden sm:block ml-1.5">
                           <p className="text-xs font-extrabold text-slate-800 leading-tight truncate max-w-[120px] group-hover:text-amber-700 transition-colors">
                             {user?.firstName}
@@ -253,9 +250,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                         title="Go to Student Portal"
                         id="link-nav-student-portal"
                       >
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-white text-xs font-black shadow-xs shrink-0 bg-[#F46E20] group-hover:ring-2 group-hover:ring-orange-400 transition-all">
-                          {user?.firstName?.charAt(0) || 'U'}
-                        </div>
+                        <Avatar name={user?.firstName} fallback="U" size="sm" bgColor="bg-[#F46E20] text-white" className="group-hover:ring-2 group-hover:ring-orange-400 transition-all" />
                         <div className="text-left hidden sm:block ml-1.5">
                           <p className="text-xs font-extrabold text-slate-800 leading-tight truncate max-w-[120px] group-hover:text-[#F46E20] transition-colors">
                             {user?.firstName}
@@ -456,9 +451,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                     title="Go to Admin Portal"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-black shadow-xs bg-[#0E3589] group-hover:ring-2 group-hover:ring-blue-400">
-                        {user?.firstName?.charAt(0) || 'A'}
-                      </div>
+                      <Avatar name={user?.firstName} fallback="A" size="md" bgColor="bg-[#0E3589] text-white" className="group-hover:ring-2 group-hover:ring-blue-400" />
                       <div>
                         <p className="text-sm font-bold text-slate-800 leading-tight group-hover:text-[#0E3589]">
                           {user?.firstName}
@@ -471,11 +464,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                   </Button>
                 ) : (
                   <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-black shadow-xs ${
-                      user?.role === ROLES.COACH ? 'bg-amber-600' : 'bg-[#F46E20]'
-                    }`}>
-                      {user?.firstName?.charAt(0) || 'U'}
-                    </div>
+                    <Avatar 
+                      name={user?.firstName} 
+                      fallback="U" 
+                      size="md" 
+                      bgColor={user?.role === ROLES.COACH ? 'bg-amber-600 text-white' : 'bg-[#F46E20] text-white'} 
+                    />
                     <div>
                       <p className="text-sm font-bold text-slate-800 leading-tight">
                         {user?.firstName}

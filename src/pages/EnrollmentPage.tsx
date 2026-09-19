@@ -25,6 +25,7 @@ import { enrollmentProperties } from '../properties/enrollment.properties';
 import { api } from '../services/api';
 import { DominantHand, Gender, StudentProfile } from '../types';
 import { formatDominantHand } from '../utils/formatters';
+import { validateEnrollmentForm } from '../validation/enrollmentForm.schema';
 
 interface EnrollmentPageProps {
   onNavigate?: (view: string, studentId?: string, defaultSection?: any) => void;
@@ -263,77 +264,31 @@ export const EnrollmentPage: React.FC<EnrollmentPageProps> = ({
     e.preventDefault();
     setErrorMessage(null);
 
+    const validation = validateEnrollmentForm({
+      firstName,
+      lastName,
+      age,
+      parentName,
+      whatsappMobile,
+      email,
+      password,
+      isEditMode,
+      isSiblingEnrollment,
+      selectedDays,
+      preferredSlot,
+      classesPerCycle,
+      feePerCycle,
+      scriptsRequired,
+      academicModules,
+      diagnosticObservations,
+    });
+
+    if (!validation.isValid && validation.error) {
+      handleValidationError(validation.error, validation.elementId);
+      return;
+    }
+
     const calculatedDisplayName = `${firstName.trim()} ${lastName.trim()}`.trim();
-    if (!firstName.trim()) {
-      handleValidationError(enrollmentProperties.validation?.fullNameRequired || "Student's First Name is required.", "input-student-firstname");
-      return;
-    }
-
-    if (!age || Number(age) <= 0 || isNaN(Number(age))) {
-      handleValidationError(enrollmentProperties.validation.ageRequired, "input-student-age");
-      return;
-    }
-
-    if (!parentName.trim()) {
-      handleValidationError(enrollmentProperties.validation.parentNameRequired, "input-parent-name");
-      return;
-    }
-
-    if (!whatsappMobile.trim() || whatsappMobile.trim().replace(/\D/g, '').length < 10) {
-      handleValidationError(enrollmentProperties.validation.phoneRequired, "input-whatsapp-mobile");
-      return;
-    }
-
-    if (!email.trim() || !email.includes('@')) {
-      handleValidationError(enrollmentProperties.validation.emailRequired, "input-parent-email");
-      return;
-    }
-
-    if (!isEditMode && !isSiblingEnrollment && (!password || password.length < 8)) {
-      handleValidationError(enrollmentProperties.validation.passwordRequired, "input-parent-password");
-      return;
-    }
-
-    if (isEditMode && password && password.length < 8) {
-      handleValidationError(enrollmentProperties.validation.passwordMinLength, "input-parent-password");
-      return;
-    }
-
-    if (selectedDays.length < 1) {
-      handleValidationError(enrollmentProperties.validation.daysRequired, "section-4-preferred-schedule");
-      return;
-    }
-
-    if (!preferredSlot) {
-      handleValidationError(enrollmentProperties.validation.slotRequired, "select-preferred-slot");
-      return;
-    }
-
-    if (!classesPerCycle || Number(classesPerCycle) < 1) {
-      handleValidationError("Classes per cycle must be at least 1.", "input-classes-per-cycle");
-      return;
-    }
-
-    if (feePerCycle === '' || Number(feePerCycle) < 0) {
-      handleValidationError("Fee per cycle must be a non-negative amount.", "input-fee-per-cycle");
-      return;
-    }
-
-    if (scriptsRequired.length === 0) {
-      handleValidationError(enrollmentProperties.validation.scriptRequired, "section-3-programs-modules");
-      return;
-    }
-
-    if (academicModules.length === 0) {
-      handleValidationError(enrollmentProperties.validation.moduleRequired, "section-3-programs-modules");
-      return;
-    }
-
-    if (diagnosticObservations.length === 0) {
-      handleValidationError(enrollmentProperties.validation.observationRequired, "section-5-areas-of-concern");
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {

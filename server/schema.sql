@@ -225,7 +225,7 @@ CREATE TABLE IF NOT EXISTS public.testimonials (
   rating INTEGER NOT NULL DEFAULT 5,
   review TEXT,
   title TEXT,
-  handwriting_style TEXT,
+  before_after_tag TEXT,
   status TEXT DEFAULT 'Published' CHECK (status IN ('Published', 'Pending', 'Archived', 'Featured', 'Approved')),
   image TEXT,
   is_featured BOOLEAN DEFAULT FALSE,

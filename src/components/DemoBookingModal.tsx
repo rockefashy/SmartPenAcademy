@@ -22,6 +22,7 @@ import {
 import { commonProperties } from '../properties/common.properties';
 import { landingProperties } from '../properties/landing.properties';
 import { api } from '../services/api';
+import { buildWhatsAppUrl } from '../utils/whatsapp';
 
 // Helper to get formatted YYYY-MM-DD
 const getDatePlusDays = (days: number): string => {
@@ -245,9 +246,7 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
     onClose();
   };
 
-  const waMessage = encodeURIComponent(
-    `Hello Mrs. Deepthy Rock! I have submitted a Free Demo Class request at SmartPen Academy for ${studentName || 'my child'} (Parent: ${parentName || 'N/A'}, Age/Grade: ${age || 'N/A'}, Mode: ${modeOfLearning}, Date: ${formatReadableDate(demoDate)}, Time: ${demoTime}). Contact: ${contactNumber}`
-  );
+  const waRawMessage = `Hello Mrs. Deepthy Rock! I have submitted a Free Demo Class request at SmartPen Academy for ${studentName || 'my child'} (Parent: ${parentName || 'N/A'}, Age/Grade: ${age || 'N/A'}, Mode: ${modeOfLearning}, Date: ${formatReadableDate(demoDate)}, Time: ${demoTime}). Contact: ${contactNumber}`;
 
   return (
     <Modal
@@ -341,7 +340,7 @@ export const DemoBookingModal: React.FC<DemoBookingModalProps> = ({ isOpen, onCl
               {/* Direct WhatsApp / Call CTAs */}
               <div className="space-y-2 pt-2">
                 <a
-                  href={`https://wa.me/918861751000?text=${waMessage}`}
+                  href={buildWhatsAppUrl('8861751000', waRawMessage)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"

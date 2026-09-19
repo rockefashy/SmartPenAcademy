@@ -173,19 +173,24 @@ authRouter.post('/login', authRateLimiter, asyncHandler(async (req: Request, res
           arguments: { identifier: loginIdentifier, studentCount: siblings.length }
         });
 
+        const studentOptions = siblings.map(s => ({
+          id: s.id,
+          studentId: s.id,
+          firstName: s.firstName || 'Student',
+          displayName: s.displayName || s.firstName || 'Student',
+          age: s.age,
+          gender: s.gender,
+          gradeClass: s.gradeClass,
+          schoolName: s.schoolName,
+          avatarUrl: s.avatarUrl
+        }));
+
         return res.json({
           requiresStudentSelection: true,
           selectionToken,
           parentName: loggedUser.firstName,
-          students: siblings.map(s => ({
-            id: s.id,
-            studentId: s.id,
-            firstName: s.firstName || 'Student',
-            gender: s.gender,
-            gradeClass: s.gradeClass,
-            schoolName: s.schoolName,
-            avatarUrl: s.avatarUrl
-          }))
+          students: studentOptions,
+          availableStudents: studentOptions
         });
       }
     }
@@ -260,19 +265,24 @@ authRouter.post('/login', authRateLimiter, asyncHandler(async (req: Request, res
       arguments: { identifier: loginIdentifier, siblingCount: allSiblings.length }
     });
 
+    const studentOptions = allSiblings.map(s => ({
+      id: s.id,
+      studentId: s.id,
+      firstName: s.firstName || 'Student',
+      displayName: s.displayName || s.firstName || 'Student',
+      age: s.age,
+      gender: s.gender,
+      gradeClass: s.gradeClass,
+      schoolName: s.schoolName,
+      avatarUrl: s.avatarUrl
+    }));
+
     return res.json({
       requiresStudentSelection: true,
       selectionToken,
       parentName: validPasswordUsers[0]?.firstName,
-      students: allSiblings.map(s => ({
-        id: s.id,
-        studentId: s.id,
-        firstName: s.firstName || 'Student',
-        gender: s.gender,
-        gradeClass: s.gradeClass,
-        schoolName: s.schoolName,
-        avatarUrl: s.avatarUrl
-      }))
+      students: studentOptions,
+      availableStudents: studentOptions
     });
   }
 

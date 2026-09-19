@@ -361,6 +361,7 @@ export interface LoginResponse {
   selectionToken?: string;
   availableRoles?: UserRole[];
   availableStudents?: StudentOption[];
+  students?: StudentOption[];
   message?: string;
 }
 

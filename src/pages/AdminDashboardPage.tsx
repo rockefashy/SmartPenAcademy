@@ -10,7 +10,7 @@ import {
   AlertTriangle,
   MessageSquare,
 } from 'lucide-react';
-import { Button } from '../components/ui';
+import { Button, Modal } from '../components/ui';
 import { StudentProfile, CoachProfile, DemoBooking } from '../types';
 import { adminProperties } from '../properties/admin.properties';
 import { EnrollmentPage } from './EnrollmentPage';
@@ -598,6 +598,41 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           setActiveTab('coachEnrollment');
         }}
       />
+
+      {/* Status Toggle Confirmation Modal */}
+      {data.statusConfirmModal?.isOpen && (
+        <Modal
+          isOpen={data.statusConfirmModal.isOpen}
+          onClose={() => data.setStatusConfirmModal(null)}
+          title={data.statusConfirmModal.title}
+        >
+          <div className="space-y-4 p-1">
+            <p className="text-sm text-slate-600 leading-relaxed">
+              {data.statusConfirmModal.message}
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => data.setStatusConfirmModal(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant={data.statusConfirmModal.variant || 'primary'}
+                size="sm"
+                onClick={async () => {
+                  const action = data.statusConfirmModal?.onConfirm;
+                  data.setStatusConfirmModal(null);
+                  if (action) await action();
+                }}
+              >
+                {data.statusConfirmModal.confirmLabel}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

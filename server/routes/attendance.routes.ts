@@ -148,7 +148,7 @@ attendanceRouter.post('/batch', authenticateJwt, requireCoachOrAdmin, attendance
     markedBy: r.markedBy || undefined
   }));
 
-  await db.saveAttendanceBatch(normalizedRecords as any);
+  const savedRecords = await db.saveAttendanceBatch(normalizedRecords as any);
 
   recordAudit({
     actorId: req.user?.id,
@@ -160,7 +160,7 @@ attendanceRouter.post('/batch', authenticateJwt, requireCoachOrAdmin, attendance
     result: { count: records.length, success: true }
   });
 
-  return res.json({ success: true, count: records.length });
+  return res.json({ success: true, count: records.length, records: savedRecords });
 }));
 
 // DELETE /api/attendance/:id

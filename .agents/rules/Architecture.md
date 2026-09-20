@@ -34,13 +34,29 @@ You MUST NOT silently:
 - Introduce microservices, GraphQL, or alternative databases/ORMs.
 - Bypass RLS, authentication middleware, or security boundaries.
 - Alter contracted business flows (`Business_flows.md`) or API contracts.
+- Perform sweeping, unprompted rewrites of working code outside your current task.
 
-If an architectural change is genuinely required, explain:
+### Proactive Suggestions & Openness to Refactoring
+The codebase is actively open to refactoring, quality hardening, security fixes, and pattern improvements (e.g., removing technical debt, fixing fragile optimistic rollbacks, reconciling client-side synthetic IDs, eliminating raw `alert()` dialogs, and optimizing performance).
+
+**Do NOT wait for the user to stumble upon bugs or anti-patterns by accident.**
+When inspecting code, reading related files, or implementing features:
+1. **Actively Identify**: Note fragile patterns, edge cases, anti-patterns, or refactoring opportunities.
+2. **Alert the User with the Suggestion**: Present the observation clearly before modifying out-of-scope code:
+   > **PROPOSED REFACTORING / IMPROVEMENT SUGGESTION**  
+   > **Location**: `path/to/file`  
+   > **Issue / Fragile Pattern**: ...  
+   > **Proposed Improvement**: ...  
+   > **Impact & Tradeoffs**: ...  
+3. **Wait for Approval**: Obtain user consent before proceeding with refactoring outside the immediate task.
+
+If a core architectural change is required:
 > **PROPOSED ARCHITECTURAL CHANGE**  
 > Current design: ...  
 > Proposed change: ...  
 > Reason / Tradeoffs / Security / Performance / Cost Impact: ...  
 Then wait for explicit user approval before proceeding.
+
 
 ---
 
@@ -99,6 +115,9 @@ For specific authentication paths, RLS policies, token handling, passwords, and 
 - **Component / Screen State**: Form state, active tabs, and modals are managed via local React hooks (`useState`, `useCallback`, `useMemo`).
 - **API Client Layer**: Frontend requests must flow through centralized typed client services (`src/services/` or `src/lib/api.ts`), never raw ad hoc `fetch()` calls.
 - **Mobile-First UI Primitives**: Adhere strictly to `mobile.md` for shared component reuse (`<Button>`, `<Modal>`, `<FormField>`) and viewport handling (`dvh`).
+- **No Native Browser Dialogs**: Never use `window.alert()` or `window.confirm()`. User feedback must use modern in-UI toasts, notification banners, or shared `<Modal>` dialogs.
+- **Immediate-Snapshot Optimistic Rollback**: Any optimistic state mutation must snapshot the immediate preceding state (`prev = current`) for error recovery, never rolling back to stale initial props (`initialProps`).
+- **Authoritative ID Reconciliation**: Client-generated synthetic/optimistic IDs (`temp-...`, `att-...`) must be reconciled with real database IDs returned from backend mutation responses to avoid phantom ID leaks.
 
 ---
 

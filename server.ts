@@ -40,6 +40,7 @@ import { demoBookingsRouter } from './server/routes/demoBookings.routes.ts';
 import { alertsRouter } from './server/routes/alerts.routes.ts';
 import { testimonialsRouter } from './server/routes/testimonials.routes.ts';
 import { aiRouter } from './server/routes/ai.routes.ts';
+import { logsRouter } from './server/routes/logs.routes.ts';
 
 // Backward compatibility re-exports
 export type { AuthRequest };
@@ -155,6 +156,7 @@ app.use('/api/demo-bookings', demoBookingsRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/testimonials', testimonialsRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/logs', logsRouter);
 
 // Unhandled API routes catch-all: return 404 JSON rather than falling through to SPA HTML
 app.all(['/api', '/api/*'], (req, _res, next) => {

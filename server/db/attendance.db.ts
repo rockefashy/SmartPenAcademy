@@ -75,8 +75,8 @@ export class AttendanceDatabase {
     return (data || []).map(mapAttendanceRow);
   }
 
-  async saveAttendanceBatch(records: AttendanceRecord[]): Promise<void> {
-    if (!records || records.length === 0) return;
+  async saveAttendanceBatch(records: AttendanceRecord[]): Promise<AttendanceRecord[]> {
+    if (!records || records.length === 0) return [];
     const supabase = getSupabase();
 
     // Look up existing attendance counts for students missing classNumber
@@ -113,9 +113,10 @@ export class AttendanceDatabase {
       };
     });
 
-    const { error } = await supabase
+    const { data: upsertedRows, error } = await supabase
       .from('attendance')
-      .upsert(rows, { onConflict: 'id' });
+      .upsert(rows, { onConflict: 'id' })
+      .select('*');
 
     if (error) {
       throw new Error(`Failed to save attendance batch: ${error.message}`);
@@ -134,6 +135,8 @@ export class AttendanceDatabase {
         .update({ attended_classes: presentRows?.length || 0, updated_at: new Date().toISOString() })
         .eq('id', sid);
     }
+
+    return (upsertedRows || []).map(mapAttendanceRow);
   }
 
   async findAttendanceById(id: string): Promise<AttendanceRecord | null> {

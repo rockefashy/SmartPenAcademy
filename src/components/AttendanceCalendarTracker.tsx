@@ -19,10 +19,12 @@ import {
   X,
   FileText,
   MessageSquare,
-  Save
+  Save,
+  AlertCircle
 } from 'lucide-react';
 import { AttendanceRecord, StudentProfile, formatPreferredDays } from '../types';
 import { api } from '../services/api';
+import { handleClientError } from '../utils/clientError';
 
 interface AttendanceCalendarTrackerProps {
   attendance: AttendanceRecord[];
@@ -71,6 +73,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
   const [isMutating, setIsMutating] = useState<boolean>(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
+  const [actionErrorMsg, setActionErrorMsg] = useState<string | null>(null);
 
   // Note Modal State
   const [activeNoteModalDate, setActiveNoteModalDate] = useState<string | null>(null);
@@ -140,8 +143,15 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
   }, [localAttendance]);
 
   const showFeedback = (msg: string) => {
+    setActionErrorMsg(null);
     setActionSuccessMsg(msg);
-    setTimeout(() => setActionSuccessMsg(null), 3000);
+    setTimeout(() => setActionSuccessMsg(null), 3500);
+  };
+
+  const showError = (msg: string) => {
+    setActionSuccessMsg(null);
+    setActionErrorMsg(msg);
+    setTimeout(() => setActionErrorMsg(null), 5000);
   };
 
   // ================= ADMIN ATTENDANCE MUTATIONS =================
@@ -149,6 +159,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
     if (!isAdmin) return;
     setIsMutating(true);
 
+    const prevAttendance = localAttendance; // Snapshot for rollback
     const yearMonth = dateStr.slice(0, 7);
     const existingRec = attendanceMap.get(dateStr);
     const finalNote = notesOverride !== undefined ? notesOverride : (existingRec?.notes || '');
@@ -172,7 +183,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
     setLocalAttendance(updatedList);
 
     try {
-      await api.saveAttendanceBatch([{
+      const response = await api.saveAttendanceBatch([{
         studentId: student.id,
         classNumber: existingRec?.classNumber || (localAttendance.length + 1),
         date: dateStr,
@@ -180,15 +191,23 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
         status,
         notes: finalNote,
       }]);
+
+      // Authoritative state reconciliation with server response
+      let reconciledList = updatedList;
+      if (response.records && response.records.length > 0) {
+        const savedMap = new Map(response.records.map(r => [r.date, r]));
+        reconciledList = updatedList.map(item => savedMap.get(item.date) || item);
+        setLocalAttendance(reconciledList);
+      }
+
       showFeedback(`Attendance marked as ${status} on ${dateStr}`);
       if (onAttendanceChange) {
-        onAttendanceChange(updatedList);
+        onAttendanceChange(reconciledList);
       }
     } catch (err: any) {
-      console.error('Failed to save attendance:', err);
-      // Revert on error
-      setLocalAttendance(initialAttendance);
-      alert(err.message || 'Failed to save attendance');
+      // Revert to immediate snapshot on error
+      setLocalAttendance(prevAttendance);
+      showError(handleClientError('AttendanceCalendarTracker.markStatus', err, 'Failed to save attendance'));
     } finally {
       setIsMutating(false);
     }
@@ -199,11 +218,14 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
     const targetRecord = localAttendance.find(a => a.date === dateStr);
     setIsMutating(true);
 
+    const prevAttendance = localAttendance; // Snapshot for rollback
     const updatedList = localAttendance.filter(a => a.date !== dateStr);
     setLocalAttendance(updatedList);
 
     try {
-      if (targetRecord?.id) {
+      // If targetRecord has a persistent DB ID (not synthetic 'att-timestamp'), delete by ID; otherwise delete by (student.id, dateStr)
+      const isSyntheticId = !targetRecord?.id || /^att-\d+$/.test(targetRecord.id);
+      if (!isSyntheticId && targetRecord?.id) {
         await api.deleteAttendance(targetRecord.id);
       } else {
         await api.deleteAttendance(student.id, dateStr);
@@ -213,9 +235,9 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
         onAttendanceChange(updatedList);
       }
     } catch (err: any) {
-      console.error('Failed to delete attendance:', err);
-      setLocalAttendance(initialAttendance);
-      alert(err.message || 'Failed to delete attendance');
+      // Revert to immediate snapshot on error
+      setLocalAttendance(prevAttendance);
+      showError(handleClientError('AttendanceCalendarTracker.deleteRecord', err, 'Failed to delete attendance'));
     } finally {
       setIsMutating(false);
     }
@@ -371,11 +393,17 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
         </div>
       </div>
 
-      {/* Admin Action Success Banner */}
+      {/* Admin Action Feedback Banners */}
       {actionSuccessMsg && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-900 flex items-center gap-2 animate-fadeIn">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{actionSuccessMsg}</span>
+        </div>
+      )}
+      {actionErrorMsg && (
+        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-900 flex items-center gap-2 animate-fadeIn">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>{actionErrorMsg}</span>
         </div>
       )}
 

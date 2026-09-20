@@ -39,6 +39,7 @@ import { CameraCaptureModal } from '../components/CameraCaptureModal';
 import { ProgressReportCard } from '../components/ProgressReportCard';
 import { AttendanceCalendarTracker } from '../components/AttendanceCalendarTracker';
 import { FeeLedgerTracker } from '../components/FeeLedgerTracker';
+import { handleClientError } from '../utils/clientError';
 
 interface StudentDetailPageProps {
   studentId: string;
@@ -73,7 +74,13 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
   const [works, setWorks] = useState<StudentWorkImage[]>([]);
   const [reports, setReports] = useState<ProgressReport[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [notificationMsg, setNotificationMsg] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
 
   // Edit Profile Form State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -208,6 +215,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
 
   const loadAllStudentData = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const [studentData, attData, feeData, worksData, reportsData] = await Promise.all([
         api.getStudent(studentId),
@@ -228,15 +236,22 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
         setViewingReport(reportsData[reportsData.length - 1]);
       }
     } catch (err: any) {
-      console.error('Failed to load student data:', err);
+      setLoadError(handleClientError('StudentDetailPage.loadAllData', err, 'Failed to load student dossier.'));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const showToast = (msg: string) => {
-    setNotificationMsg(msg);
-    setTimeout(() => setNotificationMsg(null), 4000);
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(prev => prev?.message === message ? null : prev);
+    }, 4500);
+  };
+
+  const reportError = (action: string, err: unknown, fallback?: string) => {
+    const msg = handleClientError(`StudentDetailPage.${action}`, err, fallback);
+    showToast(msg, 'error');
   };
 
   // Section 1: Update Profile
@@ -248,7 +263,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       setIsEditingProfile(false);
       showToast(studentDetailProperties.section1.saveSuccess);
     } catch (err: any) {
-      alert(err.message || 'Failed to save student profile');
+      reportError('saveProfile', err, 'Failed to save student profile');
     }
   };
 
@@ -271,7 +286,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       setAttNotes('');
       showToast(studentDetailProperties.section2.saveSuccess);
     } catch (err: any) {
-      alert(err.message || 'Failed to record attendance');
+      reportError('addAttendance', err, 'Failed to record attendance');
     } finally {
       setIsSavingAtt(false);
     }
@@ -296,8 +311,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       setWorks(updatedWorks);
       showToast(studentDetailProperties.section4Camera.saveSuccess);
     } catch (err: any) {
-      console.error('Error saving camera work sample:', err);
-      showToast(err.message || 'Failed to upload writing work');
+      reportError('uploadWorkSample', err, 'Failed to upload writing work');
       throw err; // Re-throw to prevent modal from closing silently
     }
   };
@@ -320,70 +334,85 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
     }
   };
 
-  const handleDeleteSingleWork = async (id: string, e?: React.MouseEvent) => {
+  const handleDeleteSingleWork = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!hasFullAccess) {
-      alert('Only administrators and the assigned coach can delete writing samples.');
+      showToast('Only administrators and the assigned coach can delete writing samples.', 'error');
       return;
     }
-    if (!window.confirm('Are you sure you want to delete this handwriting sample? This cannot be undone.')) return;
-    try {
-      await api.deleteStudentWork(id);
-      setWorks(prev => prev.filter(w => w.id !== id));
-      setSelectedWorkIds(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      if (selectedPhotoZoom && works.find(w => w.id === id)?.imageData === selectedPhotoZoom) {
-        setSelectedPhotoZoom(null);
+    setDeleteConfirmState({
+      title: 'Delete Writing Sample',
+      message: 'Are you sure you want to delete this handwriting sample? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          await api.deleteStudentWork(id);
+          setWorks(prev => prev.filter(w => w.id !== id));
+          setSelectedWorkIds(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+          if (selectedPhotoZoom && works.find(w => w.id === id)?.imageData === selectedPhotoZoom) {
+            setSelectedPhotoZoom(null);
+          }
+          showToast('Writing sample deleted successfully');
+        } catch (err: any) {
+          reportError('deleteWritingSample', err, 'Failed to delete writing sample');
+        }
       }
-      showToast('Writing sample deleted successfully');
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete writing sample');
-    }
+    });
   };
 
-  const handleBulkDeleteWorks = async () => {
+  const handleBulkDeleteWorks = () => {
     if (!hasFullAccess) {
-      alert('Only administrators and the assigned coach can delete writing samples.');
+      showToast('Only administrators and the assigned coach can delete writing samples.', 'error');
       return;
     }
     const count = selectedWorkIds.size;
     if (count === 0) return;
-    if (!window.confirm(`Are you sure you want to permanently delete ${count} selected handwriting sample${count > 1 ? 's' : ''}? This action cannot be undone.`)) return;
-    setIsDeletingWorks(true);
-    try {
-      await api.bulkDeleteStudentWorks(Array.from(selectedWorkIds));
-      setWorks(prev => prev.filter(w => !selectedWorkIds.has(w.id)));
-      setSelectedWorkIds(new Set());
-      showToast(`Successfully deleted ${count} handwriting sample${count > 1 ? 's' : ''}`);
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete selected handwriting samples');
-    } finally {
-      setIsDeletingWorks(false);
-    }
+    setDeleteConfirmState({
+      title: 'Delete Selected Writing Samples',
+      message: `Are you sure you want to permanently delete ${count} selected handwriting sample${count > 1 ? 's' : ''}? This action cannot be undone.`,
+      onConfirm: async () => {
+        setIsDeletingWorks(true);
+        try {
+          await api.bulkDeleteStudentWorks(Array.from(selectedWorkIds));
+          setWorks(prev => prev.filter(w => !selectedWorkIds.has(w.id)));
+          setSelectedWorkIds(new Set());
+          showToast(`Successfully deleted ${count} handwriting sample${count > 1 ? 's' : ''}`);
+        } catch (err: any) {
+          reportError('bulkDeleteWorks', err, 'Failed to delete selected handwriting samples');
+        } finally {
+          setIsDeletingWorks(false);
+        }
+      }
+    });
   };
 
   // Section 5: Delete Progress Report Handler
-  const handleDeleteProgressReport = async (reportId: string) => {
+  const handleDeleteProgressReport = (reportId: string) => {
     if (!hasFullAccess) {
-      alert('Only administrators and the assigned coach can delete progress reports.');
+      showToast('Only administrators and the assigned coach can delete progress reports.', 'error');
       return;
     }
-    if (!window.confirm('Are you sure you want to delete this progress report? This action cannot be undone.')) return;
-    setIsDeletingReport(true);
-    try {
-      await api.deleteProgressReport(reportId);
-      const updatedReports = await api.getProgressReports(studentId);
-      setReports(updatedReports);
-      setViewingReport(updatedReports.length > 0 ? updatedReports[0] : null);
-      showToast('Progress report deleted successfully');
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete progress report');
-    } finally {
-      setIsDeletingReport(false);
-    }
+    setDeleteConfirmState({
+      title: 'Delete Progress Report',
+      message: 'Are you sure you want to delete this progress report? This action cannot be undone.',
+      onConfirm: async () => {
+        setIsDeletingReport(true);
+        try {
+          await api.deleteProgressReport(reportId);
+          const updatedReports = await api.getProgressReports(studentId);
+          setReports(updatedReports);
+          setViewingReport(updatedReports.length > 0 ? updatedReports[0] : null);
+          showToast('Progress report deleted successfully');
+        } catch (err: any) {
+          reportError('deleteProgressReport', err, 'Failed to delete progress report');
+        } finally {
+          setIsDeletingReport(false);
+        }
+      }
+    });
   };
 
   // Section 5: Save New Progress Report
@@ -414,7 +443,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       setIsCreatingReport(false);
       showToast(studentDetailProperties.section5Progress.saveSuccess);
     } catch (err: any) {
-      alert(err.message || 'Failed to create progress report');
+      reportError('createProgressReport', err, 'Failed to create progress report');
     }
   };
 
@@ -428,7 +457,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       });
       showToast(res.message);
     } catch (err: any) {
-      alert(err.message || 'Failed to email progress report');
+      reportError('emailProgressReport', err, 'Failed to email progress report');
     } finally {
       setIsSendingReportEmail(false);
     }
@@ -439,6 +468,26 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
       <div className="max-w-7xl mx-auto px-4 py-16 text-center text-slate-500 space-y-3 font-sans">
         <div className="w-10 h-10 border-4 border-[#0E3589] border-t-transparent rounded-full animate-spin mx-auto" />
         <p className="text-sm font-bold">Loading Student Dossier...</p>
+      </div>
+    );
+  }
+
+  if (loadError && !student) {
+    return (
+      <div className="max-w-md mx-auto my-16 bg-white p-8 rounded-3xl border-2 border-rose-200 shadow-xl text-center space-y-4 font-sans">
+        <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900">Unable to Load Student Dossier</h2>
+        <p className="text-xs text-slate-500 font-medium leading-relaxed">{loadError}</p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+          <Button onClick={loadAllStudentData} variant="primary" size="md">
+            Try Again
+          </Button>
+          <Button onClick={onBack} variant="outline" size="md">
+            Return to Admin Roster
+          </Button>
+        </div>
       </div>
     );
   }
@@ -469,10 +518,20 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 font-sans space-y-8">
       {/* Toast Notification */}
-      {notificationMsg && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs font-bold border border-slate-700 animate-bounce">
-          <CheckCircle className="w-4 h-4 text-emerald-400" />
-          <span>{notificationMsg}</span>
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs font-bold border animate-bounce ${
+            toast.type === 'error'
+              ? 'bg-rose-950 text-rose-100 border-rose-800'
+              : 'bg-slate-900 text-white border-slate-700'
+          }`}
+        >
+          {toast.type === 'error' ? (
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          ) : (
+            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+          )}
+          <span>{toast.message}</span>
         </div>
       )}
 
@@ -1539,6 +1598,38 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
           </div>
         </div>
       </Modal>
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmState && (
+        <Modal
+          isOpen={!!deleteConfirmState}
+          onClose={() => setDeleteConfirmState(null)}
+          title={deleteConfirmState.title}
+        >
+          <div className="space-y-4 p-1">
+            <p className="text-sm text-slate-600">{deleteConfirmState.message}</p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDeleteConfirmState(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={async () => {
+                  const action = deleteConfirmState.onConfirm;
+                  setDeleteConfirmState(null);
+                  await action();
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

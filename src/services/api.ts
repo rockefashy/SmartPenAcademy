@@ -414,13 +414,23 @@ export const api = {
     };
   },
 
-  async saveAttendanceBatch(records: Omit<AttendanceRecord, 'id'>[]): Promise<{ success: boolean; count: number }> {
+  async saveAttendanceBatch(records: Omit<AttendanceRecord, 'id'>[]): Promise<{ success: boolean; count: number; records?: AttendanceRecord[] }> {
     const res = await fetch('/api/attendance/batch', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ records }),
     });
-    if (!res.ok) throw new Error('Failed to save attendance batch');
+    if (!res.ok) {
+      let errMsg = 'Failed to save attendance batch';
+      try {
+        const errJson = await res.json();
+        if (errJson?.error?.message) errMsg = errJson.error.message;
+        else if (errJson?.message) errMsg = errJson.message;
+      } catch {
+        // use fallback errMsg
+      }
+      throw new Error(errMsg);
+    }
     return res.json();
   },
 
@@ -432,7 +442,17 @@ export const api = {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });
-    if (!res.ok) throw new Error('Failed to delete attendance record');
+    if (!res.ok) {
+      let errMsg = 'Failed to delete attendance record';
+      try {
+        const errJson = await res.json();
+        if (errJson?.error?.message) errMsg = errJson.error.message;
+        else if (errJson?.message) errMsg = errJson.message;
+      } catch {
+        // use fallback errMsg
+      }
+      throw new Error(errMsg);
+    }
     return res.json();
   },
 

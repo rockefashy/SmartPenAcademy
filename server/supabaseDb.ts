@@ -218,7 +218,7 @@ export class SupabaseDatabase {
   getAttendanceByStudent(studentId: string, options?: PaginationParams): Promise<AttendanceRecord[]> {
     return attendanceDb.getAttendanceByStudent(studentId, options);
   }
-  saveAttendanceBatch(records: AttendanceRecord[]): Promise<void> {
+  saveAttendanceBatch(records: AttendanceRecord[]): Promise<AttendanceRecord[]> {
     return attendanceDb.saveAttendanceBatch(records);
   }
   findAttendanceById(id: string): Promise<AttendanceRecord | null> {

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { api } from '../../../services/api';
 import { StudentProfile, StudentStatus, DemoBooking, AdminAlert, CoachProfile } from '../../../types';
 import { useAuth } from '../../../context/AuthContext';
+import { handleClientError } from '../../../utils/clientError';
 
 export function useAdminDashboardData() {
   const { user, isAdmin, isCoach } = useAuth();
@@ -9,11 +10,26 @@ export function useAdminDashboardData() {
   // Banners
   const [notificationBanner, setNotificationBanner] = useState<string | null>(null);
   const [errorMessageBanner, setErrorMessageBanner] = useState<string | null>(null);
+  const [statusConfirmModal, setStatusConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    variant?: 'danger' | 'accent' | 'primary';
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
 
   const showNotification = useCallback((message: string, durationMs = 4000) => {
     setNotificationBanner(message);
     setTimeout(() => {
       setNotificationBanner((prev) => (prev === message ? null : prev));
+    }, durationMs);
+  }, []);
+
+  const showErrorNotification = useCallback((message: string, durationMs = 5000) => {
+    setErrorMessageBanner(message);
+    setTimeout(() => {
+      setErrorMessageBanner((prev) => (prev === message ? null : prev));
     }, durationMs);
   }, []);
 
@@ -56,8 +72,7 @@ export function useAdminDashboardData() {
       const data = await api.getCoaches();
       setCoaches(data);
     } catch (err: any) {
-      console.error('Failed to load coaches:', err);
-      setErrorMessageBanner(err.message || 'Failed to load coaches');
+      setErrorMessageBanner(handleClientError('AdminDashboard.loadCoaches', err, 'Failed to load coaches'));
     } finally {
       setCoachesLoading(false);
     }
@@ -69,8 +84,7 @@ export function useAdminDashboardData() {
       const data = await api.getStudents();
       setStudents(data);
     } catch (err: any) {
-      console.error('Failed to load students:', err);
-      setErrorMessageBanner(err.message || 'Failed to load students');
+      setErrorMessageBanner(handleClientError('AdminDashboard.loadStudents', err, 'Failed to load students'));
     } finally {
       setIsLoading(false);
     }
@@ -87,8 +101,7 @@ export function useAdminDashboardData() {
       setDemoBookings(bookingsData);
       setAlerts(alertsData);
     } catch (err: any) {
-      console.error('Failed to load alerts/bookings:', err);
-      setErrorMessageBanner(err.message || 'Failed to load alerts and bookings');
+      setErrorMessageBanner(handleClientError('AdminDashboard.loadAlertsAndBookings', err, 'Failed to load alerts and bookings'));
     } finally {
       setAlertsLoading(false);
     }
@@ -237,8 +250,7 @@ export function useAdminDashboardData() {
       loadStudents();
       loadCoaches();
     } catch (err: any) {
-      console.error('[ADMIN_DASHBOARD] Failed to update coach assignment:', err);
-      alert(err.message || 'Failed to update coach assignment');
+      showErrorNotification(handleClientError('AdminDashboard.assignCoach', err, 'Failed to update coach assignment'));
     } finally {
       setUpdatingStudentCoachId(null);
     }
@@ -249,39 +261,41 @@ export function useAdminDashboardData() {
     const isCurrentlyActive = student.status === 'Active';
     if (isCurrentlyActive) {
       const today = new Date().toISOString().split('T')[0];
-      if (
-        !confirm(
-          `Deactivate student "${student.firstName}"?\n\n• Status will be set to Inactive\n• Date of Leaving will be recorded as today (${today})\n• Student will not be able to login\n• Coaches will no longer manage this student\n• All historical records (attendance, fees, works) will be permanently preserved.`
-        )
-      ) {
-        return;
-      }
-      try {
-        await api.updateStudent(student.id, { status: 'Inactive', dateOfLeaving: today });
-        showNotification(
-          `Student ${student.firstName} has been deactivated (soft delete). Historical records preserved.`
-        );
-        loadStudents();
-      } catch (err: any) {
-        console.error('[ADMIN_DASHBOARD] Failed to deactivate student:', err);
-        alert(err.message || 'Failed to deactivate student');
-      }
+      setStatusConfirmModal({
+        isOpen: true,
+        title: `Deactivate student "${student.firstName}"?`,
+        message: `Status will be set to Inactive and Date of Leaving will be recorded as today (${today}). The student will not be able to log in, but all historical records (attendance, fees, works) will be permanently preserved.`,
+        confirmLabel: 'Deactivate Student',
+        variant: 'danger',
+        onConfirm: async () => {
+          try {
+            await api.updateStudent(student.id, { status: 'Inactive', dateOfLeaving: today });
+            showNotification(
+              `Student ${student.firstName} has been deactivated (soft delete). Historical records preserved.`
+            );
+            loadStudents();
+          } catch (err: any) {
+            showErrorNotification(handleClientError('AdminDashboard.deactivateStudent', err, 'Failed to deactivate student'));
+          }
+        }
+      });
     } else {
-      if (
-        !confirm(
-          `Reactivate student "${student.firstName}"?\n\n• Status will be restored to Active\n• Date of Leaving will be cleared\n• Student login access will be restored.`
-        )
-      ) {
-        return;
-      }
-      try {
-        await api.updateStudent(student.id, { status: 'Active', dateOfLeaving: null as any });
-        showNotification(`Student ${student.firstName} has been reactivated to Active status.`);
-        loadStudents();
-      } catch (err: any) {
-        console.error('[ADMIN_DASHBOARD] Failed to reactivate student:', err);
-        alert(err.message || 'Failed to reactivate student');
-      }
+      setStatusConfirmModal({
+        isOpen: true,
+        title: `Reactivate student "${student.firstName}"?`,
+        message: `Status will be restored to Active and Date of Leaving will be cleared. Student login access will be restored.`,
+        confirmLabel: 'Reactivate Student',
+        variant: 'accent',
+        onConfirm: async () => {
+          try {
+            await api.updateStudent(student.id, { status: 'Active', dateOfLeaving: null as any });
+            showNotification(`Student ${student.firstName} has been reactivated to Active status.`);
+            loadStudents();
+          } catch (err: any) {
+            showErrorNotification(handleClientError('AdminDashboard.reactivateStudent', err, 'Failed to reactivate student'));
+          }
+        }
+      });
     }
   };
 
@@ -289,46 +303,48 @@ export function useAdminDashboardData() {
     const isCurrentlyActive = coach.status === 'Active';
     if (isCurrentlyActive) {
       const today = new Date().toISOString().split('T')[0];
-      if (
-        !confirm(
-          `Deactivate coach "${coach.firstName}"?\n\n• Status will be set to Inactive\n• Date of Leaving will be recorded as today (${today})\n• Coach will not be able to login\n• Any assigned students will be unassigned\n• All historical attendance and records are permanently preserved.`
-        )
-      ) {
-        return;
-      }
-      setDeletingCoachId(coach.id);
-      try {
-        await api.deleteCoach(coach.id);
-        showNotification(
-          `Coach ${coach.firstName} has been deactivated (soft delete). Historical records are preserved.`
-        );
-        loadCoaches();
-        loadStudents();
-      } catch (err: any) {
-        console.error('[ADMIN_DASHBOARD] Failed to deactivate coach:', err);
-        alert(err.message || 'Failed to deactivate coach');
-      } finally {
-        setDeletingCoachId(null);
-      }
+      setStatusConfirmModal({
+        isOpen: true,
+        title: `Deactivate coach "${coach.firstName}"?`,
+        message: `Status will be set to Inactive and Date of Leaving will be recorded as today (${today}). Coach login access will be suspended, assigned students will be unassigned, and historical records will be permanently preserved.`,
+        confirmLabel: 'Deactivate Coach',
+        variant: 'danger',
+        onConfirm: async () => {
+          setDeletingCoachId(coach.id);
+          try {
+            await api.deleteCoach(coach.id);
+            showNotification(
+              `Coach ${coach.firstName} has been deactivated (soft delete). Historical records are preserved.`
+            );
+            loadCoaches();
+            loadStudents();
+          } catch (err: any) {
+            showErrorNotification(handleClientError('AdminDashboard.deactivateCoach', err, 'Failed to deactivate coach'));
+          } finally {
+            setDeletingCoachId(null);
+          }
+        }
+      });
     } else {
-      if (
-        !confirm(
-          `Reactivate coach "${coach.firstName}"?\n\n• Status will be set to Active\n• Date of Leaving will be cleared\n• Coach login access will be restored.`
-        )
-      ) {
-        return;
-      }
-      setDeletingCoachId(coach.id);
-      try {
-        await api.updateCoach(coach.id, { status: 'Active', dateOfLeaving: null });
-        showNotification(`Coach ${coach.firstName} has been reactivated to Active status.`);
-        loadCoaches();
-      } catch (err: any) {
-        console.error('[ADMIN_DASHBOARD] Failed to reactivate coach:', err);
-        alert(err.message || 'Failed to reactivate coach');
-      } finally {
-        setDeletingCoachId(null);
-      }
+      setStatusConfirmModal({
+        isOpen: true,
+        title: `Reactivate coach "${coach.firstName}"?`,
+        message: `Status will be set to Active, Date of Leaving will be cleared, and coach login access will be restored.`,
+        confirmLabel: 'Reactivate Coach',
+        variant: 'accent',
+        onConfirm: async () => {
+          setDeletingCoachId(coach.id);
+          try {
+            await api.updateCoach(coach.id, { status: 'Active', dateOfLeaving: null });
+            showNotification(`Coach ${coach.firstName} has been reactivated to Active status.`);
+            loadCoaches();
+          } catch (err: any) {
+            showErrorNotification(handleClientError('AdminDashboard.reactivateCoach', err, 'Failed to reactivate coach'));
+          } finally {
+            setDeletingCoachId(null);
+          }
+        }
+      });
     }
   };
 
@@ -338,8 +354,7 @@ export function useAdminDashboardData() {
       showNotification(`Booking status updated to "${newStatus}"!`, 3000);
       loadAlertsAndBookings();
     } catch (err: any) {
-      console.error('[ADMIN_DASHBOARD] Failed to update booking status:', err);
-      alert(err.message || 'Failed to update booking status');
+      showErrorNotification(handleClientError('AdminDashboard.updateBookingStatus', err, 'Failed to update booking status'));
     }
   };
 
@@ -349,8 +364,7 @@ export function useAdminDashboardData() {
       showNotification(`Assessment notes updated successfully!`, 3000);
       loadAlertsAndBookings();
     } catch (err: any) {
-      console.error('[ADMIN_DASHBOARD] Failed to save booking notes:', err);
-      alert(err.message || 'Failed to save booking notes');
+      showErrorNotification(handleClientError('AdminDashboard.saveBookingNotes', err, 'Failed to save booking notes'));
     }
   };
 
@@ -359,7 +373,7 @@ export function useAdminDashboardData() {
       await api.markAlertRead(id);
       loadAlertsAndBookings();
     } catch (err: any) {
-      console.error('Failed to mark alert as read:', err);
+      handleClientError('AdminDashboard.markAlertRead', err, 'Failed to mark alert as read');
     }
   };
 
@@ -369,7 +383,7 @@ export function useAdminDashboardData() {
       showNotification('All alerts marked as read', 3000);
       loadAlertsAndBookings();
     } catch (err: any) {
-      console.error('Failed to mark all alerts read:', err);
+      handleClientError('AdminDashboard.markAllAlertsRead', err, 'Failed to mark all alerts read');
     }
   };
 
@@ -379,8 +393,7 @@ export function useAdminDashboardData() {
       showNotification('Demo booking inquiry deleted successfully');
       loadAlertsAndBookings();
     } catch (err: any) {
-      console.error('[ADMIN_DASHBOARD] Failed to delete booking inquiry:', err);
-      alert(err.message || 'Failed to delete booking inquiry');
+      showErrorNotification(handleClientError('AdminDashboard.deleteBooking', err, 'Failed to delete booking inquiry'));
     }
   };
 
@@ -389,7 +402,7 @@ export function useAdminDashboardData() {
       await api.deleteAlert(id);
       loadAlertsAndBookings();
     } catch (err: any) {
-      console.error('Failed to delete alert:', err);
+      handleClientError('AdminDashboard.deleteAlert', err, 'Failed to delete alert');
     }
   };
 
@@ -416,6 +429,9 @@ export function useAdminDashboardData() {
     errorMessageBanner,
     setErrorMessageBanner,
     showNotification,
+    showErrorNotification,
+    statusConfirmModal,
+    setStatusConfirmModal,
 
     // Students
     students,

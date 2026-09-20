@@ -46,6 +46,7 @@ import { calculateStudentCycleStatus } from '../utils/cycleCalculations';
 import { Avatar } from '../components/ui/Avatar';
 import { StarRating } from '../components/StarRating';
 import { SmartPenLogo } from '../components/SmartPenLogo';
+import { handleClientError } from '../utils/clientError';
 import { AttendanceCalendarTracker } from '../components/AttendanceCalendarTracker';
 
 interface ParentPortalPageProps {
@@ -92,6 +93,8 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
   const [isSubmittingTestimony, setIsSubmittingTestimony] = useState<boolean>(false);
   const [testimonySuccessMsg, setTestimonySuccessMsg] = useState<string | null>(null);
   const [testimonyErrorMsg, setTestimonyErrorMsg] = useState<string | null>(null);
+  const [portalLoadError, setPortalLoadError] = useState<string | null>(null);
+  const [confirmDeleteTestimonyId, setConfirmDeleteTestimonyId] = useState<string | null>(null);
 
   useEffect(() => {
     loadPortalData();
@@ -99,44 +102,52 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
 
   const loadPortalData = async () => {
     setIsLoading(true);
-    setTestimonyErrorMsg(null);
+    setPortalLoadError(null);
     try {
       let targetId = studentId;
       if (!targetId && user?.studentId) {
         targetId = user.studentId;
       }
-      if (!targetId) {
-        const students = await api.getStudents();
-        if (students.length > 0) {
-          targetId = students[0].id;
+      // If admin is previewing parent portal without studentId or user.studentId
+      if (!targetId && user?.role === ROLES.ADMIN) {
+        try {
+          const students = await api.getStudents();
+          if (students.length > 0) {
+            targetId = students[0].id;
+          }
+        } catch {
+          // Ignore admin preview student lookup failure
         }
       }
 
-      if (targetId) {
-        const [studentData, attData, feeData, worksData, reportsData, testimoniesData] = await Promise.all([
-          api.getStudent(targetId),
-          api.getAttendanceByStudent(targetId),
-          api.getFeesByStudent(targetId),
-          api.getStudentWorks(targetId),
-          api.getProgressReports(targetId),
-          api.getTestimonialsByStudent(targetId),
-        ]);
+      // If no student is specified and user is unauthenticated, stop without making unauthorized API calls
+      if (!targetId) {
+        setIsLoading(false);
+        return;
+      }
 
-        setStudent(studentData);
-        setAttendance(attData);
-        setFees(feeData);
-        setWorks(worksData);
-        setReports(reportsData);
-        setTestimonials(testimoniesData || []);
+      const [studentData, attData, feeData, worksData, reportsData, testimoniesData] = await Promise.all([
+        api.getStudent(targetId),
+        api.getAttendanceByStudent(targetId),
+        api.getFeesByStudent(targetId),
+        api.getStudentWorks(targetId),
+        api.getProgressReports(targetId),
+        api.getTestimonialsByStudent(targetId),
+      ]);
 
-        if (studentData) {
-          setTestimonyParentName(studentData.parentName || '');
-          setTestimonyRelationship(studentData.relationship || 'Mother');
-        }
+      setStudent(studentData);
+      setAttendance(attData);
+      setFees(feeData);
+      setWorks(worksData);
+      setReports(reportsData);
+      setTestimonials(testimoniesData || []);
+
+      if (studentData) {
+        setTestimonyParentName(studentData.parentName || '');
+        setTestimonyRelationship(studentData.relationship || 'Mother');
       }
     } catch (err: any) {
-      console.error('Failed to load parent portal student data:', err);
-      setTestimonyErrorMsg(err.message || 'Failed to load student data');
+      setPortalLoadError(handleClientError('ParentPortalPage.loadData', err, 'Failed to load student data'));
     } finally {
       setIsLoading(false);
     }
@@ -192,19 +203,20 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
       setTestimonyImage('');
       setCustomTag('');
     } catch (err: any) {
-      setTestimonyErrorMsg(err.message || 'Failed to submit testimony. Please try again.');
+      setTestimonyErrorMsg(handleClientError('ParentPortalPage.submitTestimony', err, 'Failed to submit testimony. Please try again.'));
     } finally {
       setIsSubmittingTestimony(false);
     }
   };
 
   const handleDeleteTestimony = async (id: string) => {
-    if (!window.confirm('Are you sure you want to remove this testimony?')) return;
     try {
       await api.deleteTestimonial(id);
       setTestimonials(prev => prev.filter(t => t.id !== id));
+      setConfirmDeleteTestimonyId(null);
     } catch (err: any) {
-      alert('Failed to delete testimony');
+      setTestimonyErrorMsg(handleClientError('ParentPortalPage.deleteTestimony', err, 'Failed to delete testimony'));
+      setConfirmDeleteTestimonyId(null);
     }
   };
 
@@ -213,6 +225,40 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
       <div className="max-w-7xl mx-auto px-4 py-16 text-center text-slate-500 space-y-3 font-sans">
         <div className="w-10 h-10 border-4 border-[#F46E20] border-t-transparent rounded-full animate-spin mx-auto" />
         <p className="text-sm font-bold">{parentPortalProperties.loadingText}</p>
+      </div>
+    );
+  }
+
+  if (portalLoadError && !student) {
+    return (
+      <div className="max-w-md mx-auto my-16 bg-white p-8 rounded-3xl border-2 border-rose-200 shadow-xl text-center space-y-4 font-sans">
+        <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900">Unable to Load Student Data</h2>
+        <p className="text-xs text-slate-500 font-medium leading-relaxed">
+          {portalLoadError}
+        </p>
+        <div className="flex flex-col gap-2 pt-2">
+          <Button
+            onClick={() => loadPortalData()}
+            variant="primary"
+            size="md"
+            fullWidth
+          >
+            Try Again
+          </Button>
+          {!user && (
+            <Button
+              onClick={() => onOpenLogin()}
+              variant="outline"
+              size="md"
+              fullWidth
+            >
+              Sign In with Student Credentials
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
@@ -1046,7 +1092,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDeleteTestimony(item.id)}
+                          onClick={() => setConfirmDeleteTestimonyId(item.id)}
                           className="text-slate-400 hover:text-red-600 p-1 min-h-[44px] min-w-[44px]"
                           title="Delete testimony"
                         >
@@ -1163,6 +1209,36 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
             </table>
           </div>
         </div>
+      )}
+      {/* Delete Testimony Confirmation Modal */}
+      {confirmDeleteTestimonyId && (
+        <Modal
+          isOpen={!!confirmDeleteTestimonyId}
+          onClose={() => setConfirmDeleteTestimonyId(null)}
+          title="Delete Testimony"
+        >
+          <div className="space-y-4 p-1">
+            <p className="text-sm text-slate-600">
+              Are you sure you want to remove this testimony? This action cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmDeleteTestimonyId(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => handleDeleteTestimony(confirmDeleteTestimonyId)}
+              >
+                Delete Testimony
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

@@ -9,17 +9,26 @@ import {
   Eye,
   ShieldCheck,
   ShieldAlert,
-  Clock
+  Clock,
+  AlertCircle
 } from 'lucide-react';
-import { Button, StatCard } from '../../ui';
 import { Testimonial } from '../../../types';
 import { api } from '../../../services/api';
+import { handleClientError } from '../../../utils/clientError';
+import { Button, Modal, StatCard } from '../../ui';
 
 export const TestimonialsTab: React.FC = () => {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Approved' | 'Featured'>('All');
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const showFeedback = (message: string, type: 'success' | 'error' = 'success') => {
+    setFeedback({ message, type });
+    setTimeout(() => setFeedback(prev => prev?.message === message ? null : prev), 4500);
+  };
 
   const loadTestimonials = useCallback(async () => {
     setIsLoading(true);
@@ -28,7 +37,7 @@ export const TestimonialsTab: React.FC = () => {
       const data = await api.getTestimonials();
       setTestimonials(data);
     } catch (err) {
-      console.error('Failed to load testimonials:', err);
+      handleClientError('TestimonialsTab.loadTestimonials', err, 'Failed to load testimonials');
     } finally {
       setIsLoading(false);
     }
@@ -43,21 +52,24 @@ export const TestimonialsTab: React.FC = () => {
     try {
       const updated = await api.updateTestimonial(id, { status: newStatus });
       setTestimonials(prev => prev.map(t => t.id === id ? updated : t));
+      showFeedback(`Testimonial status updated to ${newStatus}`);
     } catch (err: any) {
-      alert(err.message || 'Failed to update testimonial status');
+      showFeedback(handleClientError('TestimonialsTab.updateStatus', err, 'Failed to update testimonial status'), 'error');
     } finally {
       setActionInProgress(null);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to permanently delete this testimonial?')) return;
     setActionInProgress(id);
     try {
       await api.deleteTestimonial(id);
       setTestimonials(prev => prev.filter(t => t.id !== id));
+      showFeedback('Testimonial permanently deleted');
+      setConfirmDeleteId(null);
     } catch (err: any) {
-      alert(err.message || 'Failed to delete testimonial');
+      showFeedback(handleClientError('TestimonialsTab.delete', err, 'Failed to delete testimonial'), 'error');
+      setConfirmDeleteId(null);
     } finally {
       setActionInProgress(null);
     }
@@ -74,6 +86,24 @@ export const TestimonialsTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Action Feedback Banner */}
+      {feedback && (
+        <div
+          className={`p-3.5 rounded-xl text-xs font-bold flex items-center gap-2.5 animate-fadeIn border ${
+            feedback.type === 'error'
+              ? 'bg-rose-50 text-rose-900 border-rose-200'
+              : 'bg-emerald-50 text-emerald-900 border-emerald-200'
+          }`}
+        >
+          {feedback.type === 'error' ? (
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          )}
+          <span>{feedback.message}</span>
+        </div>
+      )}
+
       {/* 1. Stat Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -266,7 +296,7 @@ export const TestimonialsTab: React.FC = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDelete(item.id)}
+                    onClick={() => setConfirmDeleteId(item.id)}
                     disabled={actionInProgress === item.id}
                     leftIcon={<Trash2 className="w-3.5 h-3.5" />}
                     className="text-xs text-rose-600 hover:bg-rose-50"
@@ -276,6 +306,37 @@ export const TestimonialsTab: React.FC = () => {
             </div>
           ))}
         </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteId && (
+        <Modal
+          isOpen={!!confirmDeleteId}
+          onClose={() => setConfirmDeleteId(null)}
+          title="Delete Testimonial"
+        >
+          <div className="space-y-4 p-1">
+            <p className="text-sm text-slate-600">
+              Are you sure you want to permanently delete this testimonial? This action cannot be undone.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmDeleteId(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => handleDelete(confirmDeleteId)}
+                loading={actionInProgress === confirmDeleteId}
+              >
+                Delete Testimonial
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

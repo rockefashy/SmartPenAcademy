@@ -8,7 +8,6 @@ logs/
 .env*
 !.env.example
 .render-log-watermark.json
-logs/
 supabase/.temp/
 .temp/
 supabase/snippets/

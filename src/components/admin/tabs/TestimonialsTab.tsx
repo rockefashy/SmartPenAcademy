@@ -15,7 +15,7 @@ import {
 import { Testimonial } from '../../../types';
 import { api } from '../../../services/api';
 import { handleClientError } from '../../../utils/clientError';
-import { Button, Modal, StatCard } from '../../ui';
+import { Button, Modal, StatCard, Toast } from '../../ui';
 
 export const TestimonialsTab: React.FC = () => {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
@@ -27,7 +27,7 @@ export const TestimonialsTab: React.FC = () => {
 
   const showFeedback = (message: string, type: 'success' | 'error' = 'success') => {
     setFeedback({ message, type });
-    setTimeout(() => setFeedback(prev => prev?.message === message ? null : prev), 4500);
+    setTimeout(() => setFeedback(prev => prev?.message === message ? null : prev), 6000);
   };
 
   const loadTestimonials = useCallback(async () => {
@@ -86,23 +86,13 @@ export const TestimonialsTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Action Feedback Banner */}
-      {feedback && (
-        <div
-          className={`p-3.5 rounded-xl text-xs font-bold flex items-center gap-2.5 animate-fadeIn border ${
-            feedback.type === 'error'
-              ? 'bg-rose-50 text-rose-900 border-rose-200'
-              : 'bg-emerald-50 text-emerald-900 border-emerald-200'
-          }`}
-        >
-          {feedback.type === 'error' ? (
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-          ) : (
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          )}
-          <span>{feedback.message}</span>
-        </div>
-      )}
+      {/* Floating Viewport Toast */}
+      <Toast
+        message={feedback?.message}
+        type={feedback?.type}
+        durationMs={6000}
+        onDismiss={() => setFeedback(null)}
+      />
 
       {/* 1. Stat Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

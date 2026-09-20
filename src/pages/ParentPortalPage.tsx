@@ -1,8 +1,4 @@
-import { Modal } from '../components/ui/Modal';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Select } from '../components/ui/Select';
-import { Textarea } from '../components/ui/Textarea';
+import { Modal, Button, Input, Select, Textarea, Toast } from '../components/ui';
 import React, { useState, useEffect } from 'react';
 import { 
   GraduationCap, 
@@ -759,21 +755,21 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
               </div>
             </div>
 
-            {/* Success Notification */}
-            {testimonySuccessMsg && (
-              <div className="mt-6 p-4 bg-emerald-50 border-2 border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-xs font-bold shadow-xs">
-                <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>{testimonySuccessMsg}</span>
-              </div>
-            )}
+            {/* Floating Viewport Toast: Testimony Success */}
+            <Toast
+              message={testimonySuccessMsg}
+              type="success"
+              durationMs={6000}
+              onDismiss={() => setTestimonySuccessMsg(null)}
+            />
 
-            {/* Error Notification */}
-            {testimonyErrorMsg && (
-              <div className="mt-6 p-4 bg-rose-50 border-2 border-rose-200 rounded-2xl flex items-center gap-3 text-rose-800 text-xs font-bold shadow-xs">
-                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-                <span>{testimonyErrorMsg}</span>
-              </div>
-            )}
+            {/* Floating Viewport Toast: Testimony Error */}
+            <Toast
+              message={testimonyErrorMsg}
+              type="error"
+              durationMs={7000}
+              onDismiss={() => setTestimonyErrorMsg(null)}
+            />
 
             {/* Main Form & Live Preview Grid */}
             <div className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-8">

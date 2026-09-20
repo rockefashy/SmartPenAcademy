@@ -19,14 +19,14 @@ export function useAdminDashboardData() {
     onConfirm: () => Promise<void> | void;
   } | null>(null);
 
-  const showNotification = useCallback((message: string, durationMs = 4000) => {
+  const showNotification = useCallback((message: string, durationMs = 6000) => {
     setNotificationBanner(message);
     setTimeout(() => {
       setNotificationBanner((prev) => (prev === message ? null : prev));
     }, durationMs);
   }, []);
 
-  const showErrorNotification = useCallback((message: string, durationMs = 5000) => {
+  const showErrorNotification = useCallback((message: string, durationMs = 7000) => {
     setErrorMessageBanner(message);
     setTimeout(() => {
       setErrorMessageBanner((prev) => (prev === message ? null : prev));

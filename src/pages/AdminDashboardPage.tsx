@@ -10,7 +10,7 @@ import {
   AlertTriangle,
   MessageSquare,
 } from 'lucide-react';
-import { Button, Modal } from '../components/ui';
+import { Button, Modal, Toast } from '../components/ui';
 import { StudentProfile, CoachProfile, DemoBooking } from '../types';
 import { adminProperties } from '../properties/admin.properties';
 import { EnrollmentPage } from './EnrollmentPage';
@@ -155,43 +155,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         )}
       </div>
 
-      {/* Notification Toast Banner */}
-      {data.notificationBanner && (
-        <div className="p-4 bg-emerald-50 border-2 border-emerald-300 text-emerald-800 text-xs font-bold rounded-2xl flex items-center justify-between shadow-sm animate-in fade-in duration-200">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-            <span>{data.notificationBanner}</span>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => data.setNotificationBanner(null)}
-            className="text-emerald-700 hover:text-emerald-950 underline h-auto p-1"
-          >
-            Dismiss
-          </Button>
-        </div>
-      )}
+      {/* Floating Viewport Toast: Success */}
+      <Toast
+        message={data.notificationBanner}
+        type="success"
+        onDismiss={() => data.setNotificationBanner(null)}
+      />
 
-      {/* Error Banner */}
-      {data.errorMessageBanner && (
-        <div className="p-4 bg-red-50 border-2 border-red-300 text-red-800 text-xs font-bold rounded-2xl flex items-center justify-between shadow-sm animate-in fade-in duration-200">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
-            <span>{data.errorMessageBanner}</span>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => data.setErrorMessageBanner(null)}
-            className="text-red-700 hover:text-red-950 underline h-auto p-1"
-          >
-            Dismiss
-          </Button>
-        </div>
-      )}
+      {/* Floating Viewport Toast: Error */}
+      <Toast
+        message={data.errorMessageBanner}
+        type="error"
+        onDismiss={() => data.setErrorMessageBanner(null)}
+      />
 
       {/* Module Navigation Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-2">

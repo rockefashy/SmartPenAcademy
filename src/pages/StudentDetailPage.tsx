@@ -1,4 +1,4 @@
-import { Modal, Button, Input, Select, Textarea } from '../components/ui';
+import { Modal, Button, Input, Select, Textarea, Toast } from '../components/ui';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -246,7 +246,7 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
     setToast({ message, type });
     setTimeout(() => {
       setToast(prev => prev?.message === message ? null : prev);
-    }, 4500);
+    }, 6000);
   };
 
   const reportError = (action: string, err: unknown, fallback?: string) => {
@@ -518,22 +518,12 @@ export const StudentDetailPage: React.FC<StudentDetailPageProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 font-sans space-y-8">
       {/* Toast Notification */}
-      {toast && (
-        <div
-          className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs font-bold border animate-bounce ${
-            toast.type === 'error'
-              ? 'bg-rose-950 text-rose-100 border-rose-800'
-              : 'bg-slate-900 text-white border-slate-700'
-          }`}
-        >
-          {toast.type === 'error' ? (
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-          ) : (
-            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-          )}
-          <span>{toast.message}</span>
-        </div>
-      )}
+      <Toast
+        message={toast?.message}
+        type={toast?.type}
+        durationMs={6000}
+        onDismiss={() => setToast(null)}
+      />
 
       {/* Top Header & Navigation Breadcrumb */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">

@@ -89,6 +89,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const isDisabled = disabled || isLoading;
+    const hasCustomJustify = /(?:^|\s)justify-/.test(className);
+    const isJustifyBetween = fullWidth && /(?:^|\s)justify-between(?:\s|$)/.test(className);
+    const isJustifyStart = fullWidth && /(?:^|\s)justify-start(?:\s|$)/.test(className);
+    const innerWrapperClass = isJustifyBetween ? 'w-full justify-between' : isJustifyStart ? 'w-full justify-start' : 'whitespace-nowrap';
 
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
       // Double-submit prevention at runtime
@@ -109,7 +113,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         aria-busy={isLoading}
         onClick={handleClick}
         className={`
-          inline-flex flex-row flex-nowrap items-center justify-center transition-all cursor-pointer select-none whitespace-nowrap
+          inline-flex flex-row flex-nowrap items-center ${hasCustomJustify ? '' : 'justify-center'} transition-all cursor-pointer select-none whitespace-nowrap
           touch-manipulation
           disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:active:scale-100
           ${mergeVariantWithClassName(variantStyles[variant], className)}
@@ -121,12 +125,12 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {isLoading ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-            {loadingText ? <span>{loadingText}</span> : children ? <span className="inline-flex flex-row flex-nowrap items-center gap-1.5 whitespace-nowrap">{children}</span> : null}
+            {loadingText ? <span>{loadingText}</span> : children ? <span className={`inline-flex flex-row flex-nowrap items-center gap-1.5 ${innerWrapperClass}`}>{children}</span> : null}
           </>
         ) : (
           <>
             {leftIcon && <span className="shrink-0 inline-flex items-center">{leftIcon}</span>}
-            {children && <span className="inline-flex flex-row flex-nowrap items-center gap-1.5 whitespace-nowrap">{children}</span>}
+            {children && <span className={`inline-flex flex-row flex-nowrap items-center gap-1.5 ${innerWrapperClass}`}>{children}</span>}
             {rightIcon && <span className="shrink-0 inline-flex items-center">{rightIcon}</span>}
           </>
         )}

@@ -558,7 +558,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         id={`btn-select-role-${role}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-blue-100 text-[#0E3589] flex items-center justify-center font-bold">
+                          <div className="w-10 h-10 rounded-xl bg-blue-100 text-[#0E3589] flex items-center justify-center font-bold shrink-0">
                             {role === ROLES.ADMIN && <ShieldCheck className="w-5 h-5" />}
                             {role === ROLES.COACH && <Award className="w-5 h-5" />}
                             {role === ROLES.STUDENT && <GraduationCap className="w-5 h-5" />}
@@ -572,7 +572,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             </div>
                           </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#0E3589] group-hover:translate-x-0.5 transition-all" />
+                        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#0E3589] group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
                       </Button>
                     ))}
                   </div>
@@ -615,7 +615,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                         id={`btn-select-student-${std.id}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-orange-100 text-[#F46E20] flex items-center justify-center font-bold">
+                          <div className="w-10 h-10 rounded-xl bg-orange-100 text-[#F46E20] flex items-center justify-center font-bold shrink-0">
                             <GraduationCap className="w-5 h-5" />
                           </div>
                           <div>
@@ -627,7 +627,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                             </div>
                           </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#F46E20] group-hover:translate-x-0.5 transition-all" />
+                        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-[#F46E20] group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
                       </Button>
                     ))}
                   </div>

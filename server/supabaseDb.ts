@@ -114,7 +114,7 @@ export class SupabaseDatabase {
   }
 
   // ================= STUDENTS =================
-  getSiblingStudentsForUser(user: StoredUser): Promise<StudentProfile[]> {
+  getSiblingStudentsForUser(user: { id?: string; email?: string; phoneNumber?: string; studentId?: string }): Promise<StudentProfile[]> {
     return studentsDb.getSiblingStudentsForUser(user);
   }
   getFamilyStudentsByEmailOrPhone(identifier: string): Promise<StudentProfile[]> {

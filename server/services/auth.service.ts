@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from '../supabaseDb.ts';
 import { ROLES, User } from '../../src/types.ts';
-import { getJwtSecret } from '../middleware/auth.ts';
+import { getJwtSecret } from '../config/env.ts';
 import { AuthenticationError, AuthorizationError, ValidationError } from '../errors.ts';
 import { recordAudit } from '../helpers/audit.ts';
 

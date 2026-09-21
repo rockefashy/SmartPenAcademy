@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { getJwtSecret } from '../middleware/auth.ts';
+import { getJwtSecret } from '../config/env.ts';
 
 // In-memory replay prevention cache for consumed JTIs with automatic garbage collection
 const consumedNonces = new Map<string, number>();

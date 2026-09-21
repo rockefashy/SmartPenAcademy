@@ -403,15 +403,11 @@ export const api = {
       }),
     });
     if (!res.ok) throw new Error('Failed to record attendance');
-    return {
-      id: `att_${Date.now()}`,
-      studentId,
-      classNumber: (data as any).classNumber || 1,
-      date: data.date,
-      yearMonth,
-      status: data.status,
-      notes: data.notes || '',
-    };
+    const result = await res.json();
+    if (result.records && result.records.length > 0) {
+      return result.records[0] as AttendanceRecord;
+    }
+    throw new Error('Server did not return saved attendance record');
   },
 
   async saveAttendanceBatch(records: Omit<AttendanceRecord, 'id'>[]): Promise<{ success: boolean; count: number; records?: AttendanceRecord[] }> {

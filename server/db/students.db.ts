@@ -1,7 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { StudentProfile, AttendanceRecord, FeeRecord } from '../../src/types';
 import { getSupabase, PaginationParams, applyRowCeiling, applyQueryPagination } from './client.ts';
-import { StoredUser } from './auth.db.ts';
 
 async function resolveCoachName(coachId: string): Promise<string | null> {
   const supabase = getSupabase();
@@ -214,7 +213,7 @@ export async function attachStudentHistory(students: StudentProfile[]): Promise<
 }
 
 export class StudentsDatabase {
-  async getSiblingStudentsForUser(user: StoredUser): Promise<StudentProfile[]> {
+  async getSiblingStudentsForUser(user: { id?: string; email?: string; phoneNumber?: string; studentId?: string }): Promise<StudentProfile[]> {
     if (!user.id && !user.phoneNumber && !user.email) return [];
     const supabase = getSupabase();
     const phoneClean = (user.phoneNumber || '').replace(/\D/g, '');

@@ -4,6 +4,10 @@ import { ROLES } from '../../src/types.ts';
 import { db } from '../supabaseDb.ts';
 import { asyncHandler } from './errorHandler.ts';
 import { ValidationError, AuthorizationError } from '../errors.ts';
+import { getJwtSecret } from '../config/env.ts';
+
+// Re-export for backward compatibility with existing callers that import getJwtSecret from this module
+export { getJwtSecret } from '../config/env.ts';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -20,13 +24,6 @@ export interface AuthRequest extends Request {
   };
 }
 
-export const getJwtSecret = (): string => {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('JWT_SECRET environment variable is not set.');
-  }
-  return secret;
-};
 
 /**
  * Authentication middleware supporting both secure httpOnly cookies and Authorization: Bearer headers.
@@ -118,6 +115,8 @@ export const authenticateJwt = async (req: AuthRequest, res: Response, next: Nex
 /**
  * Optional authentication middleware that extracts user context if a valid session token
  * is present, without throwing 401 if unauthenticated.
+ * Applies the same token_version revocation and inactive coach checks as authenticateJwt,
+ * but silently discards the user context instead of returning an error response.
  */
 export const optionalAuthenticateJwt = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   let token: string | undefined;
@@ -143,7 +142,21 @@ export const optionalAuthenticateJwt = async (req: AuthRequest, res: Response, n
       const currentVersion = await db.findUserTokenVersion(decoded.id);
       const tokenVersion = typeof decoded.tokenVersion === 'number' ? decoded.tokenVersion : 0;
       if (currentVersion === null || currentVersion <= tokenVersion) {
-        req.user = decoded;
+        // Mirror authenticateJwt: silently discard user context for deactivated coaches
+        if (decoded.role === ROLES.COACH) {
+          try {
+            const coachProfile = await db.getCoachById(decoded.coachId || decoded.id);
+            if (!coachProfile || coachProfile.status !== 'Inactive') {
+              req.user = decoded;
+            }
+            // If coach is Inactive: leave req.user undefined (treat as unauthenticated)
+          } catch {
+            // Allow through on transient DB failure — same behaviour as authenticateJwt
+            req.user = decoded;
+          }
+        } else {
+          req.user = decoded;
+        }
       }
     }
   } catch {

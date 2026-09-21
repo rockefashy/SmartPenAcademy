@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../supabaseDb.ts';
-
-const getJwtSecret = (): string => process.env.JWT_SECRET || '';
+import { getJwtSecret } from '../config/env.ts';
 
 export function createRateLimiter(options: { windowMs: number; max: number; message?: string; failClosed?: boolean }) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {

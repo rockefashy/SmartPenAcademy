@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../supabaseDb.ts';
-import { getJwtSecret } from '../middleware/auth.ts';
+import { getJwtSecret } from '../config/env.ts';
 import { resolveStudentContext } from './studentContext.ts';
 
 /**

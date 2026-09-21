@@ -9,3 +9,20 @@ powershell
 docker exec -i supabase_db_SmartPenAcademy psql -U postgres -d postgres -c "TRUNCATE public.students, public.coaches, public.users, public.attendance, public.fees, public.demo_bookings, public.progress_trackers, public.student_works CASCADE;"
 # 2. Pipe and load the data
 Get-Content "cloud_data.sql" | docker exec -i supabase_db_SmartPenAcademy psql -U postgres -d postgres
+
+
+Act as a Principal Software Architect. I need a comprehensive, deterministic codegraph of this codebase.
+
+Do not guess the connections from memory. Follow this process:
+1. Scan the project structure, entry points, and module definitions.
+2. Trace the relationships across three distinct layers:
+   - Module/Package Level: Which directories and files import/depend on each other.
+   - Function & Component Level: Full caller -> callee call hierarchy starting from main entry points down to database/API calls.
+   - Data Flow: Key interfaces, schemas, or models passed across boundaries.
+3. Identify and flag:
+   - Orphan/Dead functions (symbols defined/exported with zero incoming call edges).
+   - Circular dependencies.
+   - Layer violations (e.g., UI or controller reaching directly into database/infrastructure).
+4. Output the complete result into an ARCHITECTURE_GRAPH.md file containing:
+   - A clean Mermaid.js diagram (using subgraphs for each architectural layer).
+   - An adjacency list or markdown table documenting: [Source Symbol] -> [Relation Type: calls/imports/implements] -> [Target Symbol].

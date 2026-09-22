@@ -4,7 +4,7 @@ export const commonProperties = {
   academySubTagline: "Transforming Handwriting into Academic Excellence • Ages 4 to 18",
   founderName: "Mrs. Deepthy Rock",
   founderTitle: "Master Handwriting Coach & Educationalist",
-  
+
   nav: {
     home: "Home",
     about: "About Us",
@@ -19,7 +19,7 @@ export const commonProperties = {
     login: "Sign In",
     logout: "Sign Out",
   },
-  
+
   buttons: {
     save: "Save",
     edit: "Edit",
@@ -40,7 +40,7 @@ export const commonProperties = {
     close: "Close",
     print: "Print / Save PDF",
   },
-  
+
   badges: {
     active: "Active",
     inactive: "Inactive",
@@ -59,12 +59,12 @@ export const commonProperties = {
     whatsapp: "8861751000",
     whatsappLink: "https://wa.me/918861751000",
     email: "deepthysrock@gmail.com",
-    adminEmail: "deepthysrock@gmail.com",
+    adminEmail: "admin@smartpenacademy.com",
     location: "Ajmera Infinity, Electronic City Phase 1, Bangalore - 560100",
     googleMapsLink: "https://www.google.com/maps/search/?api=1&query=Ajmera+Infinity,+Electronic+City+Phase+1,+Bangalore+-+560100",
     timings: "All days (4:00 PM - 7:00 PM)",
   },
-  
+
   folders: {
     studentWorks: "/student_works/",
     progressReports: "/progress_reports/",

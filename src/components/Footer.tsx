@@ -43,10 +43,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 onClick={(e) => {
                   if (!e.ctrlKey && !e.metaKey && e.button === 0) {
                     e.preventDefault();
-                    onNavigate('landing');
-                    setTimeout(() => {
-                      document.getElementById('syllabus-section')?.scrollIntoView({ behavior: 'smooth' });
-                    }, 100);
+                    onNavigate('syllabus');
                   }
                 }}
                 className="hover:text-amber-300 transition-colors"
@@ -62,10 +59,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                     onClick={(e) => {
                       if (!e.ctrlKey && !e.metaKey && e.button === 0) {
                         e.preventDefault();
-                        onNavigate('landing');
-                        setTimeout(() => {
-                          document.getElementById('syllabus-section')?.scrollIntoView({ behavior: 'smooth' });
-                        }, 100);
+                        onNavigate('syllabus');
                       }
                     }}
                     className="flex items-center gap-2 hover:text-white transition-colors"
@@ -120,10 +114,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   onClick={(e) => {
                     if (!e.ctrlKey && !e.metaKey && e.button === 0) {
                       e.preventDefault();
-                      onNavigate('landing');
-                      setTimeout(() => {
-                        document.getElementById('syllabus-section')?.scrollIntoView({ behavior: 'smooth' });
-                      }, 100);
+                      onNavigate('syllabus');
                     }
                   }}
                   className="hover:text-amber-300 transition-colors inline-block py-0.5"
@@ -137,10 +128,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   onClick={(e) => {
                     if (!e.ctrlKey && !e.metaKey && e.button === 0) {
                       e.preventDefault();
-                      onNavigate('landing');
-                      setTimeout(() => {
-                        document.getElementById('workshops-section')?.scrollIntoView({ behavior: 'smooth' });
-                      }, 100);
+                      onNavigate('workshops');
                     }
                   }}
                   className="hover:text-amber-300 transition-colors inline-block py-0.5"
@@ -154,10 +142,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   onClick={(e) => {
                     if (!e.ctrlKey && !e.metaKey && e.button === 0) {
                       e.preventDefault();
-                      onNavigate('landing');
-                      setTimeout(() => {
-                        document.getElementById('testimonials-section')?.scrollIntoView({ behavior: 'smooth' });
-                      }, 100);
+                      onNavigate('testimonials');
                     }
                   }}
                   className="hover:text-amber-300 transition-colors inline-block py-0.5"
@@ -168,6 +153,12 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <li>
                 <a
                   href="/free-demo"
+                  onClick={(e) => {
+                    if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                      e.preventDefault();
+                      onNavigate('free-demo');
+                    }
+                  }}
                   className="text-amber-400 hover:text-amber-300 font-semibold transition-colors inline-block py-0.5"
                 >
                   Free Demo Class

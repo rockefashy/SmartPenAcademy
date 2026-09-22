@@ -336,7 +336,7 @@ export class SupabaseDatabase {
   }
 
   // ================= TESTIMONIALS =================
-  getTestimonials(studentId?: string, status?: string): Promise<Testimonial[]> {
+  getTestimonials(studentId?: string, status?: string | string[]): Promise<Testimonial[]> {
     return testimonialsDb.getTestimonials(studentId, status);
   }
   saveTestimonial(testimonial: Partial<Testimonial>): Promise<Testimonial> {

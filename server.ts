@@ -138,8 +138,8 @@ const testimonialsDir = path.join(publicDir, 'testimonials');
   }
 });
 
-// Serve public static assets
-app.use(express.static(publicDir));
+// Serve public static assets without auto-redirecting directory paths
+app.use(express.static(publicDir, { redirect: false }));
 
 // ================= API ROUTERS MOUNTING =================
 app.use('/api', healthRouter);
@@ -181,13 +181,21 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
 
-    // Explicit zero-redirect static route handlers for public pre-rendered pages
+    // Canonical non-trailing-slash 301 normalization for SEO integrity
+    app.use((req, res, next) => {
+      if (req.path.length > 1 && req.path.endsWith('/')) {
+        const query = req.url.slice(req.path.length);
+        return res.redirect(301, req.path.slice(0, -1) + query);
+      }
+      next();
+    });
+
+    // Explicit static route handlers for public pre-rendered pages
     const publicStaticRoutes = ['/about', '/syllabus', '/workshops', '/testimonials', '/free-demo'];
     publicStaticRoutes.forEach((route) => {
       const filePath = path.join(distPath, route.slice(1), 'index.html');
-      app.get([route, `${route}/`], (req, res) => {
+      app.get(route, (_req, res) => {
         if (fs.existsSync(filePath)) {
           res.sendFile(filePath);
         } else {
@@ -195,6 +203,8 @@ async function startServer() {
         }
       });
     });
+
+    app.use(express.static(distPath, { redirect: false }));
 
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

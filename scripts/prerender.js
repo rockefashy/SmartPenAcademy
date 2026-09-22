@@ -1,10 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
+
+// Load .env so SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL are available
+// during the build-time testimonials pre-fetch.
+const _require = createRequire(import.meta.url);
+try {
+  const dotenv = _require('dotenv');
+  dotenv.config({ path: path.resolve(rootDir, '.env') });
+} catch {
+  // dotenv not available — rely on environment already having the vars set (e.g. Render CI)
+}
 
 async function prerender() {
   console.log('[prerender] Starting static HTML generation for public pages...');
@@ -21,6 +32,61 @@ async function prerender() {
   }
 
   const { render, PUBLIC_ROUTES_METADATA } = await import(`file://${ssrPath}`);
+
+  // ------------------------------------------------------------------
+  // Fetch Published testimonials from the database at build time so
+  // that the /testimonials page is pre-rendered with real content for
+  // Google Search Console to index.  We call the local API if available
+  // or fall back gracefully with an empty array so the build never fails.
+  // ------------------------------------------------------------------
+  let publishedTestimonials = [];
+  try {
+    const supabaseUrl = process.env.SUPABASE_URL || 'http://127.0.0.1:54321';
+    // Use service role key for build-time fetch — this runs server-side during `npm run build`
+    // so it is safe. Service role key bypasses RLS to guarantee we can read published testimonials
+    // regardless of Supabase RLS policy configuration.
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || '';
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/testimonials?status=in.(Approved,Featured)&order=created_at.desc`,
+      {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+        },
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+    if (response.ok) {
+      const rows = await response.json();
+      publishedTestimonials = rows.map((row) => ({
+        id: row.id,
+        studentName: row.student_name || '',
+        parentName: row.parent_name || '',
+        grade: row.grade ? String(row.grade).replace(/\bGrade\s+Grade\b/gi, 'Grade ') : undefined,
+        rating: row.rating !== undefined && row.rating !== null ? Number(row.rating) : 0,
+        title: (row.title && row.title !== 'Transformation Review') ? row.title : (row.before_after_tag || undefined),
+        review: row.review || '',
+        beforeAfterTag: row.before_after_tag || undefined,
+        image: row.image || undefined,
+        mediaConsent: Boolean(row.media_consent),
+        status: row.status || 'Approved',
+        createdAt: row.created_at || '',
+      }));
+      // Featured first, then Approved — each group newest-first
+      const statusPriority = { Featured: 0, Approved: 1 };
+      publishedTestimonials.sort((a, b) => {
+        const pa = statusPriority[a.status] ?? 99;
+        const pb = statusPriority[b.status] ?? 99;
+        if (pa !== pb) return pa - pb;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      console.log(`[prerender] Fetched ${publishedTestimonials.length} public testimonials for /testimonials page.`);
+    } else {
+      console.warn(`[prerender] Could not fetch testimonials (HTTP ${response.status}) — /testimonials will render with empty state.`);
+    }
+  } catch (err) {
+    console.warn(`[prerender] Supabase testimonials fetch failed: ${err.message} — /testimonials will render with empty state. Start Supabase before building for full pre-rendering.`);
+  }
   
   const routes = Object.keys(PUBLIC_ROUTES_METADATA);
 
@@ -70,6 +136,13 @@ ${JSON.stringify(metadata.schemaOrg, null, 2)}
     </script>`;
 
     pageHtml = pageHtml.replace('</head>', `${seoTags}\n  </head>`);
+
+    // 5. For the /testimonials route, inject pre-fetched testimonial data so that
+    //    Googlebot sees real review content in the initial HTML without waiting for JS.
+    if (route === '/testimonials' && publishedTestimonials.length > 0) {
+      const initialDataScript = `<script>window.__INITIAL_TESTIMONIALS__=${JSON.stringify(publishedTestimonials)};</script>`;
+      pageHtml = pageHtml.replace('</body>', `${initialDataScript}\n</body>`);
+    }
 
     // Determine output file location
     let outFilePath;

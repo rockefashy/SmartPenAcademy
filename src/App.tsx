@@ -13,6 +13,10 @@ import { LoginModal } from './components/LoginModal';
 import { DemoBookingModal } from './components/DemoBookingModal';
 import { LandingPage } from './pages/LandingPage';
 import { AboutUsPage } from './pages/AboutUsPage';
+import { SyllabusPage } from './pages/SyllabusPage';
+import { WorkshopsPage } from './pages/WorkshopsPage';
+import { TestimonialsPage } from './pages/TestimonialsPage';
+import { FreeDemoPage } from './pages/FreeDemoPage';
 import { EnrollmentPage } from './pages/EnrollmentPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { StudentDetailPage } from './pages/StudentDetailPage';
@@ -65,23 +69,28 @@ function MainApp({ initialView }: { initialView?: string } = {}) {
     }
   }, [openLoginModal]);
 
+  // Public SEO Routes
+  const PUBLIC_VIEWS = ['landing', 'about', 'syllabus', 'workshops', 'testimonials', 'free-demo', 'enroll'];
+
   // Navigation State
   const getInitialView = () => {
     if (initialView) {
-      if (['about', 'enroll'].includes(initialView)) return initialView;
+      if (PUBLIC_VIEWS.includes(initialView)) return initialView;
       return 'landing';
     }
     if (typeof window !== 'undefined') {
       const pathname = window.location.pathname.replace(/^\/|\/$/g, '');
-      if (['about', 'enroll'].includes(pathname)) {
+      if (PUBLIC_VIEWS.includes(pathname)) {
         return pathname;
       }
-      if (['syllabus', 'workshops', 'testimonials', 'free-demo'].includes(pathname)) {
+      if (['admin', 'parentPortal'].includes(pathname)) {
+        const storedToken = localStorage.getItem('smartpen_token');
+        if (storedToken) return pathname;
         return 'landing';
       }
       const params = new URLSearchParams(window.location.search);
       const qView = params.get('view');
-      if (qView && ['landing', 'about', 'enroll'].includes(qView)) {
+      if (qView && PUBLIC_VIEWS.includes(qView)) {
         return qView;
       }
       if (qView && ['admin', 'parentPortal'].includes(qView)) {
@@ -91,7 +100,7 @@ function MainApp({ initialView }: { initialView?: string } = {}) {
       }
       if (window.location.hash) {
         const hash = window.location.hash.replace('#', '');
-        if (['landing', 'about', 'enroll'].includes(hash)) {
+        if (PUBLIC_VIEWS.includes(hash)) {
           return hash;
         }
         if (['admin', 'parentPortal'].includes(hash)) {
@@ -103,12 +112,31 @@ function MainApp({ initialView }: { initialView?: string } = {}) {
     }
     return 'landing';
   };
-    const [currentView, setCurrentView] = useState<string>(getInitialView);
+  const [currentView, setCurrentView] = useState<string>(getInitialView);
+
+  // Sync route on popstate (browser back / forward buttons)
+  React.useEffect(() => {
+    const handlePopState = () => {
+      const pathname = window.location.pathname.replace(/^\/|\/$/g, '') || 'landing';
+      if (PUBLIC_VIEWS.includes(pathname)) {
+        setCurrentView(pathname);
+      } else if (['admin', 'parentPortal'].includes(pathname)) {
+        const storedToken = localStorage.getItem('smartpen_token');
+        if (storedToken) {
+          setCurrentView(pathname);
+        } else {
+          setCurrentView('landing');
+        }
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   React.useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (['landing', 'about', 'enroll'].includes(hash)) {
+      if (PUBLIC_VIEWS.includes(hash)) {
         setCurrentView(hash);
       } else if (['admin', 'parentPortal'].includes(hash)) {
         const storedToken = localStorage.getItem('smartpen_token');
@@ -141,32 +169,14 @@ function MainApp({ initialView }: { initialView?: string } = {}) {
   const [enrollmentInitialData, setEnrollmentInitialData] = useState<any | null>(null);
   const [parentPortalInitialTab, setParentPortalInitialTab] = useState<'overview' | 'progress' | 'works' | 'attendance' | 'fees' | 'testimony'>('overview');
   
-  // Free Demo Class Booking Modal State
+  // Free Demo Class Booking Modal State (used for quick popup on buttons)
   const [isDemoModalOpen, setIsDemoModalOpen] = useState<boolean>(() => {
-    if (initialView === 'free-demo') return true;
     if (typeof window !== 'undefined') {
-      const pathname = window.location.pathname.replace(/^\/|\/$/g, '');
-      return pathname === 'free-demo' || window.location.hash === '#free-demo';
+      const hash = window.location.hash;
+      return hash === '#free-demo';
     }
     return false;
   });
-
-  // Smooth scroll to public section on direct landing (e.g. /syllabus, /workshops, /testimonials)
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const path = window.location.pathname.replace(/^\/|\/$/g, '');
-      const timer = setTimeout(() => {
-        if (path === 'syllabus' || window.location.hash === '#syllabus-section') {
-          document.getElementById('syllabus-section')?.scrollIntoView({ behavior: 'smooth' });
-        } else if (path === 'workshops' || window.location.hash === '#workshops-section') {
-          document.getElementById('workshops-section')?.scrollIntoView({ behavior: 'smooth' });
-        } else if (path === 'testimonials' || window.location.hash === '#testimonials-section') {
-          document.getElementById('testimonials-section')?.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, []);
 
   // Shared Persistent Chat History across Home and Popup Assistant
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -178,12 +188,12 @@ function MainApp({ initialView }: { initialView?: string } = {}) {
     }
   ]);
 
-  // Sync route on hash change if user uses browser back/forward or deep link
+  // Sync route on hash change or view navigation with pushState
   const handleNavigate = (view: string, extraId?: string, defaultSection?: any, prefillData?: any) => {
     if (view === 'landing') {
       setCurrentView('landing');
-      if (window.location.hash) {
-        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      if (typeof window !== 'undefined') {
+        window.history.pushState(null, '', '/');
       }
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -193,6 +203,9 @@ function MainApp({ initialView }: { initialView?: string } = {}) {
       setAdminInitialTab('studentEnrollment');
       setEnrollmentInitialData(prefillData || null);
       if (extraId) setSelectedStudentId(extraId);
+      if (typeof window !== 'undefined') {
+        window.history.pushState(null, '', '/enroll');
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -201,6 +214,32 @@ function MainApp({ initialView }: { initialView?: string } = {}) {
       if (extraId) setSelectedStudentId(extraId);
       if (typeof defaultSection === 'string' && ['overview', 'progress', 'works', 'attendance', 'fees', 'testimony'].includes(defaultSection)) {
         setParentPortalInitialTab(defaultSection as any);
+      }
+      if (typeof window !== 'undefined') {
+        window.history.pushState(null, '', '/parentPortal');
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (PUBLIC_VIEWS.includes(view)) {
+      setCurrentView(view);
+      if (typeof window !== 'undefined') {
+        window.history.pushState(null, '', `/${view}`);
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (view === 'admin') {
+      if (!isAuthenticated) {
+        openLoginModal();
+        return;
+      }
+      setCurrentView('admin');
+      if (typeof window !== 'undefined') {
+        window.history.pushState(null, '', '/admin');
+      }
+      if (typeof defaultSection === 'string' && ['roster', 'assignment', 'coaches', 'coachEnrollment', 'studentEnrollment', 'alerts', 'testimonials'].includes(defaultSection)) {
+        setAdminInitialTab(defaultSection as any);
       }
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -254,6 +293,38 @@ function MainApp({ initialView }: { initialView?: string } = {}) {
           <AboutUsPage
             onNavigate={handleNavigate}
             onOpenDemoBooking={() => setIsDemoModalOpen(true)}
+          />
+        );
+
+      case 'syllabus':
+        return (
+          <SyllabusPage
+            onNavigate={handleNavigate}
+            onOpenDemoBooking={() => setIsDemoModalOpen(true)}
+          />
+        );
+
+      case 'workshops':
+        return (
+          <WorkshopsPage
+            onNavigate={handleNavigate}
+            onOpenDemoBooking={() => setIsDemoModalOpen(true)}
+          />
+        );
+
+      case 'testimonials':
+        return (
+          <TestimonialsPage
+            onNavigate={handleNavigate}
+            onOpenDemoBooking={() => setIsDemoModalOpen(true)}
+          />
+        );
+
+      case 'free-demo':
+        return (
+          <FreeDemoPage
+            onNavigate={handleNavigate}
+            onOpenLogin={openLoginModal}
           />
         );
 

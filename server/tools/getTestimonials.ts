@@ -22,12 +22,12 @@ export const getTestimonialsTool: AgentTool = {
   rateLimit: { maxCalls: 60, windowMs: 60 * 1000 },
   async execute(args: any, _context: AgentToolContext): Promise<AgentToolResult> {
     const limit = Number(args?.limit) || 5;
-    let testimonials = await db.getTestimonials(undefined, 'Published');
+    let testimonials = await db.getTestimonials(undefined, ['Approved', 'Featured']);
 
     if (testimonials.length === 0) {
       return {
         result: { count: 0, testimonials: [] },
-        summary: '🌟 **Verified Parent Voices & Success Stories**:\n\nNo parent reviews or testimonials have been published yet. Testimonials will appear here once submitted and published.',
+        summary: '🌟 **Verified Parent Voices & Success Stories**:\n\nNo parent reviews or testimonials have been approved yet. Testimonials will appear here once submitted and approved.',
         success: true
       };
     }

@@ -26,3 +26,50 @@ Do not guess the connections from memory. Follow this process:
 4. Output the complete result into an ARCHITECTURE_GRAPH.md file containing:
    - A clean Mermaid.js diagram (using subgraphs for each architectural layer).
    - An adjacency list or markdown table documenting: [Source Symbol] -> [Relation Type: calls/imports/implements] -> [Target Symbol].
+
+CLaude Prompt":
+TASK: Generate a codegraph of SmartPenAcademy — derived from static analysis of the actual code, not from memory or summarization. Every edge in the graph must be traceable to a real import, route registration, DB call, or tool registry entry.
+
+RULES
+- Do not hand-draw the graph from general knowledge of the codebase. Derive it programmatically (e.g. madge, dependency-cruiser, ts-morph, or an equivalent AST-based tool) and show the command used.
+- If a tool isn't available, write a small script that walks imports/requires via the TS AST and prints the edge list before rendering it — show that script and its raw output.
+- Every node must correspond to a real file path or DB table/route; no invented or aggregated "conceptual" nodes unless explicitly labeled as such.
+- Output as files, not inline text dumps, and present them at the end.
+
+DELIVERABLES
+
+1. Module dependency graph (server + src separately, then combined)
+   - Tool: `npx madge --ts-config tsconfig.json --extensions ts,tsx server src -i codegraph/module-deps.svg` (or dependency-cruiser equivalent).
+   - Also output `--json` for machine-readable edges.
+   - Flag and list circular dependencies separately (`madge --circular`).
+
+2. Route → middleware → handler → DB map
+   - Parse every `router.<method>(...)` call across server/routes/*.ts.
+   - For each route, list: path, HTTP method, ordered middleware chain, handler file, every `db.*` method it calls, and every table that method touches (cross-reference server/db/*.ts).
+   - Output as a table (CSV or Markdown) AND as a Mermaid flowchart grouped by router file.
+
+3. AI tool registry graph
+   - For every entry in server/tools/registry.ts: tool name, allowedRoles, selfServiceOnly, rateLimit, which db.* methods and which tables it touches, whether it requires a confirmation token.
+   - Render as a Mermaid graph: role → tool → table, so I can see at a glance what each role can reach.
+
+4. Database ER diagram
+   - Derive from server/schema.sql (tables, FKs, RLS-enabled flag per table) — not from server/database.types.ts, which may drift from schema.sql; if the two disagree, flag it.
+   - Output as a Mermaid erDiagram, with RLS status annotated per table.
+
+5. Auth/session flow diagram
+   - Trace every path that issues, verifies, or invalidates a session: login, select-role, select-student, switch-student, supabase-session (if still present), password reset/change, token_version checks.
+   - Sequence diagram (Mermaid) per flow, file:line references on each step.
+
+6. Frontend → API call graph
+   - Every function in src/services/api.ts and any direct fetch() call in components, mapped to the backend route it calls and which page/component invokes it.
+   - Flag any frontend call to a route that no longer exists in server/routes, and any backend route with no frontend caller (dead code candidate).
+
+7. Summary stats
+   - File count, LOC per top-level directory, most-imported files (fan-in), files importing the most others (fan-out), any file with >500 LOC, any cycle.
+
+OUTPUT
+- Write all artifacts under a codegraph/ directory: module-deps.svg, module-deps.json, routes.md, tool-registry.mmd, schema-er.mmd, auth-flows/ (one .mmd per flow), api-callgraph.md, summary.md.
+- summary.md links to every other artifact and states, for each, the exact command that generated it so I can regenerate after future changes.
+- Do not fabricate or summarize a section you couldn't derive programmatically — mark it "NOT GENERATED: <reason>" instead of approximating it by hand.
+
+STOP after producing the files and summary.md — no code changes in this task.

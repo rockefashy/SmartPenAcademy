@@ -21,13 +21,13 @@ testimonialsRouter.get('/', optionalAuthenticateJwt, asyncHandler(async (req: Au
   const { studentId, status } = req.query;
   const isAdmin = req.user?.role === 'admin';
 
-  let filterStatus: string | undefined;
+  let filterStatus: string | string[] | undefined;
   if (isAdmin) {
     // Admins can filter by specific status (e.g. 'Pending', 'Archived') or view all if status omitted
     filterStatus = (status as string) || undefined;
   } else {
-    // Public and non-admin callers strictly only see Published / Featured reviews
-    filterStatus = 'Published';
+    // Public callers see Approved and Featured testimonials
+    filterStatus = ['Approved', 'Featured'];
   }
 
   const testimonials = await db.getTestimonials(studentId as string, filterStatus);
@@ -50,10 +50,10 @@ testimonialsRouter.get('/student/:id', optionalAuthenticateJwt, asyncHandler(asy
   const isAdmin = req.user?.role === 'admin';
   const isOwner = req.user && await canAccessStudent(req.user, id);
 
-  // If caller is neither an admin nor the verified student/parent owner, strictly filter to Published
-  let filterStatus: string | undefined;
+  // If caller is neither an admin nor the verified student/parent owner, strictly filter to public statuses
+  let filterStatus: string | string[] | undefined;
   if (!isAdmin && !isOwner) {
-    filterStatus = 'Published';
+    filterStatus = ['Approved', 'Featured'];
   }
 
   const testimonials = await db.getTestimonials(id, filterStatus);

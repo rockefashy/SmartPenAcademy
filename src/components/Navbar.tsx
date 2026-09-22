@@ -200,12 +200,15 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
 
                   <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-100/90 hover:bg-slate-100 px-2 sm:px-3 py-1 sm:py-1.5 rounded-2xl border border-slate-200/90 shadow-2xs transition-colors">
                     {user?.role === ROLES.ADMIN ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleNavClick('admin')}
-                        className="p-0 hover:bg-transparent text-left h-auto min-h-0"
+                      <a
+                        href="/admin"
+                        onClick={(e) => {
+                          if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                            e.preventDefault();
+                            handleNavClick('admin');
+                          }
+                        }}
+                        className="p-0 hover:bg-transparent text-left h-auto min-h-0 block cursor-pointer"
                         title="Go to Admin Portal"
                         id="link-nav-admin-portal"
                       >
@@ -219,7 +222,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                             <span className="text-[9px]">↗</span>
                           </p>
                         </div>
-                      </Button>
+                      </a>
                     ) : user?.role === ROLES.COACH ? (
                       <Button
                         type="button"
@@ -366,10 +369,14 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
               onClick={(e) => {
                 if (!e.ctrlKey && !e.metaKey && e.button === 0) {
                   e.preventDefault();
-                  scrollToSection('syllabus-section');
+                  handleNavClick('syllabus');
                 }
               }}
-              className="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-[#0E3589] hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1"
+              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1 ${
+                currentView === 'syllabus'
+                  ? 'text-[#0E3589] bg-blue-50 font-bold border border-blue-200/60 shadow-2xs'
+                  : 'text-slate-600 hover:text-[#0E3589] hover:bg-slate-50'
+              }`}
               id="nav-link-curriculum"
             >
               <BookOpen className="w-3.5 h-3.5 text-[#0E3589]" />
@@ -381,10 +388,14 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
               onClick={(e) => {
                 if (!e.ctrlKey && !e.metaKey && e.button === 0) {
                   e.preventDefault();
-                  scrollToSection('workshops-section');
+                  handleNavClick('workshops');
                 }
               }}
-              className="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-[#0E3589] hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5"
+              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                currentView === 'workshops'
+                  ? 'text-[#0E3589] bg-blue-50 font-bold border border-blue-200/60 shadow-2xs'
+                  : 'text-slate-600 hover:text-[#0E3589] hover:bg-slate-50'
+              }`}
               id="nav-link-workshops"
             >
               <Sparkles className="w-3.5 h-3.5 text-[#F46E20]" />
@@ -396,10 +407,14 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
               onClick={(e) => {
                 if (!e.ctrlKey && !e.metaKey && e.button === 0) {
                   e.preventDefault();
-                  scrollToSection('testimonials-section');
+                  handleNavClick('testimonials');
                 }
               }}
-              className="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:text-[#0E3589] hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5"
+              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                currentView === 'testimonials'
+                  ? 'text-[#0E3589] bg-blue-50 font-bold border border-blue-200/60 shadow-2xs'
+                  : 'text-slate-600 hover:text-[#0E3589] hover:bg-slate-50'
+              }`}
               id="nav-link-testimonials"
             >
               <MessageSquareQuote className="w-3.5 h-3.5 text-[#0084F4]" />
@@ -408,21 +423,24 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
 
             {/* Conditional Portal Links: Show Admin / Coach Portal if staff, Student Portal if student */}
             {isAuthenticated && (user?.role === ROLES.ADMIN || user?.role === ROLES.COACH) && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => handleNavClick('admin')}
-                leftIcon={<ShieldCheck className="w-3.5 h-3.5 text-[#0E3589]" />}
-                className={`text-xs sm:text-sm whitespace-nowrap shrink-0 ${
+              <a
+                href="/admin"
+                onClick={(e) => {
+                  if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                    e.preventDefault();
+                    handleNavClick('admin');
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                   currentView === 'admin' || currentView === 'studentDetail'
                     ? 'text-[#0E3589] bg-blue-50 font-bold border border-blue-200/60 shadow-2xs'
-                    : 'text-slate-600 hover:text-[#0E3589]'
+                    : 'text-slate-600 hover:text-[#0E3589] hover:bg-slate-50'
                 }`}
                 id="nav-link-admin"
               >
-                {user?.role === ROLES.COACH ? 'Coach Portal' : commonProperties.nav.adminDashboard}
-              </Button>
+                <ShieldCheck className="w-3.5 h-3.5 text-[#0E3589]" />
+                <span>{user?.role === ROLES.COACH ? 'Coach Portal' : commonProperties.nav.adminDashboard}</span>
+              </a>
             )}
 
             {isAuthenticated && user?.role === ROLES.STUDENT && (
@@ -576,11 +594,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                 onClick={(e) => {
                   if (!e.ctrlKey && !e.metaKey && e.button === 0) {
                     e.preventDefault();
-                    scrollToSection('syllabus-section');
+                    handleNavClick('syllabus');
                     setIsMobileMenuOpen(false);
                   }
                 }}
-                className="flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold text-slate-700 hover:bg-slate-50"
+                className={`flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold ${
+                  currentView === 'syllabus' ? 'bg-blue-50 text-[#0E3589]' : 'text-slate-700 hover:bg-slate-50'
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <BookOpen className="w-4 h-4 text-[#0E3589]" />
@@ -594,11 +614,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                 onClick={(e) => {
                   if (!e.ctrlKey && !e.metaKey && e.button === 0) {
                     e.preventDefault();
-                    scrollToSection('workshops-section');
+                    handleNavClick('workshops');
                     setIsMobileMenuOpen(false);
                   }
                 }}
-                className="flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold text-slate-700 hover:bg-slate-50"
+                className={`flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold ${
+                  currentView === 'workshops' ? 'bg-blue-50 text-[#0E3589]' : 'text-slate-700 hover:bg-slate-50'
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <Sparkles className="w-4 h-4 text-[#F46E20]" />
@@ -612,11 +634,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                 onClick={(e) => {
                   if (!e.ctrlKey && !e.metaKey && e.button === 0) {
                     e.preventDefault();
-                    scrollToSection('testimonials-section');
+                    handleNavClick('testimonials');
                     setIsMobileMenuOpen(false);
                   }
                 }}
-                className="flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold text-slate-700 hover:bg-slate-50"
+                className={`flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold ${
+                  currentView === 'testimonials' ? 'bg-blue-50 text-[#0E3589]' : 'text-slate-700 hover:bg-slate-50'
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <MessageSquareQuote className="w-4 h-4 text-[#0084F4]" />
@@ -645,15 +669,15 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
 
               {/* Conditional Portal Links: Show Admin / Coach Portal if staff, Student Portal if student */}
               {isAuthenticated && (user?.role === ROLES.ADMIN || user?.role === ROLES.COACH) && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="md"
-                  fullWidth
-                  onClick={() => {
-                    handleNavClick('admin');
+                <a
+                  href="/admin"
+                  onClick={(e) => {
+                    if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                      e.preventDefault();
+                      handleNavClick('admin');
+                    }
                   }}
-                  className={`justify-between px-3.5 py-3 rounded-2xl text-sm font-bold ${
+                  className={`flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold ${
                     currentView === 'admin' || currentView === 'studentDetail'
                       ? 'bg-blue-50 text-[#0E3589] border border-blue-200 shadow-xs'
                       : 'text-slate-700 hover:bg-blue-50/50'
@@ -665,7 +689,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onOpenD
                     <span>{user?.role === ROLES.COACH ? 'Coach Portal' : commonProperties.nav.adminDashboard}</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
-                </Button>
+                </a>
               )}
 
               {isAuthenticated && user?.role === ROLES.STUDENT && (

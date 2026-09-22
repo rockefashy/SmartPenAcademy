@@ -30,7 +30,7 @@ export function mapTestimonialRow(row: any): Testimonial {
 }
 
 export class TestimonialsDatabase {
-  async getTestimonials(studentId?: string, status?: string): Promise<Testimonial[]> {
+  async getTestimonials(studentId?: string, status?: string | string[]): Promise<Testimonial[]> {
     const supabase = getSupabase();
     let query = supabase.from('testimonials').select('*');
 
@@ -38,7 +38,11 @@ export class TestimonialsDatabase {
       query = query.eq('student_id', studentId);
     }
     if (status) {
-      query = query.eq('status', status);
+      if (Array.isArray(status)) {
+        query = query.in('status', status);
+      } else {
+        query = query.eq('status', status);
+      }
     }
 
     const { data, error } = await applyRowCeiling(
@@ -47,7 +51,22 @@ export class TestimonialsDatabase {
     if (error) {
       throw new Error(`Failed to fetch testimonials: ${error.message}`);
     }
-    return (data || []).map(mapTestimonialRow);
+    const results = (data || []).map(mapTestimonialRow);
+
+    // When fetching public testimonials (multiple statuses), sort Featured first,
+    // then Approved, each group ordered newest-first by createdAt.
+    if (Array.isArray(status) && status.length > 1) {
+      const statusPriority: Record<string, number> = { Featured: 0, Approved: 1 };
+      results.sort((a, b) => {
+        const pa = statusPriority[a.status] ?? 99;
+        const pb = statusPriority[b.status] ?? 99;
+        if (pa !== pb) return pa - pb;
+        // Within same status group: newest first
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+    }
+
+    return results;
   }
 
   async saveTestimonial(testimonial: Partial<Testimonial>): Promise<Testimonial> {

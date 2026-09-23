@@ -170,7 +170,7 @@ export const deleteAttendanceRecordTool: AgentTool = {
     }
 
     // 4. Execution (confirmed === true): Verify server-issued cryptographic single-use token
-    const tokenVerification = verifyAndConsumeConfirmationToken(
+    const tokenVerification = await verifyAndConsumeConfirmationToken(
       confirmationToken,
       _context.user?.id || 'anonymous',
       'deleteAttendanceRecord',

@@ -29,7 +29,7 @@ export interface ChatMessage {
 interface SmartPenAIAgentCoreProps {
   currentUser?: User | null;
   currentStudent?: StudentProfile | null;
-  onNavigate?: (page: string, extraId?: string, defaultSection?: number) => void;
+  onNavigate?: (page: string, extraId?: string, defaultSection?: string | number) => void;
   onOpenDemoModal?: () => void;
   onOpenLogin?: () => void;
   messages: ChatMessage[];
@@ -68,7 +68,7 @@ export const SmartPenAIAgentCore: React.FC<SmartPenAIAgentCoreProps> = ({
 
 
 
-  const displayName = currentStudent?.displayName || currentStudent?.firstName || currentUser?.firstName || currentUser?.name || '';
+  const displayName = currentStudent?.displayName || currentStudent?.firstName || currentUser?.displayName || currentUser?.firstName || '';
 
   const handleResetChat = () => {
     const greeting = displayName

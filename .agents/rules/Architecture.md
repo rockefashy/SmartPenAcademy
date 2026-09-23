@@ -143,10 +143,13 @@ All database modifications must use version-controlled migrations:
 ## 11. Technical Verification Baseline
 
 Before declaring any task complete:
-1. **Type Safety**: Run `npx tsc --noEmit` and confirm 0 errors.
+1. **Type Safety**: Run `npm run lint` (`tsc --noEmit`) and confirm 0 errors.
 2. **Production Compilation**: Run `npm run build` and confirm successful compilation and static prerendering.
 3. **Automated Regression Testing**: When touching backend endpoints, auth flows, or database mappings, run relevant test suites (e.g. `npx tsx scripts/e2e-test-suite.ts`) to confirm contract stability.
 4. **Status Vocabulary**: Clearly report status using: `IMPLEMENTED`, `PARTIALLY IMPLEMENTED`, `NOT IMPLEMENTED`, or `NOT VERIFIED`.
+
+### Mandatory Verification Invariant (Zero Silent Failures)
+If `npm run lint` (`tsc --noEmit`) or any verification command fails to execute (e.g. blocked by sandbox paths, missing binary, or permission denial), the agent **MUST NOT** proceed or declare status. It must immediately halt, output `VERIFICATION BLOCKED: [exact command error]`, and prompt for unsandboxed permission. Never assume or claim type correctness without actual compiler output showing exit code 0.
 
 ---
 

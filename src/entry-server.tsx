@@ -24,8 +24,8 @@ export const PUBLIC_ROUTES_METADATA: Record<string, PageMetadata> = {
           '@id': `${SITE_URL}/#organization`,
           name: 'SmartPen Academy',
           url: SITE_URL,
-          logo: `${SITE_URL}/app_images/finallogo.png`,
-          image: `${SITE_URL}/app_images/finallogo.png`,
+          logo: `${SITE_URL}/app_images/SmartPenAcademy_Logo.png`,
+          image: `${SITE_URL}/app_images/SmartPenAcademy_Logo.png`,
           description: 'Premier handwriting coaching academy founded by Mrs. Deepthy Rock. Transforming handwriting into academic excellence for students aged 4 to 18.',
           telephone: '+918861751000',
           email: 'deepthysrock@gmail.com',
@@ -54,7 +54,7 @@ export const PUBLIC_ROUTES_METADATA: Record<string, PageMetadata> = {
   },
   '/about': {
     title: 'About Mrs. Deepthy Rock & SmartPen Academy | Bangalore Handwriting Coach',
-    description: 'Meet Mrs. Deepthy Rock, founder of SmartPen Academy Bangalore. Discover our 10+ year proven kinetic handwriting methodology, certified coaching, and academic mission.',
+    description: 'Meet Mrs. Deepthy Rock, founder of SmartPen Academy Bangalore. Discover our proven kinetic handwriting methodology, certified coaching, and academic mission.',
     canonical: `${SITE_URL}/about`,
     schemaOrg: {
       '@context': 'https://schema.org',

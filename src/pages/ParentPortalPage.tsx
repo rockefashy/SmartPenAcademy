@@ -399,7 +399,7 @@ export const ParentPortalPage: React.FC<ParentPortalPageProps> = ({
                 >
                   {user.siblingStudents.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.firstName || s.fullName} {s.age ? `(Age ${s.age})` : ''}
+                      {s.displayName || s.firstName || 'Student'} {s.age ? `(Age ${s.age})` : ''}
                     </option>
                   ))}
                 </Select>

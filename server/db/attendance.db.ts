@@ -187,6 +187,34 @@ export class AttendanceDatabase {
     }
   }
 
+  async deleteAttendanceByDate(studentId: string, date: string): Promise<void> {
+    const supabase = getSupabase();
+    if (!studentId || typeof studentId !== 'string' || !date || typeof date !== 'string') {
+      throw new Error('[Data Integrity Error] deleteAttendanceByDate requires valid studentId and date.');
+    }
+
+    const { error } = await supabase
+      .from('attendance')
+      .delete()
+      .eq('student_id', studentId)
+      .eq('date', date);
+
+    if (error) {
+      throw new Error(`Failed to delete attendance: ${error.message}`);
+    }
+
+    const { data: presentRows } = await supabase
+      .from('attendance')
+      .select('id')
+      .eq('student_id', studentId)
+      .eq('status', 'Present');
+
+    await supabase
+      .from('students')
+      .update({ attended_classes: presentRows?.length || 0, updated_at: new Date().toISOString() })
+      .eq('id', studentId);
+  }
+
   async getAttendanceCountByMonth(yearMonth: string, studentIds?: string[]): Promise<number> {
     if (studentIds && studentIds.length === 0) return 0;
     const supabase = getSupabase();

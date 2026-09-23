@@ -96,7 +96,7 @@ export const recordFeePaymentTool: AgentTool = {
     }
 
     // Verify server-issued cryptographic single-use token
-    const tokenVerification = verifyAndConsumeConfirmationToken(
+    const tokenVerification = await verifyAndConsumeConfirmationToken(
       confirmationToken,
       user?.id || 'anonymous',
       'recordFeePayment',

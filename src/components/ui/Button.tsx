@@ -16,6 +16,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   variant?: ButtonVariant;
   size?: ButtonSize;
   isLoading?: boolean;
+  loading?: boolean;
   loadingText?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
@@ -76,6 +77,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       variant = 'primary',
       size = 'md',
       isLoading = false,
+      loading = false,
       loadingText,
       leftIcon,
       rightIcon,
@@ -88,7 +90,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
-    const isDisabled = disabled || isLoading;
+    const isBusy = isLoading || loading;
+    const isDisabled = disabled || isBusy;
     const hasCustomJustify = /(?:^|\s)justify-/.test(className);
     const isJustifyBetween = fullWidth && /(?:^|\s)justify-between(?:\s|$)/.test(className);
     const isJustifyStart = fullWidth && /(?:^|\s)justify-start(?:\s|$)/.test(className);
@@ -110,7 +113,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         type={type}
         disabled={isDisabled}
-        aria-busy={isLoading}
+        aria-busy={isBusy}
         onClick={handleClick}
         className={`
           inline-flex flex-row flex-nowrap items-center ${hasCustomJustify ? '' : 'justify-center'} transition-all cursor-pointer select-none whitespace-nowrap
@@ -122,7 +125,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         `.trim().replace(/\s+/g, ' ')}
         {...props}
       >
-        {isLoading ? (
+        {isBusy ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin shrink-0" />
             {loadingText ? <span>{loadingText}</span> : children ? <span className={`inline-flex flex-row flex-nowrap items-center gap-1.5 ${innerWrapperClass}`}>{children}</span> : null}

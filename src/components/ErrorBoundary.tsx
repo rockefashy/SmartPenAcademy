@@ -12,23 +12,11 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends (React.Component as unknown as {
-  new (props: Props): {
-    props: Props;
-    state: State;
-    setState(state: Partial<State>): void;
-    render(): ReactNode;
-  };
-}) {
-  public state: State = {
+export class ErrorBoundary extends React.Component<Props, State> {
+  public override state: State = {
     hasError: false,
     error: null
   };
-
-  constructor(props: Props) {
-    super(props);
-    this.props = props;
-  }
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };

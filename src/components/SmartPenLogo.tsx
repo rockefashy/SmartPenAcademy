@@ -23,14 +23,7 @@ export const SmartPenLogo: React.FC<LogoProps> = ({
   return (
     <div className={`inline-flex items-center select-none ${className}`}>
       <img
-        src="/app_images/finallogo.png"
-        onError={(e) => {
-          // Fallback to /finallogo.png if stored at root
-          const target = e.currentTarget;
-          if (target.src.includes('/app_images/finallogo.png')) {
-            target.src = '/finallogo.png';
-          }
-        }}
+        src="/app_images/SmartPenAcademy_Logo.png"
         alt="SmartPen Academy - Neat Writing. Sharp Minds!"
         className={`${heightClasses} w-auto object-contain max-w-none drop-shadow-2xs`}
         referrerPolicy="no-referrer"

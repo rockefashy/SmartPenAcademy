@@ -121,7 +121,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             {isCoach
-              ? `Coach Command Center • Signed in as Coach ${user?.name || ''}`
+              ? `Coach Command Center • Signed in as Coach ${user?.displayName || user?.firstName || ''}`
               : adminProperties.header.subtitle}
           </p>
         </div>

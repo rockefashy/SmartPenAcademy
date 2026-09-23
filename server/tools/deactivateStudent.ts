@@ -132,7 +132,7 @@ export const deactivateStudentTool: AgentTool = {
     }
 
     // 5. Execution (confirmed === true): Verify server-issued cryptographic single-use token
-    const tokenVerification = verifyAndConsumeConfirmationToken(
+    const tokenVerification = await verifyAndConsumeConfirmationToken(
       confirmationToken,
       context.user?.id || 'anonymous',
       'deactivateStudent',

@@ -227,6 +227,9 @@ export class SupabaseDatabase {
   deleteAttendance(id: string): Promise<void> {
     return attendanceDb.deleteAttendance(id);
   }
+  deleteAttendanceByDate(studentId: string, date: string): Promise<void> {
+    return attendanceDb.deleteAttendanceByDate(studentId, date);
+  }
   getAttendanceCountByMonth(yearMonth: string, studentIds?: string[]): Promise<number> {
     return attendanceDb.getAttendanceCountByMonth(yearMonth, studentIds);
   }

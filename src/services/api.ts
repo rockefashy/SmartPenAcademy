@@ -385,7 +385,7 @@ export const api = {
     return res.json();
   },
 
-  async addAttendance(studentId: string, data: { date: string; status: 'Present' | 'Absent'; notes?: string }): Promise<AttendanceRecord> {
+  async addAttendance(studentId: string, data: { date: string; status: 'Present' | 'Absent' | 'Late' | string; notes?: string }): Promise<AttendanceRecord> {
     const yearMonth = data.date.slice(0, 7);
     const res = await fetch('/api/attendance/batch', {
       method: 'POST',

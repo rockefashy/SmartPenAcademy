@@ -49,6 +49,7 @@ export interface CoachProfile {
   activeStudentsCount?: number;
   studentCount?: number;
   userId?: string;
+  role?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -67,6 +68,7 @@ export interface StudentProfile {
   dateOfBirth?: string;
   gender?: Gender;
   gradeClass?: string;
+  gradeLevel?: string;
   dominantHand?: DominantHand;
   modeOfLearning?: ModeOfLearning;
   schoolName?: string;
@@ -156,6 +158,7 @@ export interface FeeRecord {
   amount: number;
   paymentMethod?: string;
   receiptNumber: string;
+  receiptNo?: string;
   notes?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -269,7 +272,7 @@ export interface UpcomingWorkshop {
   enrollActionText: string;
 }
 
-export type DemoBookingStatus = 'Scheduled' | 'Contacted' | 'Completed' | 'Enrolled' | 'Cancelled';
+export type DemoBookingStatus = 'New' | 'Scheduled' | 'Contacted' | 'Completed' | 'Enrolled' | 'Cancelled' | 'Pending';
 
 export interface DemoBooking {
   id: string;
@@ -306,7 +309,9 @@ export interface Testimonial {
   studentId: string | null;
   studentName: string;
   parentName: string;
+  authorName?: string;
   grade?: string;
+  studentGrade?: string;
   schoolName?: string;
   relationship?: string;
   rating: number; // 1 to 5

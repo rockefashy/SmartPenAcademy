@@ -126,11 +126,11 @@ async function prerender() {
     <meta property="og:description" content="${metadata.description}" />
     <meta property="og:url" content="${metadata.canonical}" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://smartpenacademy.com/app_images/finallogo.png" />
+    <meta property="og:image" content="https://smartpenacademy.com/app_images/SmartPenAcademy_Logo.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${metadata.title}" />
     <meta name="twitter:description" content="${metadata.description}" />
-    <meta name="twitter:image" content="https://smartpenacademy.com/app_images/finallogo.png" />
+    <meta name="twitter:image" content="https://smartpenacademy.com/app_images/SmartPenAcademy_Logo.png" />
     <script type="application/ld+json">
 ${JSON.stringify(metadata.schemaOrg, null, 2)}
     </script>`;

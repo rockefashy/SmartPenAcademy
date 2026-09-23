@@ -28,7 +28,7 @@ import { formatDominantHand } from '../utils/formatters';
 import { validateEnrollmentForm } from '../validation/enrollmentForm.schema';
 
 interface EnrollmentPageProps {
-  onNavigate?: (view: string, studentId?: string, defaultSection?: any) => void;
+  onNavigate?: (view: string, studentId?: string, defaultSection?: any, prefillData?: any) => void;
   onOpenDemoModal?: () => void;
   initialData?: {
     studentName?: string;

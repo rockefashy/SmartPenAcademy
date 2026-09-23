@@ -1,19 +1,7 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret } from '../config/env.ts';
-
-// In-memory replay prevention cache for consumed JTIs with automatic garbage collection
-const consumedNonces = new Map<string, number>();
-
-// Clean up expired nonces every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [jti, expMs] of consumedNonces.entries()) {
-    if (now > expMs) {
-      consumedNonces.delete(jti);
-    }
-  }
-}, 5 * 60 * 1000).unref();
+import { getSupabase } from '../db/client.ts';
 
 function hashArgs(args: Record<string, any>): string {
   // Canonicalize keys to ensure consistent hashing
@@ -58,12 +46,12 @@ export function generateConfirmationToken(userId: string, toolName: string, args
  * 3. Exact matching of userId, toolName, and args hash
  * 4. Single-use replay prevention via nonce consumption
  */
-export function verifyAndConsumeConfirmationToken(
+export async function verifyAndConsumeConfirmationToken(
   token: string | undefined | null,
   userId: string,
   toolName: string,
   args: Record<string, any>
-): { valid: boolean; error?: string } {
+): Promise<{ valid: boolean; error?: string }> {
   if (!token || typeof token !== 'string') {
     return { valid: false, error: 'A valid server-issued confirmation token is required to execute this sensitive operation.' };
   }
@@ -89,15 +77,47 @@ export function verifyAndConsumeConfirmationToken(
       return { valid: false, error: 'Tool arguments have been modified since confirmation was drafted.' };
     }
 
-    // Check single-use nonce
+    // Check single-use nonce via PostgreSQL (stateless horizontal scaling)
     const jti = decoded.jti;
-    if (consumedNonces.has(jti)) {
-      return { valid: false, error: 'Confirmation token has already been consumed. Please request a new confirmation.' };
+    if (!jti) {
+      return { valid: false, error: 'Confirmation token is missing a unique JTI nonce.' };
     }
 
-    // Mark nonce consumed with expiration timestamp
-    const expMs = (decoded.exp || Math.floor(Date.now() / 1000) + 300) * 1000;
-    consumedNonces.set(jti, expMs);
+    const supabase = getSupabase();
+    const nonceKey = `nonce:${jti}`;
+    const now = new Date();
+
+    const { data: existing, error: selectErr } = await supabase
+      .from('rate_limits')
+      .select('key, reset_at')
+      .eq('key', nonceKey)
+      .maybeSingle();
+
+    if (!selectErr && existing) {
+      const isExpired = new Date(existing.reset_at) < now;
+      if (!isExpired) {
+        return { valid: false, error: 'Confirmation token has already been consumed. Please request a new confirmation.' };
+      }
+    }
+
+    // Mark nonce consumed in database with expiration matching token expiry
+    const expIso = new Date((decoded.exp || Math.floor(Date.now() / 1000) + 300) * 1000).toISOString();
+    const { error: insertErr } = await supabase
+      .from('rate_limits')
+      .insert({
+        key: nonceKey,
+        count: 1,
+        reset_at: expIso,
+        created_at: now.toISOString()
+      });
+
+    if (insertErr) {
+      // Primary key conflict indicates concurrent token replay
+      if (insertErr.code === '23505' || insertErr.message?.includes('duplicate key') || insertErr.message?.includes('rate_limits_pkey')) {
+        return { valid: false, error: 'Confirmation token has already been consumed. Please request a new confirmation.' };
+      }
+      console.warn(`[ConfirmationToken] Nonce persistence warning: ${insertErr.message}`);
+    }
 
     return { valid: true };
   } catch (err: any) {

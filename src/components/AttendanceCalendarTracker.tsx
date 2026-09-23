@@ -248,7 +248,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
     const rec = attendanceMap.get(dateStr);
     setActiveNoteModalDate(dateStr);
     setModalNoteText(rec?.notes || '');
-    setModalStatus(rec?.status || 'Present');
+    setModalStatus(rec?.status === 'Absent' ? 'Absent' : 'Present');
   };
 
   // Save note from popup dialog
@@ -263,7 +263,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
   const handleSaveInlineNote = async (dateStr: string) => {
     if (!isAdmin) return;
     const rec = attendanceMap.get(dateStr);
-    const status = rec?.status || 'Present';
+    const status: 'Present' | 'Absent' = rec?.status === 'Absent' ? 'Absent' : 'Present';
     await handleMarkStatus(dateStr, status, inlineEditText.trim());
     setEditingNoteDate(null);
   };
@@ -273,7 +273,7 @@ export const AttendanceCalendarTracker: React.FC<AttendanceCalendarTrackerProps>
     if (!isAdmin) return;
     const rec = attendanceMap.get(dateStr);
     if (!rec) return;
-    await handleMarkStatus(dateStr, rec.status, '');
+    await handleMarkStatus(dateStr, rec.status === 'Absent' ? 'Absent' : 'Present', '');
     showFeedback(`Note removed for ${dateStr}`);
   };
 

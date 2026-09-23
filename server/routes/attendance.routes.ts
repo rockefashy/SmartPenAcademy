@@ -1,7 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../supabaseDb.ts';
-import { serverSupabase } from '../supabase.ts';
 import { ROLES } from '../../src/types.ts';
 import {
   AuthRequest,
@@ -18,8 +17,7 @@ import { getCoachAssignedStudents, getCoachAssignedStudentIds } from '../helpers
 import {
   ValidationError,
   AuthorizationError,
-  NotFoundError,
-  DatabaseError
+  NotFoundError
 } from '../errors.ts';
 import { attendanceBatchSchema } from '../schemas.ts';
 
@@ -202,23 +200,7 @@ attendanceRouter.delete('/:studentId/:date', authenticateJwt, requireCoachOrAdmi
   }
   const { studentId, date } = parsed.data;
 
-  if (serverSupabase) {
-    const { data: matchedRows, error } = await serverSupabase
-      .from('attendance')
-      .select('id')
-      .eq('student_id', studentId)
-      .eq('date', date);
-
-    if (error) {
-      throw new DatabaseError(`Failed to fetch attendance rows for deletion: ${error.message}`);
-    }
-
-    if (matchedRows && matchedRows.length > 0) {
-      for (const row of matchedRows) {
-        await db.deleteAttendance(row.id);
-      }
-    }
-  }
+  await db.deleteAttendanceByDate(studentId, date);
 
   recordAudit({
     actorId: req.user?.id,

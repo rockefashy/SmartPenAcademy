@@ -345,9 +345,7 @@ function MainApp({ initialView }: { initialView?: string } = {}) {
 
         return (
           <EnrollmentPage
-            onNavigate={(view, studentId, defaultSection, prefillData) =>
-              handleNavigate(view, studentId, defaultSection, prefillData)
-            }
+            onNavigate={handleNavigate}
             onOpenDemoModal={() => setIsDemoModalOpen(true)}
             initialData={enrollmentInitialData}
             onBackToDemoBookings={() => {
@@ -417,9 +415,7 @@ function MainApp({ initialView }: { initialView?: string } = {}) {
 
         return (
           <AdminDashboardPage
-            onNavigate={(view, studentId, defaultSection, prefillData) =>
-              handleNavigate(view, studentId, defaultSection, prefillData)
-            }
+            onNavigate={handleNavigate}
             initialTab={adminInitialTab}
           />
         );

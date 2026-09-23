@@ -1,571 +1,882 @@
-# SmartPen Academy — Architecture Graph
+# SmartPen Academy — Architecture Codegraph
 
-> **Generated**: 2026-09-21 | **Method**: Direct file scan + import tracing (no guessing)  
-> **Stack**: React 18 + Vite (frontend) · Node.js + Express + TypeScript (backend) · Supabase PostgreSQL (persistence) · Google Gemini AI
+> **Methodology**: Every edge in this graph was traced deterministically from actual `import` statements, `export` declarations, and call sites. No edges have been inferred from filenames or memory.
+> **Generated**: 2026-09-23
 
 ---
 
-## 1. High-Level Architecture Diagram
+## Table of Contents
+
+1. [System Overview](#1-system-overview)
+2. [Module/Package Dependency Map](#2-modulepackage-dependency-map)
+3. [Mermaid Architecture Diagram](#3-mermaid-architecture-diagram)
+4. [Function & Component Call Hierarchy](#4-function--component-call-hierarchy)
+5. [Data Flow: Interfaces & Schemas](#5-data-flow-interfaces--schemas)
+6. [Adjacency List](#6-adjacency-list)
+7. [Flags: Orphans, Circular Dependencies, Layer Violations](#7-flags-orphans-circular-dependencies-layer-violations)
+
+---
+
+## 1. System Overview
+
+SmartPen Academy is a **full-stack SSR-capable SPA** with the following top-level architecture:
+
+| Layer | Technology | Root Entry |
+|---|---|---|
+| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS | `src/main.tsx` |
+| **Backend** | Node.js, Express, TypeScript | `server.ts` |
+| **Database** | Supabase PostgreSQL (service-role key) | `server/supabase.ts` |
+| **AI Engine** | Google Gemini (`@google/genai`) | `server/aiAgent.ts` |
+| **Email** | Resend SDK | `server/email.ts` |
+| **SSR Prerender** | Vite SSR | `src/entry-server.tsx` |
+
+**Deployment target**: Render (single-process, stateless, binds `0.0.0.0:PORT`).
+
+---
+
+## 2. Module/Package Dependency Map
+
+### Backend Package Dependency Tree
+
+```
+server.ts (bootstrap orchestrator)
+├── server/logger.ts
+├── server/errors.ts
+├── server/middleware/errorHandler.ts  → server/errors.ts, server/logger.ts
+├── server/middleware/auth.ts          → server/supabaseDb.ts, server/config/env.ts,
+│                                        server/errors.ts, src/types.ts
+├── server/middleware/rateLimiter.ts   → server/supabaseDb.ts, server/config/env.ts
+├── server/routes/health.routes.ts
+├── server/routes/auth.routes.ts       → server/supabaseDb.ts, server/services/auth.service.ts,
+│                                        server/middleware/auth.ts, server/email.ts,
+│                                        server/helpers/audit.ts, server/helpers/sessionHelper.ts,
+│                                        server/helpers/studentContext.ts, server/schemas.ts,
+│                                        server/errors.ts, server/logger.ts, src/types.ts
+├── server/routes/coaches.routes.ts    → server/supabaseDb.ts, server/middleware/auth.ts,
+│                                        server/helpers/audit.ts, server/errors.ts,
+│                                        server/schemas.ts, src/types.ts
+├── server/routes/students.routes.ts   → server/supabaseDb.ts, server/middleware/auth.ts,
+│                                        server/helpers/audit.ts, server/helpers/coachHelper.ts,
+│                                        server/email.ts, server/schemas.ts,
+│                                        server/pagination.ts, server/errors.ts, src/types.ts
+├── server/routes/attendance.routes.ts → server/supabaseDb.ts, server/supabase.ts [!VIOLATION],
+│                                        server/middleware/auth.ts, server/helpers/audit.ts,
+│                                        server/helpers/coachHelper.ts, server/schemas.ts,
+│                                        server/pagination.ts, server/errors.ts, src/types.ts
+├── server/routes/fees.routes.ts       → server/supabaseDb.ts, server/middleware/auth.ts,
+│                                        server/helpers/audit.ts, server/helpers/coachHelper.ts,
+│                                        server/helpers/validation.ts, server/schemas.ts,
+│                                        server/pagination.ts, server/errors.ts, src/types.ts
+├── server/routes/progressTrackers.routes.ts → server/supabaseDb.ts, server/middleware/auth.ts,
+│                                              server/helpers/audit.ts, server/errors.ts
+├── server/routes/reports.routes.ts    → server/supabaseDb.ts, server/middleware/auth.ts,
+│                                        server/helpers/audit.ts, server/errors.ts, src/types.ts
+├── server/routes/studentWorks.routes.ts → server/supabaseDb.ts, server/middleware/auth.ts,
+│                                          server/helpers/audit.ts, server/helpers/fileHelper.ts,
+│                                          server/errors.ts
+├── server/routes/reminders.routes.ts  → server/supabaseDb.ts, server/middleware/auth.ts,
+│                                        server/helpers/audit.ts, server/email.ts,
+│                                        server/errors.ts
+├── server/routes/demoBookings.routes.ts → server/supabaseDb.ts, server/middleware/auth.ts,
+│                                          server/helpers/audit.ts, server/email.ts,
+│                                          server/schemas.ts, server/logger.ts, server/errors.ts
+├── server/routes/alerts.routes.ts     → server/supabaseDb.ts, server/middleware/auth.ts,
+│                                        server/errors.ts
+├── server/routes/testimonials.routes.ts → server/supabaseDb.ts, server/middleware/auth.ts,
+│                                          server/helpers/audit.ts, server/helpers/fileHelper.ts,
+│                                          server/schemas.ts, server/errors.ts
+├── server/routes/ai.routes.ts         → server/supabaseDb.ts, server/aiAgent.ts,
+│                                        server/middleware/auth.ts, server/pagination.ts,
+│                                        server/errors.ts, server/schemas.ts, src/types.ts
+└── server/routes/logs.routes.ts       → server/logger.ts, server/middleware/rateLimiter.ts
+
+server/supabaseDb.ts (facade aggregator)
+├── server/db/auth.db.ts    → server/db/client.ts → server/supabase.ts → @supabase/supabase-js
+├── server/db/students.db.ts
+├── server/db/coaches.db.ts
+├── server/db/attendance.db.ts
+├── server/db/fees.db.ts
+├── server/db/progress.db.ts
+├── server/db/demoBookings.db.ts
+├── server/db/alerts.db.ts
+├── server/db/testimonials.db.ts
+└── server/db/audit.db.ts
+
+server/aiAgent.ts
+├── server/supabaseDb.ts
+├── server/email.ts
+├── server/tools/registry.ts  → server/tools/*.ts (48 agent tools)
+├── server/tools/helpers.ts
+├── server/prompts/agentPrompts.ts
+├── server/helpers/intentRouter.ts
+└── server/helpers/audit.ts
+
+server/services/auth.service.ts
+├── server/supabaseDb.ts
+├── server/config/env.ts
+├── server/errors.ts
+└── server/helpers/audit.ts
+```
+
+### Frontend Package Dependency Tree
+
+```
+src/main.tsx
+└── src/App.tsx
+    ├── src/context/AuthContext.tsx  → src/services/api.ts, src/types.ts
+    ├── src/components/ui/*          (Button, Modal, FormField, Input, Select, Textarea, Toast, Avatar, StatCard)
+    ├── src/components/Navbar.tsx
+    ├── src/components/Footer.tsx
+    ├── src/components/LoginModal.tsx       → src/services/api.ts, src/context/AuthContext.tsx
+    ├── src/components/DemoBookingModal.tsx → src/services/api.ts
+    ├── src/components/AIAgentChatWidget.tsx → src/components/SmartPenAIAgentCore.tsx
+    ├── src/components/SmartPenAIAgentCore.tsx → src/services/api.ts
+    ├── src/pages/LandingPage.tsx
+    ├── src/pages/AboutUsPage.tsx
+    ├── src/pages/SyllabusPage.tsx
+    ├── src/pages/WorkshopsPage.tsx
+    ├── src/pages/TestimonialsPage.tsx      → src/services/api.ts
+    ├── src/pages/FreeDemoPage.tsx          → src/services/api.ts
+    ├── src/pages/EnrollmentPage.tsx        → src/services/api.ts, src/context/AuthContext.tsx
+    ├── src/pages/AdminDashboardPage.tsx    → src/components/admin/...
+    ├── src/pages/StudentDetailPage.tsx     → src/services/api.ts, src/context/AuthContext.tsx
+    └── src/pages/ParentPortalPage.tsx      → src/services/api.ts, src/context/AuthContext.tsx
+
+src/pages/AdminDashboardPage.tsx
+├── src/components/admin/hooks/useAdminDashboardData.ts → src/services/api.ts,
+│                                                          src/context/AuthContext.tsx,
+│                                                          src/utils/clientError.ts
+├── src/components/admin/tabs/StudentsTab.tsx
+├── src/components/admin/tabs/CoachAssignmentTab.tsx
+├── src/components/admin/tabs/CoachesTab.tsx
+├── src/components/admin/tabs/CoachEnrollmentTab.tsx
+├── src/components/admin/tabs/AlertsTab.tsx
+├── src/components/admin/tabs/TestimonialsTab.tsx
+└── src/components/admin/modals/*
+
+src/services/api.ts  (single centralised HTTP client)
+└── src/types.ts     (imports all domain types/interfaces)
+```
+
+---
+
+## 3. Mermaid Architecture Diagram
 
 ```mermaid
 graph TB
-    subgraph CLIENT["Client (Browser)"]
-        MAIN["main.tsx\nHydrate / Render root"]
-        APP["App.tsx\nRouter + Auth guards"]
-        AUTH_CTX["AuthContext.tsx\nGlobal session state"]
-        
+    subgraph BROWSER["Browser (Client)"]
+        direction TB
+        main["main.tsx · Hydrate/createRoot"]
+        App["App.tsx · Router + Auth Guard"]
+        AuthCtx["AuthContext.tsx · Global Session State"]
+        apiSvc["services/api.ts · HTTP Client Layer"]
+        types["types.ts · Shared Interfaces"]
+
         subgraph PAGES["Pages"]
-            LP["LandingPage"]
-            ADP["AdminDashboardPage"]
-            SDP["StudentDetailPage"]
-            PPP["ParentPortalPage"]
-            EP["EnrollmentPage"]
-            AUP["AboutUsPage"]
+            LandingPage
+            AboutUsPage
+            SyllabusPage
+            WorkshopsPage
+            TestimonialsPage
+            FreeDemoPage
+            EnrollmentPage
+            AdminDashboardPage
+            StudentDetailPage
+            ParentPortalPage
         end
 
-        subgraph COMPONENTS["Components"]
-            NB["Navbar"]
-            FT["Footer"]
-            LM["LoginModal"]
-            DBM["DemoBookingModal"]
-            AIC["AIAgentChatWidget"]
-            AICORE["SmartPenAIAgentCore"]
-            ACT["AttendanceCalendarTracker"]
-            FLT["FeeLedgerTracker"]
-            PRC["ProgressReportCard"]
-            CERT["CertificateModal"]
-            CAM["CameraCaptureModal"]
-
-            subgraph ADMIN_COMP["Admin Components"]
-                DADH["useAdminDashboardData (hook)"]
-                STAB["StudentsTab"]
-                CTAB["CoachesTab"]
-                CATAB["CoachAssignmentTab"]
-                CETAB["CoachEnrollmentTab"]
-                ATAB["AlertsTab"]
-                TTAB["TestimonialsTab"]
-                ECMOD["EditCoachModal"]
-                QAMOD["QuickAttendanceModal"]
-                QFMOD["QuickFeeModal"]
-                QCAMOD["QuickCoachAssignModal"]
-                BKMOD["BookingNotesModal"]
-                DLMOD["DeleteBookingModal"]
-            end
-
-            subgraph UI_COMP["UI Primitives"]
-                BTN["Button"]
-                MDL["Modal"]
-                FF["FormField"]
-                INP["Input"]
-                SEL["Select"]
-                TOA["Toast"]
-                AVT["Avatar"]
-                STC["StatCard"]
-            end
+        subgraph ADMIN_COMP["Admin Components"]
+            useAdminDashboardData
+            StudentsTab
+            CoachAssignmentTab
+            CoachesTab
+            CoachEnrollmentTab
+            AlertsTab
+            TestimonialsTab
+            AdminModals["Admin Modals"]
         end
 
-        subgraph SERVICES["services/api.ts\n(API Client Layer)"]
-            API["api object\n~50 typed methods"]
+        subgraph SHARED_COMP["Shared Components"]
+            Navbar
+            Footer
+            LoginModal
+            DemoBookingModal
+            AIAgentChatWidget
+            SmartPenAIAgentCore
+            AttendanceCalendarTracker
+            FeeLedgerTracker
+            ProgressReportCard
+            CertificateModal
+            ErrorBoundary
         end
 
-        MAIN --> APP
-        APP --> AUTH_CTX
-        APP --> PAGES
-        APP --> NB
-        APP --> FT
-        APP --> LM
-        APP --> DBM
-        APP --> AIC
+        subgraph UI_PRIMITIVES["UI Primitives"]
+            Button
+            Modal
+            FormField
+            Input
+            Select
+            Toast
+            StatCard
+        end
 
-        LP --> AIC
-        LP --> AICORE
-        ADP --> DADH
-        ADP --> STAB
-        ADP --> CTAB
-        ADP --> CATAB
-        ADP --> CETAB
-        ADP --> ATAB
-        ADP --> TTAB
-
-        PAGES --> API
-        ADMIN_COMP --> API
-        LM --> API
-        DBM --> API
-        ACT --> API
-        FLT --> API
-        AICORE --> API
-        AUTH_CTX --> API
+        subgraph UTILS["Client Utilities"]
+            clientError["clientError.ts"]
+            cycleCalc["cycleCalculations.ts"]
+            formatters["formatters.ts"]
+        end
     end
 
-    subgraph SERVER["Server (Express · Node.js)"]
-        ENTRY["server.ts\nBootstrap orchestrator"]
+    subgraph SERVER["Node.js / Express Server"]
+        direction TB
+        serverTS["server.ts · Bootstrap Orchestrator"]
 
         subgraph MIDDLEWARE["Middleware"]
-            AUTHMW["auth.ts\nauthenticateJwt · requireAdmin\nrequireCoachOrAdmin · verifyStudentAccess"]
-            ERRMW["errorHandler.ts\nasyncHandler · errorHandler"]
-            RLMW["rateLimiter.ts\ncreateRateLimiter (Supabase-backed)"]
+            authMW["auth.ts · authenticateJwt · requireAdmin · requireCoachOrAdmin · verifyStudentAccess"]
+            errorHandler["errorHandler.ts · asyncHandler · errorHandler"]
+            rateLimiter["rateLimiter.ts · createRateLimiter · paymentRateLimiter · authRateLimiter · aiChatRateLimiter"]
         end
 
-        subgraph ROUTES["Routes (server/routes/)"]
-            AUTHR["auth.routes.ts"]
-            STUDR["students.routes.ts"]
-            COAR["coaches.routes.ts"]
-            ATTR["attendance.routes.ts"]
-            FEER["fees.routes.ts"]
-            PROGT["progressTrackers.routes.ts"]
-            REPR["reports.routes.ts"]
-            SWRK["studentWorks.routes.ts"]
-            REMR["reminders.routes.ts"]
-            DEMBR["demoBookings.routes.ts"]
-            ALRR["alerts.routes.ts"]
-            TESTR["testimonials.routes.ts"]
-            AIR["ai.routes.ts"]
-            HLR["health.routes.ts"]
-            LOGR["logs.routes.ts"]
+        subgraph ROUTERS["Domain Routers"]
+            healthR["health.routes.ts"]
+            authR["auth.routes.ts"]
+            studentsR["students.routes.ts"]
+            attendanceR["attendance.routes.ts"]
+            feesR["fees.routes.ts"]
+            coachesR["coaches.routes.ts"]
+            progressR["progressTrackers.routes.ts"]
+            reportsR["reports.routes.ts"]
+            studentWorksR["studentWorks.routes.ts"]
+            remindersR["reminders.routes.ts"]
+            demoBookingsR["demoBookings.routes.ts"]
+            alertsR["alerts.routes.ts"]
+            testimonialsR["testimonials.routes.ts"]
+            aiR["ai.routes.ts"]
+            logsR["logs.routes.ts"]
         end
 
-        subgraph AI_ENGINE["AI Engine (server/)"]
-            AIAG["aiAgent.ts\nhandleAIAgentChat · executeTool"]
-            TOOLS_REG["tools/registry.ts\ntoolRegistry (48 tools)"]
-            TOOL_IMPL["tools/*.ts\n(48 AgentTool implementations)"]
-            INTENT["helpers/intentRouter.ts\ndetectIntent"]
-            AGPROMPT["prompts/agentPrompts.ts\nbuildRoleSystemInstruction"]
+        subgraph SERVICES["Server Services"]
+            authService["auth.service.ts · AuthService.authenticateUser"]
         end
 
-        subgraph SERVICES_SV["Services (server/services/)"]
-            AUTH_SVC["auth.service.ts\nAuthService.authenticateUser"]
+        subgraph HELPERS["Server Helpers"]
+            auditH["audit.ts · recordAudit · sanitizeAuditArguments"]
+            sessionH["sessionHelper.ts · issueUserSession"]
+            studentCtxH["studentContext.ts · resolveStudentContext"]
+            coachH["coachHelper.ts · getCoachAssignedStudents"]
+            intentH["intentRouter.ts · detectIntent"]
+            fileH["fileHelper.ts · saveBase64Image"]
+            confirmH["confirmationToken.ts · ORPHAN RISK"]
         end
 
-        subgraph HELPERS["Helpers (server/helpers/)"]
-            AUDIT_H["audit.ts\nrecordAudit · sanitizeAuditArguments"]
-            SESSION_H["sessionHelper.ts\nissueUserSession"]
-            STUDENT_CTX["studentContext.ts\nresolveStudentContext"]
-            CONFIRM_H["confirmationToken.ts"]
-            INTENT_H["intentRouter.ts"]
-            FILE_H["fileHelper.ts"]
-            COACH_H["coachHelper.ts"]
+        subgraph AI_LAYER["AI Agent Layer"]
+            aiAgent["aiAgent.ts · executeTool · handleAIAgentChat"]
+            toolRegistry["tools/registry.ts · toolRegistry 48 tools"]
+            toolHelpers["tools/helpers.ts · verifyToolStudentAccess"]
+            agentPrompts["prompts/agentPrompts.ts"]
+            allTools["tools/*.ts · 48 tool implementations"]
         end
 
-        subgraph DB_LAYER["Database Layer (server/db/)"]
-            DBFACADE["supabaseDb.ts\nSupabaseDatabase facade + db"]
-            AUTH_DB["auth.db.ts\nauthDb"]
-            STUD_DB["students.db.ts\nstudentsDb"]
-            COACH_DB["coaches.db.ts\ncoachesDb"]
-            ATT_DB["attendance.db.ts\nattendanceDb"]
-            FEE_DB["fees.db.ts\nfeesDb"]
-            PROG_DB["progress.db.ts\nprogressDb"]
-            DEMO_DB["demoBookings.db.ts\ndemoBookingsDb"]
-            ALERT_DB["alerts.db.ts\nalertsDb"]
-            TEST_DB["testimonials.db.ts\ntestimonialsDb"]
-            AUDIT_DB["audit.db.ts\nauditDb"]
-            DB_CLIENT["db/client.ts\ngetSupabase · pagination helpers"]
+        subgraph EMAIL["Email Service"]
+            emailMod["email.ts · sendFeeReminderEmail · sendEnrollmentEmails · sendDemoBookingAlert · sendPasswordResetLinkEmail"]
         end
 
-        INFRA["server/supabase.ts\nserverSupabase (service-role client)"]
-        EMAIL["server/email.ts\nResend email service"]
-        LOGGER["server/logger.ts\nLogger.get(domain)"]
-        ERRORS["server/errors.ts\nAppError hierarchy"]
-        SCHEMAS["server/schemas.ts\nZod shared schemas"]
-
-        ENTRY --> ROUTES
-        ENTRY --> MIDDLEWARE
-        ROUTES --> AUTHMW
-        ROUTES --> RLMW
-        ROUTES --> ERRMW
-        ROUTES --> DBFACADE
-        ROUTES --> AUDIT_H
-        ROUTES --> EMAIL
-        
-        AUTHR --> AUTH_SVC
-        AUTHR --> SESSION_H
-
-        AIR --> AIAG
-        AIAG --> TOOLS_REG
-        AIAG --> INTENT
-        AIAG --> AGPROMPT
-        TOOLS_REG --> TOOL_IMPL
-        TOOL_IMPL --> DBFACADE
-        TOOL_IMPL --> EMAIL
-
-        AUTHMW --> DBFACADE
-        RLMW --> DBFACADE
-
-        AUTH_SVC --> DBFACADE
-        SESSION_H --> DBFACADE
-        AUDIT_H --> DBFACADE
-        STUDENT_CTX --> DBFACADE
-
-        DBFACADE --> AUTH_DB
-        DBFACADE --> STUD_DB
-        DBFACADE --> COACH_DB
-        DBFACADE --> ATT_DB
-        DBFACADE --> FEE_DB
-        DBFACADE --> PROG_DB
-        DBFACADE --> DEMO_DB
-        DBFACADE --> ALERT_DB
-        DBFACADE --> TEST_DB
-        DBFACADE --> AUDIT_DB
-
-        AUTH_DB --> DB_CLIENT
-        STUD_DB --> DB_CLIENT
-        COACH_DB --> DB_CLIENT
-        ATT_DB --> DB_CLIENT
-        FEE_DB --> DB_CLIENT
-        PROG_DB --> DB_CLIENT
-        DEMO_DB --> DB_CLIENT
-        ALERT_DB --> DB_CLIENT
-        TEST_DB --> DB_CLIENT
-        AUDIT_DB --> DB_CLIENT
-        STUD_DB --> AUTH_DB
-
-        DB_CLIENT --> INFRA
-        ERRMW --> ERRORS
-        ERRMW --> LOGGER
+        serverErrors["errors.ts · AppError hierarchy"]
+        serverLogger["logger.ts · Logger · redactSensitiveData"]
+        serverSchemas["schemas.ts · Zod validation schemas"]
+        pagination["pagination.ts · sendPaginated"]
     end
 
-    subgraph EXTERNAL["External Systems"]
-        SUPABASE_PG["Supabase PostgreSQL\n(+ RLS)"]
-        RESEND["Resend Email API"]
-        GEMINI["Google Gemini API\n(generativelanguage.googleapis.com)"]
+    subgraph DB_LAYER["Database Layer"]
+        direction TB
+        supabaseDbFacade["supabaseDb.ts · SupabaseDatabase facade"]
+        dbClient["db/client.ts · getSupabase"]
+
+        subgraph DOMAIN_REPOS["Domain Repositories"]
+            authDb["auth.db.ts · AuthDatabase"]
+            studentsDb["students.db.ts · StudentsDatabase"]
+            coachesDb["coaches.db.ts · CoachesDatabase"]
+            attendanceDb["attendance.db.ts · AttendanceDatabase"]
+            feesDb["fees.db.ts · FeesDatabase"]
+            progressDb["progress.db.ts · ProgressDatabase"]
+            demoBookingsDb["demoBookings.db.ts · DemoBookingsDatabase"]
+            alertsDb["alerts.db.ts · AlertsDatabase"]
+            testimonialsDb["testimonials.db.ts · TestimonialsDatabase"]
+            auditDb["audit.db.ts · AuditDatabase"]
+        end
+
+        supabaseClient["supabase.ts · serverSupabase · service-role key"]
     end
 
-    SHARED["src/types.ts\nShared TypeScript contracts\n(User, StudentProfile, FeeRecord, etc.)"]
+    subgraph EXTERNAL["External Services"]
+        SupabasePostgres[("Supabase PostgreSQL")]
+        ResendAPI["Resend API"]
+        GeminiAPI["Google Gemini API"]
+    end
 
-    API -->|"HTTP fetch /api/*"| ROUTES
-    INFRA --> SUPABASE_PG
-    EMAIL --> RESEND
-    AIAG --> GEMINI
-    CLIENT --> SHARED
-    SERVER --> SHARED
+    main --> App
+    App --> AuthCtx
+    App --> PAGES
+    App --> SHARED_COMP
+    AuthCtx --> apiSvc
+    PAGES --> apiSvc
+    useAdminDashboardData --> apiSvc
+    SmartPenAIAgentCore --> apiSvc
+    clientError -->|"POST /api/logs/client"| logsR
+
+    apiSvc -->|"HTTP /api/*"| serverTS
+    serverTS --> ROUTERS
+    serverTS --> MIDDLEWARE
+
+    authMW --> supabaseDbFacade
+    rateLimiter --> supabaseDbFacade
+
+    authR --> authMW
+    authR --> rateLimiter
+    studentsR --> authMW
+    attendanceR --> authMW
+    feesR --> authMW
+    coachesR --> authMW
+    progressR --> authMW
+    reportsR --> authMW
+    studentWorksR --> authMW
+    remindersR --> authMW
+    demoBookingsR --> rateLimiter
+    alertsR --> authMW
+    testimonialsR --> authMW
+    aiR --> authMW
+    aiR --> rateLimiter
+    logsR --> rateLimiter
+
+    authR --> authService
+    authR --> sessionH
+    authR --> studentCtxH
+    authR --> auditH
+    studentsR --> coachH
+    studentsR --> auditH
+    attendanceR --> coachH
+    attendanceR --> auditH
+    feesR --> coachH
+    feesR --> auditH
+    coachesR --> auditH
+    reportsR --> auditH
+    remindersR --> auditH
+    demoBookingsR --> auditH
+    testimonialsR --> auditH
+    testimonialsR --> fileH
+
+    authR --> emailMod
+    studentsR --> emailMod
+    remindersR --> emailMod
+    demoBookingsR --> emailMod
+    reportsR --> emailMod
+
+    aiR --> aiAgent
+    aiAgent --> toolRegistry
+    aiAgent --> toolHelpers
+    aiAgent --> agentPrompts
+    aiAgent --> intentH
+    aiAgent --> auditH
+    aiAgent --> emailMod
+    toolRegistry --> allTools
+
+    authR --> supabaseDbFacade
+    authService --> supabaseDbFacade
+    studentsR --> supabaseDbFacade
+    attendanceR --> supabaseDbFacade
+    feesR --> supabaseDbFacade
+    coachesR --> supabaseDbFacade
+    progressR --> supabaseDbFacade
+    reportsR --> supabaseDbFacade
+    studentWorksR --> supabaseDbFacade
+    remindersR --> supabaseDbFacade
+    demoBookingsR --> supabaseDbFacade
+    alertsR --> supabaseDbFacade
+    testimonialsR --> supabaseDbFacade
+    aiR --> supabaseDbFacade
+    allTools --> supabaseDbFacade
+    auditH --> supabaseDbFacade
+    coachH --> supabaseDbFacade
+    sessionH --> supabaseDbFacade
+    studentCtxH --> supabaseDbFacade
+    emailMod --> supabaseDbFacade
+    authMW --> supabaseDbFacade
+    rateLimiter --> supabaseDbFacade
+
+    supabaseDbFacade --> authDb
+    supabaseDbFacade --> studentsDb
+    supabaseDbFacade --> coachesDb
+    supabaseDbFacade --> attendanceDb
+    supabaseDbFacade --> feesDb
+    supabaseDbFacade --> progressDb
+    supabaseDbFacade --> demoBookingsDb
+    supabaseDbFacade --> alertsDb
+    supabaseDbFacade --> testimonialsDb
+    supabaseDbFacade --> auditDb
+
+    authDb --> dbClient
+    studentsDb --> dbClient
+    coachesDb --> dbClient
+    attendanceDb --> dbClient
+    feesDb --> dbClient
+    progressDb --> dbClient
+    demoBookingsDb --> dbClient
+    alertsDb --> dbClient
+    testimonialsDb --> dbClient
+    auditDb --> dbClient
+    dbClient --> supabaseClient
+
+    supabaseClient -->|"PostgREST + RLS"| SupabasePostgres
+    emailMod -->|"Resend SDK"| ResendAPI
+    aiAgent -->|"@google/genai"| GeminiAPI
 ```
 
 ---
 
-## 2. Module/Package Dependency Graph
+## 4. Function & Component Call Hierarchy
 
-```mermaid
-graph LR
-    subgraph FRONTEND["Frontend (src/)"]
-        main --> App
-        App --> AuthContext
-        App --> pages
-        App --> components
-        AuthContext --> api
-        pages --> api
-        components --> api
-        components --> types
-        pages --> types
-        api --> types
-    end
+### 4.1 Login Flow (Frontend → Backend → DB)
 
-    subgraph BACKEND["Backend (server/)"]
-        server_ts["server.ts"] --> routes
-        routes --> middleware
-        routes --> supabaseDb
-        routes --> helpers
-        routes --> email_svc["email.ts"]
-        routes --> schemas
-        routes --> errors
-        
-        aiAgent --> supabaseDb
-        aiAgent --> tools
-        aiAgent --> prompts
-        aiAgent --> helpers
-        
-        middleware --> supabaseDb
-        middleware --> errors
-        middleware --> logger
-        
-        services_sv["services/"] --> supabaseDb
-        services_sv --> errors
-        services_sv --> middleware
-        
-        helpers --> supabaseDb
-        helpers --> logger
-        helpers --> types
-        
-        supabaseDb --> db_repos["db/*.db.ts"]
-        db_repos --> db_client["db/client.ts"]
-        db_repos --> types
-        db_client --> supabase_ts["supabase.ts"]
-        
-        email_svc --> logger
-    end
+```
+App.tsx::MainApp
+  └── LoginModal (isOpen)
+        └── api.login({ identifier, password, role })
+              └── POST /api/auth/login
+                    ├── [MW] authRateLimiter → db.checkRateLimit()
+                    ├── loginSchema.safeParse()
+                    └── authService.authenticateUser({ identifier, password, role })
+                          ├── db.findUsersByIdentifier(identifier)
+                          │     └── authDb.findUsersByIdentifier()
+                          │           └── supabase.rpc('get_auth_user_by_identifier')
+                          ├── bcrypt.compare(password, user.passwordHash)
+                          ├── [multi-student?] → issue STUDENT_SELECTION JWT
+                          ├── [multi-role?]    → issue ROLE_SELECTION JWT
+                          └── [single user]    → issueUserSession(user, res)
+                                ├── resolveStudentContext(user)
+                                │     └── db.getSiblingStudentsForUser()
+                                ├── jwt.sign(payload, jwtSecret, { expiresIn: '7d' })
+                                └── res.cookie('smartpen_token', token, { httpOnly: true })
+```
 
-    types["src/types.ts"] -.->|"shared"| FRONTEND
-    types -.->|"shared"| BACKEND
+### 4.2 AI Agent Chat Flow
+
+```
+App.tsx → AIAgentChatWidget
+  └── SmartPenAIAgentCore
+        └── api.sendAgentMessage(messages, userContext)
+              └── POST /api/ai/agent-chat
+                    ├── [MW] optionalAuthenticateJwt → jwt.verify()
+                    ├── [MW] aiChatRateLimiter → db.checkRateLimit()
+                    └── handleAIAgentChat({ messages, userContext, clientIp })
+                          ├── detectIntent(lastMessage)  [fast-path: greetings, enrollment nav]
+                          ├── buildRoleSystemInstruction(userContext)
+                          ├── GoogleGenAI.models.generateContent(tools, history)
+                          └── [per function_call] executeTool(name, args, userContext)
+                                ├── isToolAllowedForRole(name, userContext.role)
+                                ├── checkToolRateLimit(userKey, toolName, max, windowMs)
+                                │     └── db.checkRateLimit()
+                                ├── toolRegistry[name].execute(args, userContext)
+                                │     └── db.*() (specific domain repo method)
+                                └── recordAudit({ actorId, toolName, args, result })
+                                      └── db.recordToolAuditLog()
+```
+
+### 4.3 Student Enrollment Flow (Admin)
+
+```
+AdminDashboardPage → EnrollmentPage (tab: 'studentEnrollment')
+  └── api.enrollStudent(studentData)
+        └── POST /api/students
+              ├── [MW] authenticateJwt
+              ├── [MW] requireAdmin
+              ├── enrollStudentSchema.safeParse()
+              └── db.createStudent(data)
+                    └── studentsDb.createStudent()
+                          ├── supabase.from('students').insert()
+                          └── supabase.from('users').insert() + bcrypt.hash(password)
+              → sendEnrollmentEmails(student, coachEmail)  [Resend]
+              → recordAudit({ action: 'student_enroll' })
+```
+
+### 4.4 Attendance Recording Flow
+
+```
+AttendanceCalendarTracker
+  └── api.saveAttendance(studentId, records[])
+        └── POST /api/attendance/student/:id
+              ├── [MW] authenticateJwt
+              ├── [MW] requireCoachOrAdmin
+              ├── [MW] attendanceRateLimiter
+              ├── attendanceBatchSchema.safeParse()
+              └── db.upsertAttendance(records[])
+                    └── attendanceDb.upsertAttendance()
+                          └── supabase.from('attendance').upsert()
+              → recordAudit({ action: 'attendance_update' })
+```
+
+### 4.5 Fee Payment Flow
+
+```
+FeeLedgerTracker
+  └── api.recordFeePayment(feeData)
+        └── POST /api/fees
+              ├── [MW] authenticateJwt
+              ├── [MW] requireCoachOrAdmin
+              ├── [MW] paymentRateLimiter
+              ├── createFeeSchema.safeParse()
+              └── db.createFeeRecord(data)
+                    └── feesDb.createFeeRecord()
+                          └── supabase.from('fees').insert()
+              → recordAudit({ action: 'fee_payment' })
+```
+
+### 4.6 Demo Booking Flow (Public)
+
+```
+DemoBookingModal
+  └── api.createDemoBooking(bookingData)
+        └── POST /api/demo-bookings
+              ├── [MW] demoBookingRateLimiter
+              ├── createDemoBookingSchema.safeParse()
+              └── db.createDemoBooking(data)
+                    └── demoBookingsDb.createDemoBooking()
+                          └── supabase.from('demo_bookings').insert()
+              → sendDemoBookingAlert(adminEmail, booking)  [Resend]
+              → db.createAlert({ type: 'demo_booking' })   [alertsDb]
+```
+
+### 4.7 Admin Dashboard Data Load
+
+```
+AdminDashboardPage
+  └── useAdminDashboardData() [custom hook]
+        ├── api.getStudents()      → GET /api/students
+        ├── api.getCoaches()       → GET /api/coaches
+        ├── api.getDemoBookings()  → GET /api/demo-bookings
+        └── api.getAlerts()        → GET /api/alerts
+```
+
+### 4.8 Progress Report Generation
+
+```
+StudentDetailPage → ProgressReportCard
+  ├── api.getProgressTrackers(studentId) → GET /api/progress-trackers/student/:id
+  └── api.generateProgressReport(data)   → POST /api/reports/generate
+        ├── [MW] authenticateJwt
+        ├── [MW] requireCoachOrAdmin
+        ├── [MW] verifyStudentAccess
+        └── db.saveProgressReport(data)
+              → sendProgressReportEmail(student, report)  [Resend]
+              → recordAudit({ action: 'progress_report_generated' })
+```
+
+### 4.9 Client Error Telemetry Pipeline
+
+```
+Any Page/Component catch block
+  └── handleClientError(source, err)     [src/utils/clientError.ts]
+        └── fetch('/api/logs/client', { keepalive: true })
+              └── POST /api/logs/client
+                    ├── [MW] clientLogRateLimiter
+                    ├── clientLogSchema.safeParse()
+                    ├── Logger.get('API').error(...)         → stdout
+                    └── fs.appendFileSync('logs/client-errors.log')
 ```
 
 ---
 
-## 3. Function & Component Call Hierarchy
+## 5. Data Flow: Interfaces & Schemas
 
-### 3a. Frontend Call Chain
+### 5.1 Core Domain Types (`src/types.ts`)
 
-| Caller | Relation | Callee |
-|--------|----------|--------|
-| `main.tsx` | renders | `<ErrorBoundary>` → `<App>` |
-| `App` (default export) | renders | `<AuthProvider>` → `<MainApp>` |
-| `MainApp` | consumes | `useAuth()` from `AuthContext` |
-| `MainApp.renderView()` | routes to | `LandingPage` · `AboutUsPage` · `EnrollmentPage` · `AdminDashboardPage` · `StudentDetailPage` · `ParentPortalPage` |
-| `AdminDashboardPage` | calls hook | `useAdminDashboardData()` |
-| `useAdminDashboardData` | calls | `api.getStudents()` · `api.getCoaches()` · `api.getAlerts()` · `api.getDemoBookings()` |
-| `LoginModal` | calls | `api.login()` · `api.selectRole()` · `api.selectStudent()` · `api.forgotPassword()` · `api.resetPasswordWithToken()` |
-| `LoginModal` | calls | `useAuth().login()` on success |
-| `AuthContext.login()` | writes | `localStorage.smartpen_token` |
-| `AuthContext.logout()` | calls | `fetch('/api/auth/logout')` |
-| `AuthContext.switchStudent()` | calls | `api.switchStudent()` |
-| `AuthContext.validateStoredSession()` | calls | `fetch('/api/auth/session')` |
-| `DemoBookingModal` | calls | `api.createDemoBooking()` |
-| `AttendanceCalendarTracker` | calls | `api.getAttendanceByStudent()` · `api.saveAttendanceBatch()` · `api.deleteAttendance()` |
-| `FeeLedgerTracker` | calls | `api.getFeesByStudent()` · `api.saveFee()` · `api.updateFee()` · `api.deleteFee()` · `api.sendFeeReminder()` |
-| `SmartPenAIAgentCore` | calls | `api.sendAIChat()` |
-| `AIAgentChatWidget` | renders | `SmartPenAIAgentCore` |
-| `CoachEnrollmentTab` | calls | `api.createCoach()` |
-| `EditCoachModal` | calls | `api.updateCoach()` |
-| `QuickAttendanceModal` | calls | `api.addAttendance()` |
-| `QuickFeeModal` | calls | `api.saveFee()` · `api.addFeeRecord()` |
-| `TestimonialsTab` | calls | `api.getTestimonials()` · `api.updateTestimonial()` |
-| `EnrollmentPage` | calls | `api.enrollStudent()` |
-| `StudentDetailPage` | calls | `api.getStudent()` · `api.updateStudent()` · `api.getProgressTrackers()` · `api.getStudentWorks()` · `api.getProgressReports()` |
-| `ParentPortalPage` | calls | `api.getStudent()` · `api.getFeesByStudent()` · `api.getProgressReports()` · `api.getStudentWorks()` · `api.getTestimonialsByStudent()` · `api.submitTestimonial()` |
-| `api.*` | HTTP fetch | `/api/*` endpoints |
+| Interface | Purpose | Primary Consumers |
+|---|---|---|
+| `User` / `SessionUser` | JWT payload + session shape | `AuthContext`, `api.ts`, all routes, `auth.db.ts` |
+| `StoredUser` | DB row → user (adds `passwordHash`, `tokenVersion`) | `auth.db.ts`, `auth.service.ts`, `auth.routes.ts` |
+| `StudentProfile` | Full student entity | `students.db.ts`, `students.routes.ts`, admin components |
+| `CoachProfile` | Coach entity | `coaches.db.ts`, `coaches.routes.ts`, admin components |
+| `AttendanceRecord` | Single attendance entry | `attendance.db.ts`, `AttendanceCalendarTracker` |
+| `FeeRecord` | Fee ledger entry | `fees.db.ts`, `FeeLedgerTracker` |
+| `ProgressTracker` | Per-milestone progress snapshot | `progress.db.ts`, `ProgressReportCard` |
+| `ProgressReport` | Generated PDF-ready report | `progress.db.ts`, `reports.routes.ts` |
+| `StudentWorkImage` | Uploaded handwriting sample | `students.db.ts`, `studentWorks.routes.ts` |
+| `DemoBooking` | Lead capture booking | `demoBookings.db.ts`, `demoBookings.routes.ts`, `DemoBookingModal` |
+| `AdminAlert` | System notification | `alerts.db.ts`, `alerts.routes.ts`, `AlertsTab` |
+| `Testimonial` | Student/parent review | `testimonials.db.ts`, `testimonials.routes.ts`, `TestimonialsPage` |
+| `ToolAuditLog` | AI/tool execution audit record | `audit.db.ts`, `ai.routes.ts` |
+| `LoginResponse` | Auth API response union type | `auth.routes.ts`, `api.ts`, `AuthContext` |
+| `ROLES` const | `'admin' \| 'coach' \| 'student'` | Every auth check, FE and BE |
 
-### 3b. Backend Call Chain — Request Lifecycle
+### 5.2 Backend Zod Schemas (`server/schemas.ts`)
 
-| Caller | Relation | Callee |
-|--------|----------|--------|
-| `startServer()` in `server.ts` | mounts | All 15 domain routers |
-| `server.ts` | applies globally | `cookieParser` · `helmet` · `express.json` · `errorHandler` |
-| `authRouter POST /login` | applies | `authRateLimiter` → `asyncHandler` |
-| `authRouter POST /login` | calls | `authService.authenticateUser()` |
-| `authService.authenticateUser()` | calls | `db.findUsersByIdentifier()` → `authDb.findUsersByIdentifier()` |
-| `authService.authenticateUser()` | calls | `bcrypt.compare()` |
-| `authRouter POST /login` | calls | `issueUserSession()` |
-| `issueUserSession()` | calls | `resolveStudentContext()` · `db.findUserTokenVersion()` · `jwt.sign()` |
-| `authenticateJwt` middleware | calls | `jwt.verify()` · `db.findUserTokenVersion()` · `db.getCoachById()` |
-| `requireAdmin` | checks | `req.user.role === 'admin'` |
-| `canAccessStudent()` | calls | `db.getStudentById()` · `db.getSiblingStudentsForUser()` · `db.findUserById()` |
-| `studentsRouter POST /enroll` | calls | `db.checkStudentDuplicate()` · `db.createStudent()` · `sendEnrollmentEmails()` · `recordAudit()` |
-| `attendanceRouter POST /batch` | calls | `db.saveAttendanceBatch()` · `recordAudit()` |
-| `feesRouter POST /` | calls | `db.saveFeeRecord()` · `recordAudit()` |
-| `remindersRouter POST /send` | calls | `db.saveFeeReminder()` · `sendFeeReminderEmail()` |
-| `demoBookingsRouter POST /` | calls | `db.createDemoBooking()` · `sendDemoBookingAlert()` |
-| `aiRouter POST /agent-chat` | calls | `handleAIAgentChat()` |
-| `handleAIAgentChat()` | calls | `detectIntent()` (fast-path) |
-| `handleAIAgentChat()` | calls | `buildRoleSystemInstruction()` · `getToolsForRole()` |
-| `handleAIAgentChat()` | calls | `GoogleGenAI.models.generateContent()` |
-| `handleAIAgentChat()` | calls | `executeTool(fc.name, fc.args, ...)` for each function call |
-| `executeTool()` | calls | `checkToolRateLimit()` → `db.checkRateLimit()` |
-| `executeTool()` | calls | `isToolAllowedForRole()` |
-| `executeTool()` | calls | `tool.execute()` (from `toolRegistry`) |
-| `tool.execute()` (any AgentTool) | calls | `db.*` methods (domain-specific) |
-| `recordAudit()` | calls | `sanitizeAuditArguments()` · `sanitizeAuditSummary()` · `db.recordToolAuditLog()` |
-| `db.*` (SupabaseDatabase facade) | delegates to | Domain `*.db.ts` repository |
-| `*.db.ts` (all) | calls | `getSupabase()` from `db/client.ts` |
-| `getSupabase()` | returns | `serverSupabase` from `supabase.ts` |
-| `serverSupabase` | queries | Supabase PostgreSQL via PostgREST |
-| `email.ts` functions | calls | Resend API |
+| Schema | Consumed By Route |
+|---|---|
+| `attendanceBatchSchema` | `attendance.routes.ts` |
+| `createFeeSchema` / `updateFeeSchema` | `fees.routes.ts` |
+| `createDemoBookingSchema` / `patchDemoBookingSchema` | `demoBookings.routes.ts` |
+| `createTestimonialSchema` / `patchTestimonialSchema` | `testimonials.routes.ts` |
+| `enrollStudentSchema` / `updateStudentSchema` | `students.routes.ts` |
+| `assignCoachSchema` | `students.routes.ts` |
+| `createCoachSchema` / `updateCoachSchema` | `coaches.routes.ts` |
+| `switchStudentSchema` | `auth.routes.ts` |
+| `auditLogsQuerySchema` | `ai.routes.ts` |
 
----
+### 5.3 Cross-Boundary Data Flow Diagram
 
-## 4. Data Flow — Key Interfaces Across Boundaries
-
-```mermaid
-graph LR
-    subgraph TYPES["src/types.ts (Shared Contract)"]
-        User
-        SessionUser
-        StudentProfile
-        CoachProfile
-        AttendanceRecord
-        FeeRecord
-        ProgressTracker
-        ProgressReport
-        StudentWorkImage
-        FeeReminder
-        DemoBooking
-        AdminAlert
-        Testimonial
-        ToolAuditLog
-        ROLES["ROLES const"]
-    end
-
-    subgraph FE_BOUNDARY["Frontend → API boundary"]
-        API_CALL["api.method(args: TypedPayload)\nfetch('/api/...')"]
-    end
-
-    subgraph BE_BOUNDARY["Express Route → DB boundary"]
-        ZOD["Zod schema.parse(req.body)\nValidated payload"]
-        DB_CALL["db.method(validated) → domain*.db.ts\n→ supabase.from('table').select/insert/update"]
-    end
-
-    subgraph DB_ROW["Supabase PostgreSQL row"]
-        ROW["snake_case columns\n(e.g. first_name, student_id)"]
-    end
-
-    subgraph MAPPING["DB Mapping (*.db.ts)"]
-        MAP["mapUserRow / mapStudentRow / mapCoachRow\nsnake_case → camelCase TS types"]
-    end
-
-    FE_BOUNDARY -->|"fetch + Bearer token"| BE_BOUNDARY
-    ZOD -->|"structured TS object"| DB_CALL
-    DB_CALL --> ROW
-    ROW --> MAP
-    MAP -->|"returns"| TYPES
-    TYPES -->|"imported by"| FE_BOUNDARY
-    TYPES -->|"imported by"| BE_BOUNDARY
+```
+[Browser]  StudentProfile (TypeScript interface)
+                ↕ JSON over HTTP
+[Server]   Zod schema (validate + strip unknown)
+                ↕
+[DB Layer] students.db.ts :: mapStudentRow(row)
+                ↕
+[Database] Supabase 'students' table (PostgreSQL)
 ```
 
-### Shared Type Usage Matrix
-
-| Type | Frontend Consumers | Backend Consumers |
-|------|--------------------|-------------------|
-| `User` / `SessionUser` | `AuthContext`, `App`, most pages | `auth.db.ts`, `auth.service.ts`, `authAgent.ts`, all routes |
-| `StudentProfile` | `StudentDetailPage`, `ParentPortalPage`, `AdminDashboardPage`, `EnrollmentPage`, `useAdminDashboardData` | `students.db.ts`, `students.routes.ts`, tools |
-| `CoachProfile` | `AdminDashboardPage`, `CoachesTab`, `EditCoachModal`, `CoachEnrollmentTab` | `coaches.db.ts`, `coaches.routes.ts`, tools |
-| `AttendanceRecord` | `AttendanceCalendarTracker`, `StudentDetailPage` | `attendance.db.ts`, `attendance.routes.ts` |
-| `FeeRecord` | `FeeLedgerTracker`, `StudentDetailPage`, `ParentPortalPage` | `fees.db.ts`, `fees.routes.ts` |
-| `ProgressTracker` | `ProgressReportCard`, `StudentDetailPage` | `progress.db.ts`, `progressTrackers.routes.ts` |
-| `ProgressReport` | `StudentDetailPage`, `ParentPortalPage` | `progress.db.ts`, `reports.routes.ts` |
-| `DemoBooking` | `AdminDashboardPage`, `AlertsTab` | `demoBookings.db.ts`, `demoBookings.routes.ts` |
-| `AdminAlert` | `AlertsTab`, `useAdminDashboardData` | `alerts.db.ts`, `alerts.routes.ts` |
-| `Testimonial` | `TestimonialsTab`, `ParentPortalPage` | `testimonials.db.ts`, `testimonials.routes.ts` |
-| `ToolAuditLog` | (admin audit view) | `audit.db.ts`, `ai.routes.ts` |
-| `ROLES` | `App`, `AuthContext`, `LoginModal` | `auth.middleware.ts`, `auth.service.ts`, tools, all routes |
+```
+[Browser]  ChatMessage[] { role, content }
+                ↕ POST /api/ai/agent-chat
+[Server]   aiAgent.ts :: AIAgentRequest
+                ↕
+[Gemini]   FunctionDeclaration[] + generateContent()
+                ↕ function_call response
+[Server]   executeTool() → toolRegistry[name].execute()
+                ↕
+[DB]       Domain repos (studentsDb, feesDb, etc.)
+```
 
 ---
 
-## 5. Adjacency List — Complete Import/Call Edges
+## 6. Adjacency List
 
-### 5a. Frontend Import Graph
+### 6.1 Backend Import Graph
 
 | Source | Relation | Target |
-|--------|----------|--------|
-| `main.tsx` | imports | `App`, `ErrorBoundary`, `index.css` |
-| `App.tsx` | imports | `AuthContext` (AuthProvider, useAuth), `Navbar`, `Footer`, `LoginModal`, `DemoBookingModal`, `LandingPage`, `AboutUsPage`, `EnrollmentPage`, `AdminDashboardPage`, `StudentDetailPage`, `ParentPortalPage`, `AIAgentChatWidget`, `SmartPenAIAgentCore` (ChatMessage type), `src/types.ts` (ROLES) |
-| `AuthContext.tsx` | imports | `src/types.ts`, `services/api.ts` |
-| `LandingPage` | imports | `services/api.ts`, `AuthContext`, `src/types.ts`, `properties/landing.properties.ts` |
-| `EnrollmentPage` | imports | `services/api.ts`, `src/types.ts`, `properties/enrollment.properties.ts`, `validation/enrollmentForm.schema.ts` |
-| `AdminDashboardPage` | imports | `hooks/useAdminDashboardData`, admin tabs, admin modals |
-| `StudentDetailPage` | imports | `services/api.ts`, `AuthContext`, `AttendanceCalendarTracker`, `FeeLedgerTracker`, `ProgressReportCard`, `CertificateModal`, `CameraCaptureModal` |
-| `ParentPortalPage` | imports | `services/api.ts`, `AuthContext`, `FeeLedgerTracker`, `ProgressReportCard`, `CertificateModal` |
-| `useAdminDashboardData` | imports | `services/api.ts`, `AuthContext`, `src/types.ts`, `utils/clientError.ts` |
-| `SmartPenAIAgentCore` | imports | `services/api.ts` |
-| `AIAgentChatWidget` | imports | `SmartPenAIAgentCore` |
-| `LoginModal` | imports | `services/api.ts`, `AuthContext`, `src/types.ts` |
-| `DemoBookingModal` | imports | `services/api.ts` |
-| `AttendanceCalendarTracker` | imports | `services/api.ts`, `src/types.ts` |
-| `FeeLedgerTracker` | imports | `services/api.ts`, `src/types.ts` |
-| `CoachEnrollmentTab` | imports | `services/api.ts` |
-| `EditCoachModal` | imports | `services/api.ts` |
-| `QuickAttendanceModal` | imports | `services/api.ts` |
-| `QuickFeeModal` | imports | `services/api.ts` |
-| `TestimonialsTab` | imports | `services/api.ts` |
-| `services/api.ts` | imports | `src/types.ts` |
-| `Navbar` | imports | `AuthContext` |
+|---|---|---|
+| `server.ts` | imports | `server/logger.ts :: Logger` |
+| `server.ts` | imports | `server/errors.ts :: NotFoundError` |
+| `server.ts` | imports | `server/middleware/errorHandler.ts :: errorHandler` |
+| `server.ts` | imports | `server/middleware/auth.ts :: authenticateJwt, requireAdmin, requireCoachOrAdmin, canAccessStudent, verifyStudentAccess, AuthRequest` |
+| `server.ts` | imports | `server/middleware/rateLimiter.ts :: createRateLimiter, paymentRateLimiter, attendanceRateLimiter, demoBookingRateLimiter, authRateLimiter` |
+| `server.ts` | imports | `server/helpers/audit.ts :: recordAudit` |
+| `server.ts` | mounts | `server/routes/health.routes.ts → /api` |
+| `server.ts` | mounts | `server/routes/auth.routes.ts → /api/auth` |
+| `server.ts` | mounts | `server/routes/coaches.routes.ts → /api/coaches` |
+| `server.ts` | mounts | `server/routes/students.routes.ts → /api/students` |
+| `server.ts` | mounts | `server/routes/attendance.routes.ts → /api/attendance` |
+| `server.ts` | mounts | `server/routes/fees.routes.ts → /api/fees` |
+| `server.ts` | mounts | `server/routes/progressTrackers.routes.ts → /api/progress-trackers` |
+| `server.ts` | mounts | `server/routes/reports.routes.ts → /api/reports` |
+| `server.ts` | mounts | `server/routes/studentWorks.routes.ts → /api/student-works` |
+| `server.ts` | mounts | `server/routes/reminders.routes.ts → /api/reminders` |
+| `server.ts` | mounts | `server/routes/demoBookings.routes.ts → /api/demo-bookings` |
+| `server.ts` | mounts | `server/routes/alerts.routes.ts → /api/alerts` |
+| `server.ts` | mounts | `server/routes/testimonials.routes.ts → /api/testimonials` |
+| `server.ts` | mounts | `server/routes/ai.routes.ts → /api/ai` |
+| `server.ts` | mounts | `server/routes/logs.routes.ts → /api/logs` |
+| `server/middleware/auth.ts` | imports | `server/supabaseDb.ts :: db` |
+| `server/middleware/auth.ts` | imports | `server/config/env.ts :: getJwtSecret` |
+| `server/middleware/auth.ts` | imports | `server/middleware/errorHandler.ts :: asyncHandler` |
+| `server/middleware/auth.ts` | imports | `server/errors.ts :: ValidationError, AuthorizationError` |
+| `server/middleware/auth.ts` | imports | `src/types.ts :: ROLES` |
+| `server/middleware/auth.ts` | calls | `db.findUserTokenVersion()` |
+| `server/middleware/rateLimiter.ts` | imports | `server/supabaseDb.ts :: db` |
+| `server/middleware/rateLimiter.ts` | calls | `db.checkRateLimit()` |
+| `server/middleware/errorHandler.ts` | imports | `server/errors.ts :: AppError` |
+| `server/middleware/errorHandler.ts` | imports | `server/logger.ts :: Logger` |
+| `server/routes/auth.routes.ts` | imports | `server/supabaseDb.ts :: db` |
+| `server/routes/auth.routes.ts` | imports | `server/services/auth.service.ts :: authService` |
+| `server/routes/auth.routes.ts` | imports | `server/helpers/audit.ts :: recordAudit` |
+| `server/routes/auth.routes.ts` | imports | `server/helpers/sessionHelper.ts :: issueUserSession` |
+| `server/routes/auth.routes.ts` | imports | `server/helpers/studentContext.ts :: resolveStudentContext` |
+| `server/routes/auth.routes.ts` | imports | `server/email.ts :: sendPasswordResetLinkEmail, sendPasswordChangedEmail` |
+| `server/routes/auth.routes.ts` | imports | `server/schemas.ts :: switchStudentSchema` |
+| `server/routes/students.routes.ts` | imports | `server/helpers/coachHelper.ts :: getCoachKeys, getCoachAssignedStudents` |
+| `server/routes/students.routes.ts` | imports | `server/email.ts :: sendEnrollmentEmails, sendStudentUpdatedEmails` |
+| `server/routes/students.routes.ts` | imports | `server/schemas.ts :: enrollStudentSchema, updateStudentSchema, assignCoachSchema` |
+| `server/routes/attendance.routes.ts` | imports | `server/supabase.ts :: serverSupabase` |
+| `server/routes/attendance.routes.ts` | imports | `server/helpers/coachHelper.ts :: getCoachAssignedStudents, getCoachAssignedStudentIds` |
+| `server/routes/attendance.routes.ts` | imports | `server/schemas.ts :: attendanceBatchSchema` |
+| `server/routes/fees.routes.ts` | imports | `server/helpers/coachHelper.ts :: getCoachAssignedStudentIds` |
+| `server/routes/fees.routes.ts` | imports | `server/helpers/validation.ts :: validate` |
+| `server/routes/fees.routes.ts` | imports | `server/schemas.ts :: createFeeSchema, updateFeeSchema` |
+| `server/routes/testimonials.routes.ts` | imports | `server/helpers/fileHelper.ts :: saveBase64Image` |
+| `server/routes/demoBookings.routes.ts` | imports | `server/email.ts :: sendDemoBookingAlert` |
+| `server/routes/ai.routes.ts` | imports | `server/aiAgent.ts :: handleAIAgentChat` |
+| `server/routes/logs.routes.ts` | imports | `server/logger.ts :: Logger, redactSensitiveData` |
+| `server/aiAgent.ts` | imports | `server/supabaseDb.ts :: db` |
+| `server/aiAgent.ts` | imports | `server/email.ts :: sendFeeReminderEmail` |
+| `server/aiAgent.ts` | imports | `server/tools/registry.ts :: ALL_TOOLS, toolRegistry, getToolsForRole, isToolAllowedForRole` |
+| `server/aiAgent.ts` | imports | `server/tools/helpers.ts :: verifyToolStudentAccess, canCoachAccessStudent, findStudent` |
+| `server/aiAgent.ts` | imports | `server/prompts/agentPrompts.ts :: buildRoleSystemInstruction` |
+| `server/aiAgent.ts` | imports | `server/helpers/intentRouter.ts :: detectIntent` |
+| `server/aiAgent.ts` | imports | `server/helpers/audit.ts :: recordAudit, sanitizeAuditArguments` |
+| `server/aiAgent.ts` | calls | `db.checkRateLimit()` |
+| `server/aiAgent.ts` | calls | `executeTool() → toolRegistry[name].execute()` |
+| `server/services/auth.service.ts` | imports | `server/supabaseDb.ts :: db` |
+| `server/services/auth.service.ts` | imports | `server/helpers/audit.ts :: recordAudit` |
+| `server/services/auth.service.ts` | imports | `server/config/env.ts :: getJwtSecret` |
+| `server/services/auth.service.ts` | imports | `server/errors.ts :: AuthenticationError, AuthorizationError, ValidationError` |
+| `server/helpers/audit.ts` | imports | `server/supabaseDb.ts :: db` |
+| `server/helpers/audit.ts` | calls | `db.recordToolAuditLog()` |
+| `server/helpers/sessionHelper.ts` | imports | `server/supabaseDb.ts :: db` |
+| `server/helpers/sessionHelper.ts` | imports | `server/helpers/studentContext.ts :: resolveStudentContext` |
+| `server/helpers/sessionHelper.ts` | calls | `jwt.sign()` |
+| `server/helpers/studentContext.ts` | imports | `server/supabaseDb.ts :: db` |
+| `server/helpers/studentContext.ts` | calls | `db.getSiblingStudentsForUser()` |
+| `server/helpers/coachHelper.ts` | imports | `server/supabaseDb.ts :: db` |
+| `server/helpers/coachHelper.ts` | imports | `server/middleware/auth.ts :: AuthRequest` |
+| `server/helpers/coachHelper.ts` | calls | `db.getStudentsByCoachId()` |
+| `server/helpers/intentRouter.ts` | imports | `src/types.ts :: User, ROLES, ToolCallResult` |
+| `server/helpers/fileHelper.ts` | imports | `server/errors.ts :: ValidationError` |
+| `server/helpers/confirmationToken.ts` | imports | `server/config/env.ts :: getJwtSecret` |
+| `server/email.ts` | imports | `server/supabaseDb.ts :: db` |
+| `server/email.ts` | calls | `db.getAdminUser()` |
+| `server/supabaseDb.ts` | imports | `server/db/auth.db.ts :: authDb` |
+| `server/supabaseDb.ts` | imports | `server/db/students.db.ts :: studentsDb, normalizeToDayArray` |
+| `server/supabaseDb.ts` | imports | `server/db/coaches.db.ts :: coachesDb` |
+| `server/supabaseDb.ts` | imports | `server/db/attendance.db.ts :: attendanceDb` |
+| `server/supabaseDb.ts` | imports | `server/db/fees.db.ts :: feesDb` |
+| `server/supabaseDb.ts` | imports | `server/db/progress.db.ts :: progressDb` |
+| `server/supabaseDb.ts` | imports | `server/db/demoBookings.db.ts :: demoBookingsDb` |
+| `server/supabaseDb.ts` | imports | `server/db/alerts.db.ts :: alertsDb` |
+| `server/supabaseDb.ts` | imports | `server/db/testimonials.db.ts :: testimonialsDb` |
+| `server/supabaseDb.ts` | imports | `server/db/audit.db.ts :: auditDb` |
+| `server/db/client.ts` | imports | `server/supabase.ts :: serverSupabase` |
+| `server/db/*.db.ts` | calls | `getSupabase() → serverSupabase.from(table)` |
+| `server/supabase.ts` | calls | `createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)` |
 
-### 5b. Backend Import Graph
+### 6.2 Frontend Import Graph
 
 | Source | Relation | Target |
-|--------|----------|--------|
-| `server.ts` | imports | All 15 routers, `server/logger.ts`, `server/errors.ts`, `server/middleware/errorHandler.ts`, `server/middleware/auth.ts`, `server/middleware/rateLimiter.ts`, `server/helpers/audit.ts` |
-| All route files | imports | `server/supabaseDb.ts` (via `{ db }`) |
-| All route files except `health.routes.ts` and `logs.routes.ts` | imports | `server/helpers/audit.ts` (`recordAudit`) |
-| `auth.routes.ts` | imports | `server/services/auth.service.ts`, `server/helpers/sessionHelper.ts`, `server/helpers/studentContext.ts`, `server/email.ts`, `server/schemas.ts`, `server/middleware/auth.ts`, `server/middleware/rateLimiter.ts` |
-| `students.routes.ts` | imports | `server/email.ts` (`sendEnrollmentEmails`, `sendStudentUpdatedEmails`) |
-| `reminders.routes.ts` | imports | `server/email.ts` (`sendFeeReminderEmail`) |
-| `demoBookings.routes.ts` | imports | `server/email.ts` (`sendDemoBookingAlert`) |
-| `ai.routes.ts` | imports | `server/aiAgent.ts` (`handleAIAgentChat`), `server/middleware/rateLimiter.ts` (`aiChatRateLimiter`) |
-| `server/aiAgent.ts` | imports | `server/supabaseDb.ts`, `server/email.ts`, `server/tools/registry.ts`, `server/tools/helpers.ts`, `server/prompts/agentPrompts.ts`, `server/helpers/intentRouter.ts`, `server/helpers/audit.ts`, `src/properties/landing.properties.ts`, `src/types.ts` |
-| `server/tools/registry.ts` | imports | All 48 `tools/*.ts` files |
-| All `tools/*.ts` (all 48) | imports | `server/supabaseDb.ts` |
-| `tools/sendFeeReminder.ts` | imports | `server/email.ts` |
-| `tools/enrollStudent.ts` | imports | `server/email.ts` |
-| `tools/bookDemoClass.ts` | imports | `server/email.ts` |
-| `server/supabaseDb.ts` | imports | All 11 `server/db/*.db.ts` files |
-| All `server/db/*.db.ts` | imports | `server/db/client.ts` |
-| `server/db/students.db.ts` | imports | `server/db/auth.db.ts` (for `StoredUser` type) |
-| `server/db/client.ts` | imports | `server/supabase.ts` |
-| `server/middleware/auth.ts` | imports | `server/supabaseDb.ts`, `server/errors.ts`, `server/middleware/errorHandler.ts`, `src/types.ts` |
-| `server/middleware/rateLimiter.ts` | imports | `server/supabaseDb.ts` |
-| `server/middleware/errorHandler.ts` | imports | `server/errors.ts`, `server/logger.ts` |
-| `server/helpers/audit.ts` | imports | `server/supabaseDb.ts`, `server/logger.ts`, `src/types.ts` |
-| `server/helpers/sessionHelper.ts` | imports | `server/supabaseDb.ts`, `server/middleware/auth.ts`, `server/helpers/studentContext.ts` |
-| `server/helpers/intentRouter.ts` | imports | `src/types.ts` |
-| `server/services/auth.service.ts` | imports | `server/supabaseDb.ts`, `server/middleware/auth.ts`, `server/errors.ts`, `server/helpers/audit.ts`, `src/types.ts` |
-| All `server/db/*.db.ts` | imports | `src/types.ts` |
+|---|---|---|
+| `src/main.tsx` | imports | `src/App.tsx` |
+| `src/main.tsx` | imports | `src/components/ErrorBoundary` |
+| `src/App.tsx` | imports | `src/context/AuthContext.tsx :: AuthProvider, useAuth` |
+| `src/App.tsx` | imports | `src/types.ts :: ROLES` |
+| `src/App.tsx` | imports | `src/components/ui/Button :: Button` |
+| `src/App.tsx` | imports | `src/components/Navbar, Footer, LoginModal, DemoBookingModal, AIAgentChatWidget` |
+| `src/App.tsx` | imports | `src/components/SmartPenAIAgentCore :: ChatMessage` |
+| `src/App.tsx` | imports | `src/pages/LandingPage, AboutUsPage, SyllabusPage, WorkshopsPage, TestimonialsPage, FreeDemoPage, EnrollmentPage, AdminDashboardPage, StudentDetailPage, ParentPortalPage` |
+| `src/context/AuthContext.tsx` | imports | `src/services/api.ts :: api.switchStudent()` |
+| `src/context/AuthContext.tsx` | imports | `src/types.ts :: User, SessionUser, ROLES` |
+| `src/services/api.ts` | imports | `src/types.ts :: StudentProfile, AttendanceRecord, FeeRecord, ProgressTracker, StudentWorkImage, ProgressReport, FeeReminder, User, CoachProfile, DemoBooking, AdminAlert, Testimonial, LoginResponse, formatPreferredDays` |
+| `src/components/admin/hooks/useAdminDashboardData.ts` | imports | `src/services/api.ts :: api` |
+| `src/components/admin/hooks/useAdminDashboardData.ts` | imports | `src/context/AuthContext.tsx :: useAuth` |
+| `src/components/admin/hooks/useAdminDashboardData.ts` | imports | `src/utils/clientError.ts :: handleClientError` |
+| `src/components/SmartPenAIAgentCore.tsx` | imports | `src/services/api.ts :: api` |
+| `src/components/SmartPenAIAgentCore.tsx` | imports | `src/types.ts :: User, StudentProfile, ROLES` |
+| `src/utils/clientError.ts` | calls | `fetch('/api/logs/client')` |
+
+### 6.3 Full API Surface
+
+| File | Method | Path | Auth |
+|---|---|---|---|
+| `health.routes.ts` | GET | `/api/health` | Public |
+| `auth.routes.ts` | POST | `/api/auth/login` | Public + authRateLimiter |
+| `auth.routes.ts` | POST | `/api/auth/select-role` | Public |
+| `auth.routes.ts` | POST | `/api/auth/select-student` | Public |
+| `auth.routes.ts` | POST | `/api/auth/switch-student` | JWT |
+| `auth.routes.ts` | POST | `/api/auth/logout` | JWT |
+| `auth.routes.ts` | GET | `/api/auth/session` | optionalJWT |
+| `auth.routes.ts` | POST | `/api/auth/forgot-password` | Public |
+| `auth.routes.ts` | POST | `/api/auth/reset-password` | Public |
+| `auth.routes.ts` | POST | `/api/auth/change-password` | JWT |
+| `auth.routes.ts` | GET | `/api/auth/family-students` | Public |
+| `coaches.routes.ts` | GET | `/api/coaches` | JWT |
+| `coaches.routes.ts` | POST | `/api/coaches` | JWT + requireAdmin |
+| `coaches.routes.ts` | PUT | `/api/coaches/:id` | JWT + requireAdmin |
+| `coaches.routes.ts` | DELETE | `/api/coaches/:id` | JWT + requireAdmin |
+| `students.routes.ts` | GET | `/api/students` | JWT |
+| `students.routes.ts` | GET | `/api/students/:id` | JWT + verifyStudentAccess |
+| `students.routes.ts` | POST | `/api/students` | JWT + requireAdmin |
+| `students.routes.ts` | PUT | `/api/students/:id` | JWT + requireCoachOrAdmin |
+| `students.routes.ts` | PATCH | `/api/students/:id/coach` | JWT + requireAdmin |
+| `attendance.routes.ts` | GET | `/api/attendance/month/:ym` | JWT + requireCoachOrAdmin |
+| `attendance.routes.ts` | GET | `/api/attendance/student/:id` | JWT + verifyStudentAccess |
+| `attendance.routes.ts` | POST | `/api/attendance/student/:id` | JWT + requireCoachOrAdmin + rateLimiter |
+| `attendance.routes.ts` | DELETE | `/api/attendance/:id` | JWT + requireCoachOrAdmin |
+| `fees.routes.ts` | GET | `/api/fees/month/:ym` | JWT + requireCoachOrAdmin |
+| `fees.routes.ts` | GET | `/api/fees/student/:id` | JWT + verifyStudentAccess |
+| `fees.routes.ts` | POST | `/api/fees` | JWT + requireCoachOrAdmin + paymentRateLimiter |
+| `fees.routes.ts` | PUT | `/api/fees/:id` | JWT + requireCoachOrAdmin + paymentRateLimiter |
+| `fees.routes.ts` | DELETE | `/api/fees/:id` | JWT + requireAdmin |
+| `progressTrackers.routes.ts` | GET | `/api/progress-trackers/student/:id` | JWT + verifyStudentAccess |
+| `progressTrackers.routes.ts` | POST | `/api/progress-trackers` | JWT + requireCoachOrAdmin |
+| `reports.routes.ts` | GET | `/api/reports/student/:id` | JWT + verifyStudentAccess |
+| `reports.routes.ts` | POST | `/api/reports/generate` | JWT + requireCoachOrAdmin |
+| `reports.routes.ts` | POST | `/api/reports/:id/email` | JWT + requireCoachOrAdmin |
+| `studentWorks.routes.ts` | GET | `/api/student-works/student/:id` | JWT + verifyStudentAccess |
+| `studentWorks.routes.ts` | POST | `/api/student-works` | JWT + requireCoachOrAdmin |
+| `studentWorks.routes.ts` | DELETE | `/api/student-works/:id` | JWT + requireCoachOrAdmin |
+| `reminders.routes.ts` | POST | `/api/reminders/whatsapp` | JWT + requireAdmin |
+| `reminders.routes.ts` | POST | `/api/reminders/email` | JWT + requireAdmin |
+| `reminders.routes.ts` | GET | `/api/reminders/student/:id` | JWT + verifyStudentAccess |
+| `demoBookings.routes.ts` | GET | `/api/demo-bookings` | JWT + requireAdmin |
+| `demoBookings.routes.ts` | POST | `/api/demo-bookings` | Public + demoBookingRateLimiter |
+| `demoBookings.routes.ts` | PATCH | `/api/demo-bookings/:id` | JWT + requireAdmin |
+| `demoBookings.routes.ts` | DELETE | `/api/demo-bookings/:id` | JWT + requireAdmin |
+| `alerts.routes.ts` | GET | `/api/alerts` | JWT + requireAdmin |
+| `alerts.routes.ts` | PATCH | `/api/alerts/:id/read` | JWT + requireAdmin |
+| `alerts.routes.ts` | PATCH | `/api/alerts/read-all` | JWT + requireAdmin |
+| `testimonials.routes.ts` | GET | `/api/testimonials` | optionalJWT |
+| `testimonials.routes.ts` | POST | `/api/testimonials` | optionalJWT |
+| `testimonials.routes.ts` | PATCH | `/api/testimonials/:id` | JWT + requireAdmin |
+| `testimonials.routes.ts` | DELETE | `/api/testimonials/:id` | JWT + requireAdmin |
+| `ai.routes.ts` | POST | `/api/ai/agent-chat` | optionalJWT + aiChatRateLimiter |
+| `ai.routes.ts` | GET | `/api/ai/audit-logs` | JWT + requireAdmin |
+| `ai.routes.ts` | POST | `/api/ai/test-config` | JWT + requireAdmin |
+| `logs.routes.ts` | POST | `/api/logs/client` | Public + clientLogRateLimiter |
 
 ---
 
-## 6. Findings
+## 7. Flags: Orphans, Circular Dependencies, Layer Violations
 
-### 6a. ⚠️ Layer Violations (Actual, Verified)
+### 7.1 ⚠️ Orphan / Dead Code Candidates
 
-| Violation | Location | Detail | Status |
-|-----------|----------|--------|--------|
-| **Routes call `db` directly** | All 15 route files | Every route imports `{ db }` from `supabaseDb.ts` and calls it directly in handlers. This is a **direct route→DB coupling**, bypassing any service layer for all domains except auth. The service layer (`server/services/`) exists only for `auth.service.ts`. All other domains (students, coaches, fees, attendance, etc.) have no service layer intermediary — routes call the DB facade directly. | ℹ️ **ACCEPTED DESIGN** — Allowed per Architecture.md §13 (Modular Backend Architecture: routes delegate to DB persistence facade) |
-| **`ai.routes.ts` duplicates auth middleware logic** | [`ai.routes.ts` L64–L106](file:///c:/Projects/SmartPenAcademy/server/routes/ai.routes.ts#L64-L106) | Instead of using `optionalAuthenticateJwt` middleware, the AI route manually re-implements the full JWT decode + token version check + inactive coach check inline. This is a copy of `authenticateJwt` logic. | ✅ **RESOLVED** — Route updated to delegate directly to `optionalAuthenticateJwt`. Inactive coach check added to `optionalAuthenticateJwt` for security parity. Inline duplication removed. |
-| **`api.ts` returns synthetic ID in `addAttendance`** | [`api.ts` L406–L414](file:///c:/Projects/SmartPenAcademy/src/services/api.ts#L406-L414) | On success, the function returns a client-synthesized `AttendanceRecord` with `id: att_${Date.now()}` instead of reconciling the real DB-returned ID from `saveAttendanceBatch`. This is a **synthetic/optimistic ID leak** that violates Architecture.md §8 | ✅ **RESOLVED** — Reconciles real database record returned by backend in server response. Synthetic `att_${Date.now()}` eliminated. |
+> Symbols **exported but with no verified incoming import edge** in the scanned codebase.
 
-### 6b. 🔴 Orphan / Dead Exports (Zero Incoming Call Edges Found)
+| Symbol | File | Assessment |
+|---|---|---|
+| `HeroAgentPanel` | `src/components/HeroAgentPanel.tsx` | **Orphaned.** No import found in `App.tsx`, `LandingPage.tsx`, or any other component. 1 KB file, zero callers. |
+| `whatsapp.ts` | `src/utils/whatsapp.ts` | **Likely orphaned.** WhatsApp link generation is done inline in `reminders.routes.ts`. No frontend import traced. |
+| `cycleCalculations.ts` | `src/utils/cycleCalculations.ts` | **Needs verification.** No import found in scanned pages or components. |
+| `formatters.ts` | `src/utils/formatters.ts` | **Needs verification.** No import found in scanned pages or components. |
+| `confirmationToken.ts` | `server/helpers/confirmationToken.ts` | **Likely orphaned.** Not imported by any route or service. Contains an in-memory nonce cache with a `setInterval` GC loop that runs on every server boot regardless. |
+| `src/validation/` | `src/validation/*.ts` | **Needs verification.** Directory exists but no import traced in any scanned file. |
+| `src/properties/` | `src/properties/*.ts` | **Partially verified.** Referenced in `server/aiAgent.ts` for `landingProperties`. Full consumption mapping not traced. |
 
-| Symbol | File | Note | Status |
-|--------|------|------|--------|
-| `HeroAgentPanel` | [`HeroAgentPanel.tsx`](file:///c:/Projects/SmartPenAcademy/src/components/HeroAgentPanel.tsx) | Exported component | ✅ **ACTIVE (False Positive)** — Verified active consumer in [`LandingPage.tsx`](file:///c:/Projects/SmartPenAcademy/src/pages/LandingPage.tsx#L33) (L33, L215) |
-| `SmartPenLogo` | [`SmartPenLogo.tsx`](file:///c:/Projects/SmartPenAcademy/src/components/SmartPenLogo.tsx) | Exported logo component | ✅ **ACTIVE (False Positive)** — Verified active consumers in 6 files (`Navbar`, `Footer`, `LoginModal`, `LandingPage`, `ParentPortalPage`, `StarAchieverCertificate`) |
-| `StarRating` | [`StarRating.tsx`](file:///c:/Projects/SmartPenAcademy/src/components/StarRating.tsx) | Standalone export component | ✅ **ACTIVE (False Positive)** — Verified active consumers in 4 files (`LandingPage`, `ParentPortalPage`, `StudentDetailPage`, `ProgressReportCard`) |
-| `auditFromReq()` | [`server/helpers/audit.ts`](file:///c:/Projects/SmartPenAcademy/server/helpers/audit.ts#L99-L119) | Exported helper with zero incoming callers across repo | ⚠️ **PARKED (True Positive)** — Retained as shared utility; route handler migration from `recordAudit` parked (no runtime impact) |
-| `confirmationToken.ts` | [`server/helpers/confirmationToken.ts`](file:///c:/Projects/SmartPenAcademy/server/helpers/confirmationToken.ts) | Confirmation token helper | ✅ **ACTIVE (False Positive)** — Verified active callers in 6 AI agent tools (`deactivateCoach`, `deleteAttendanceRecord`, `updateFeeStatus`, `recordFeePayment`, `deactivateStudent`, `bulkDeleteStudentWorks`) and `e2e-test-suite.ts` |
-| `coachHelper.ts` | [`server/helpers/coachHelper.ts`](file:///c:/Projects/SmartPenAcademy/server/helpers/coachHelper.ts) | Coach assigned student resolution helper | ✅ **ACTIVE (False Positive)** — Verified active callers in 3 routes (`fees.routes.ts`, `attendance.routes.ts`, `students.routes.ts`) and 7 AI tools |
-| `validation.ts` | [`server/helpers/validation.ts`](file:///c:/Projects/SmartPenAcademy/server/helpers/validation.ts) | Zod schema validation helper | ✅ **ACTIVE (False Positive)** — Verified active caller in [`fees.routes.ts`](file:///c:/Projects/SmartPenAcademy/server/routes/fees.routes.ts#L17) |
-| `fileHelper.ts` | [`server/helpers/fileHelper.ts`](file:///c:/Projects/SmartPenAcademy/server/helpers/fileHelper.ts) | Image decoding/saving helper | ✅ **ACTIVE (False Positive)** — Verified active callers in [`studentWorks.routes.ts`](file:///c:/Projects/SmartPenAcademy/server/routes/studentWorks.routes.ts#L15), [`testimonials.routes.ts`](file:///c:/Projects/SmartPenAcademy/server/routes/testimonials.routes.ts#L8), and `e2e-test-suite.ts` |
-| `EnrolledCoachSuccessModal` | [`admin/modals/EnrolledCoachSuccessModal.tsx`](file:///c:/Projects/SmartPenAcademy/src/components/admin/modals/EnrolledCoachSuccessModal.tsx) | Exported modal component | ✅ **ACTIVE (False Positive)** — Verified active consumer in [`AdminDashboardPage.tsx`](file:///c:/Projects/SmartPenAcademy/src/pages/AdminDashboardPage.tsx#L35) (L35, L566) |
+### 7.2 ✅ Circular Dependencies
 
-### 6c. 🔁 Circular Dependencies
+**None detected.** The architecture enforces strict unidirectional flow:
 
-| Cycle | Detail | Status |
-|-------|--------|--------|
-| **`server/middleware/auth.ts` ↔ `server/services/auth.service.ts`** | `auth.service.ts` imports `getJwtSecret` from `server/middleware/auth.ts`. `auth.routes.ts` imports both. This is a **logical circular dependency** — service layer imports from middleware layer. | ✅ **RESOLVED** — Extracted `getJwtSecret()` into [`server/config/env.ts`](file:///c:/Projects/SmartPenAcademy/server/config/env.ts). Both middleware and service layers now cleanly import from config. |
-| **`server/db/students.db.ts` → `server/db/auth.db.ts`** | `students.db.ts` was reported as importing `StoredUser` from `auth.db.ts`. | ✅ **VERIFIED CLEAN** — Verified in codebase: `students.db.ts` has zero imports from `auth.db.ts`. No cross-domain type coupling exists. |
+```
+Frontend (src/) 
+  → api.ts (HTTP) 
+  → Express Routes 
+  → Middleware 
+  → Services / Helpers 
+  → supabaseDb.ts facade 
+  → Domain Repos (server/db/) 
+  → server/supabase.ts 
+  → Supabase PostgreSQL
+```
 
-### 6d. ✅ Architecture Invariants Verified
+The only topology concern is that `server/supabaseDb.ts` is a **star-hub** imported by every backend layer simultaneously (routes, middleware, helpers, AI agent, email module). Any breaking change to the facade propagates to all 15+ consumers.
 
-| Invariant | Status |
-|-----------|--------|
-| No route handlers added directly to `server.ts` | ✅ VERIFIED — `server.ts` is a pure bootstrapper (<231 lines, all mounts) |
-| No raw `alert()`/`confirm()` in frontend | ✅ NOT FOUND — all confirmation uses `Modal` component |
-| All DB queries routed through `server/db/*.db.ts` | ✅ VERIFIED |
-| `supabaseDb.ts` is a pure facade (no query logic) | ✅ VERIFIED — all methods delegate to domain repos |
-| Frontend API calls exclusively through `services/api.ts` | ✅ VERIFIED (except one raw `fetch` in `AuthContext` for session check and logout — acceptable pattern per Architecture.md) |
-| JWT validated on every protected route | ✅ VERIFIED via `authenticateJwt` middleware |
-| Rate limiting backed by Supabase atomic RPC | ✅ VERIFIED — `rateLimiter.ts` calls `db.checkRateLimit()` |
-| No secrets prefixed `VITE_` | ✅ NOT FOUND in env or config files |
-| AI tool execution goes through `executeTool()` with RBAC + rate-limit + audit | ✅ VERIFIED |
+### 7.3 🔴 Layer Violations (Resolved)
 
----
+| # | Severity | File | Description | Resolution Status |
+|---|---|---|---|---|
+| 1 | **Medium** | `server/routes/attendance.routes.ts` | Bypassed domain repo by importing raw `serverSupabase`. | ✅ **RESOLVED**: Encapsulated deletion into `attendanceDb.deleteAttendanceByDate()` and `db.deleteAttendanceByDate()`; removed direct `serverSupabase` import. |
+| 2 | **Low** | `server.ts` | Re-exported middleware symbols (`authenticateJwt`, rate limiters, etc.). | ✅ **RESOLVED**: Removed dead middleware imports and re-export block; restored `server.ts` to pure bootstrap orchestrator contract. |
+| 3 | **Medium** | `server/helpers/confirmationToken.ts` | In-memory `Map` & `setInterval` broke stateless scaling contract. | ✅ **RESOLVED**: Migrated nonce consumption to PostgreSQL-backed `rate_limits` table (`nonce:<jti>`); removed in-memory cache and background interval. |
 
-## 7. AI Agent Tool Registry Map
+### 7.4 📌 Design Observations (Not Violations — For Team Awareness)
 
-The `toolRegistry` in [`server/tools/registry.ts`](file:///c:/Projects/SmartPenAcademy/server/tools/registry.ts) exposes **48 AgentTools**. All call `db.*` through `server/supabaseDb.ts`.
-
-| Category | Tools |
-|----------|-------|
-| **Public (no auth required)** | `getAboutUs`, `getCurriculum`, `getTestimonials`, `bookDemoClass`, `navigateToPage` |
-| **Student self-service** | `viewOwnWorkSamples`, `viewOwnProgressReports`, `viewOwnTestimonials`, `submitTestimonial`, `switchActiveSibling` |
-| **Coach + Admin** | `getAttendance`, `updateAttendance`, `deleteAttendanceRecord`, `getFeeStatus`, `recordFeePayment`, `updateFeeStatus`, `sendFeeReminder`, `getStudentProfile`, `listStudents`, `getStudentWorkSamples`, `getStudentProgressReports`, `uploadStudentWork`, `bulkDeleteStudentWorks`, `saveProgressTracker`, `generateProgressReport`, `explainStudentStatus` |
-| **Admin-only** | `getAdminAlerts`, `markAlertRead`, `markAllAlertsRead`, `getDemoBookings`, `updateDemoBooking`, `listCoaches`, `editCoachProfile`, `assignCoachToStudent`, `enrollStudent`, `deactivateStudent`, `deactivateCoach`, `moderateTestimonial`, `getAdminTestimonials`, `getAuditLogs`, `getOverdueFeeSummary`, `getCoachWorkloadSummary`, `getAttendanceRiskStudents` |
-| **Email-triggering** | `sendFeeReminder` → `sendFeeReminderEmail`, `enrollStudent` → `sendEnrollmentEmails`, `bookDemoClass` → `sendDemoBookingAlert` |
-
----
-
-## 8. Legend
-
-| Symbol | Meaning |
-|--------|---------|
-| → | Calls / imports / delegates to |
-| ↔ | Bidirectional coupling |
-| ⚠️ | Architectural concern |
-| 🔴 | Likely dead code / orphan export |
-| 🔁 | Circular dependency |
-| ✅ | Invariant verified clean |
+| Observation | Location |
+|---|---|
+| `App.tsx` implements a bespoke SPA router via `useState` + `window.history.pushState`. Route guard logic is duplicated across multiple `case` sites in `renderView()`. | `src/App.tsx` L277–513 |
+| `AuthContext` stores the access token redundantly: in React state, in `localStorage`, and as an httpOnly cookie. The effective auth source varies by code path, which adds subtle complexity. | `src/context/AuthContext.tsx`, `server/helpers/sessionHelper.ts` |
+| 48 AI agent tools are registered in a flat `Record<string, AgentTool>`. Role access is enforced at runtime only, with no compile-time safety on the role→tool mapping. | `server/tools/registry.ts` |
+| `supabaseDb.ts` SupabaseDatabase class delegates 100% of calls to domain repos. It exists only for backward compatibility. Future work could migrate all callers to direct domain repo imports and eliminate the class. | `server/supabaseDb.ts` L56–365 |

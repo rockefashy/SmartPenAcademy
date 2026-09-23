@@ -8,22 +8,6 @@ import { createServer as createViteServer } from 'vite';
 import { Logger } from './server/logger.ts';
 import { NotFoundError } from './server/errors.ts';
 import { errorHandler } from './server/middleware/errorHandler.ts';
-import {
-  AuthRequest,
-  authenticateJwt,
-  requireAdmin,
-  requireCoachOrAdmin,
-  canAccessStudent,
-  verifyStudentAccess
-} from './server/middleware/auth.ts';
-import {
-  createRateLimiter,
-  paymentRateLimiter,
-  attendanceRateLimiter,
-  demoBookingRateLimiter,
-  authRateLimiter
-} from './server/middleware/rateLimiter.ts';
-import { recordAudit } from './server/helpers/audit.ts';
 
 // Feature Routers (Direct imports)
 import { healthRouter } from './server/routes/health.routes.ts';
@@ -42,21 +26,6 @@ import { testimonialsRouter } from './server/routes/testimonials.routes.ts';
 import { aiRouter } from './server/routes/ai.routes.ts';
 import { logsRouter } from './server/routes/logs.routes.ts';
 
-// Backward compatibility re-exports
-export type { AuthRequest };
-export {
-  authenticateJwt,
-  requireAdmin,
-  requireCoachOrAdmin,
-  canAccessStudent,
-  verifyStudentAccess,
-  createRateLimiter,
-  paymentRateLimiter,
-  attendanceRateLimiter,
-  demoBookingRateLimiter,
-  authRateLimiter,
-  recordAudit
-};
 
 const sysLogger = Logger.get('SYSTEM');
 

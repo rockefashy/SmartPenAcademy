@@ -15,7 +15,10 @@ import {
   Gauge,
   Trophy,
   Target,
-  HelpCircle
+  HelpCircle,
+  ShieldCheck,
+  Compass,
+  Award
 } from 'lucide-react';
 import { landingProperties } from '../properties/landing.properties';
 
@@ -120,7 +123,65 @@ export const SyllabusPage: React.FC<SyllabusPageProps> = ({ onNavigate, onOpenDe
         </div>
       </section>
 
-      {/* 2. THE 7-STEP PROGRESSIVE CURRICULUM */}
+      {/* 2. THE 4 SCIENTIFIC PILLARS OF OUR METHOD */}
+      <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="text-center space-y-3 max-w-2xl mx-auto mb-10">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-orange-50 border border-orange-200 text-[#F46E20] rounded-full text-xs font-bold uppercase tracking-wider">
+            <Compass className="w-3.5 h-3.5" />
+            <span>Diagnostic Framework</span>
+          </span>
+          <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900">
+            The 4 Scientific Pillars of Our Method
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-600 font-sans">
+            How our diagnostic framework guarantees permanent, visible results where standard school drills fail.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white rounded-3xl p-6 border-2 border-slate-200/80 hover:border-[#0E3589] transition-all shadow-md hover:shadow-xl space-y-3 group">
+            <div className="w-12 h-12 rounded-2xl bg-blue-100 text-[#0E3589] flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <h3 className="font-extrabold text-base text-slate-900">1. Kinetic Grip Realignment</h3>
+            <p className="text-xs text-slate-600 leading-relaxed font-sans">
+              We eliminate painful thumb-over grasps and tight fist holds by retraining the hand to use the dynamic tripod grip with whole-forearm fluid movement.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-3xl p-6 border-2 border-slate-200/80 hover:border-[#F46E20] transition-all shadow-md hover:shadow-xl space-y-3 group">
+            <div className="w-12 h-12 rounded-2xl bg-orange-100 text-[#F46E20] flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+              <Target className="w-6 h-6" />
+            </div>
+            <h3 className="font-extrabold text-base text-slate-900">2. Spatial Geometrics &amp; Slant</h3>
+            <p className="text-xs text-slate-600 leading-relaxed font-sans">
+              Students learn microscopic awareness of baseline anchors, uniform 65° letter slants, and consistent 3-zone ascender/descender height ratios.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-3xl p-6 border-2 border-slate-200/80 hover:border-emerald-600 transition-all shadow-md hover:shadow-xl space-y-3 group">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+              <Clock className="w-6 h-6" />
+            </div>
+            <h3 className="font-extrabold text-base text-slate-900">3. Exam Speed Without Strain</h3>
+            <p className="text-xs text-slate-600 leading-relaxed font-sans">
+              Timed rhythm exercises boost handwriting speed by an average of +14 words per minute, enabling students to finish lengthy board papers ahead of time.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-3xl p-6 border-2 border-slate-200/80 hover:border-purple-600 transition-all shadow-md hover:shadow-xl space-y-3 group">
+            <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold group-hover:scale-110 transition-transform">
+              <Award className="w-6 h-6" />
+            </div>
+            <h3 className="font-extrabold text-base text-slate-900">4. Academic Marks Booster</h3>
+            <p className="text-xs text-slate-600 leading-relaxed font-sans">
+              Well-structured answers with neat margins, formulas, and headings leave an instant positive impression on examiners, lifting overall scores by 15–25%.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. THE 7-STEP PROGRESSIVE CURRICULUM */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center space-y-3 max-w-2xl mx-auto mb-12">
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-orange-50 border border-orange-200 text-[#F46E20] rounded-full text-xs font-bold uppercase tracking-wider">
@@ -183,7 +244,7 @@ export const SyllabusPage: React.FC<SyllabusPageProps> = ({ onNavigate, onOpenDe
         </div>
       </section>
 
-      {/* 3. AGE-SPECIFIC LEARNING TRACKS */}
+      {/* 4. AGE-SPECIFIC LEARNING TRACKS */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="bg-slate-900 rounded-3xl p-6 sm:p-12 text-white shadow-2xl relative overflow-hidden border border-slate-800">
           <div className="max-w-3xl mb-8">
@@ -310,7 +371,7 @@ export const SyllabusPage: React.FC<SyllabusPageProps> = ({ onNavigate, onOpenDe
         </div>
       </section>
 
-      {/* 4. CURRICULUM FAQS */}
+      {/* 5. CURRICULUM FAQS */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
         <div className="text-center space-y-3 mb-10">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-[#0E3589] rounded-full text-xs font-bold uppercase tracking-wider">
@@ -351,7 +412,7 @@ export const SyllabusPage: React.FC<SyllabusPageProps> = ({ onNavigate, onOpenDe
         </div>
       </section>
 
-      {/* 5. BOTTOM CTA BANNER */}
+      {/* 6. BOTTOM CTA BANNER */}
       <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="bg-gradient-to-r from-[#0E3589] via-[#0084F4] to-[#F46E20] rounded-3xl p-8 sm:p-12 text-white text-center shadow-xl relative overflow-hidden">
           <div className="max-w-2xl mx-auto space-y-4">

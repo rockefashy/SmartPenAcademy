@@ -226,7 +226,7 @@ export const landingProperties = {
     subtitle: "Passionate educator, certified handwriting analyst, and mentor to thousands of students worldwide.",
     bio: [
       "Mrs. Deepthy Rock founded SmartPen Academy with a singular mission: to make handwriting an empowering, joyous craft rather than a stressful daily chore for young learners.",
-      "With over a decade of dedicated pedagogical research in motor-skill development, kinetic grip training, and exam psychology, her personalized coaching framework has turned struggling students into academic toppers and confident writers.",
+      "With specialized pedagogical expertise in motor-skill development, kinetic grip training, and exam psychology, her personalized coaching framework has turned struggling students into academic toppers and confident writers.",
       "Every curriculum level is scientifically designed to address root causes — from incorrect finger muscle engagement to cognitive speed lags — ensuring every child achieves visible transformation in as few as 10 classes."
     ],
     quote: "A child's handwriting is the window to their thoughts on paper. When they write with neatness and ease, their mind is free to express its truest genius.",

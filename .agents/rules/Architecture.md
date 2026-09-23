@@ -151,6 +151,12 @@ Before declaring any task complete:
 ### Mandatory Verification Invariant (Zero Silent Failures)
 If `npm run lint` (`tsc --noEmit`) or any verification command fails to execute (e.g. blocked by sandbox paths, missing binary, or permission denial), the agent **MUST NOT** proceed or declare status. It must immediately halt, output `VERIFICATION BLOCKED: [exact command error]`, and prompt for unsandboxed permission. Never assume or claim type correctness without actual compiler output showing exit code 0.
 
+### Scope-Aware Verification & Fast Operations
+Full verification (`lint`, `build`, `e2e`) is required when introducing new features, refactoring, or structural code modifications.
+- **Fast Git / Doc Exemptions**: Routine git operations (`git status`, `git commit`, `git push`, branch syncs), pure documentation/asset updates, or tasks where the user explicitly requests fast check-in do NOT require re-running the full multi-stage SSR production build (`npm run build`) if no unverified application code has changed.
+- **Direct Remote Network Execution**: Remote operations requiring external network access (`git push`, `git fetch`, `npm install`) should be executed with direct network access (bypassing sandbox isolation) rather than failing first in the isolated environment.
+
+
 ---
 
 ## 12. Data Field Change Flow
